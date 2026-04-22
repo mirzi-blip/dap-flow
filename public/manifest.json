@@ -1,0 +1,12 @@
+{
+  "name": "Digital & Arts Production (DAP) Booking & Workload Management",
+  "short_name": "D&AP Workload",
+  "description": "Digital & Arts Production (DAP) Booking & Workload Management App",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#4f46e5",
+  "background_color": "#f8fafc",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

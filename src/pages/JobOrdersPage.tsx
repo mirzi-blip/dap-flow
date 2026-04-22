@@ -1,0 +1,1138 @@
+﻿import { useState, useMemo, useEffect } from 'react'
+import {
+  Plus, Search, X, Paperclip, Link2, MessageSquare,
+  Clock, LayoutList, ChevronRight, Send, Trash2, Pencil, Check,
+  ClipboardList, Copy, CheckCircle2, Users, AlertTriangle,
+} from 'lucide-react'
+import { useDataStore, useAppStore } from '../store/useAppStore'
+import { RESOURCES } from '../data/seed'
+import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { Modal } from '../components/ui/Modal'
+import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus } from '../utils/helpers'
+import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus } from '../types'
+import { db } from '../db/database'
+
+type PageTab = 'list' | 'requests'
+
+const ACTIVITY_TYPES: ActivityType[] = [
+  'Photo Shoot', 'Video Shoot', 'Static Artwork Design',
+  'Video Editing', 'Audio Recording', 'Audio Editing',
+]
+const STATUSES: JOStatus[] = ['Pending', 'Approved', 'Scheduled', 'In Progress', 'For Review', 'Completed', 'Delayed', 'Cancelled']
+const PRIORITIES: Priority[] = ['High', 'Medium', 'Low']
+const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
+
+const emptyForm = {
+  requestingTeam: 'BMG' as RequestingTeam,
+  projectName: '',
+  campaign: '',
+  activityType: 'Photo Shoot' as ActivityType,
+  deliverables: '',
+  priority: 'Medium' as Priority,
+  deadline: '',
+  launchDate: '',
+  assignedMemberIds: [] as string[],
+  notes: '',
+}
+
+type DetailTab = 'overview' | 'activity' | 'files' | 'comments'
+
+interface FileRef { id: string; label: string; url: string; addedAt: string; addedBy: string }
+interface Comment { id: string; text: string; author: string; createdAt: string }
+
+const STATUS_COLORS: Record<JOStatus, string> = {
+  'Pending':     'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
+  'Approved':    'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+  'Scheduled':   'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
+  'In Progress': 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+  'For Review':  'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
+  'Completed':   'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
+  'Delayed':     'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
+  'Cancelled':   'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
+}
+
+export function JobOrdersPage() {
+  const { jobOrders, addJobOrder, updateJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest } = useDataStore()
+  const { currentUser, globalSearch, setGlobalSearch } = useAppStore()
+
+  const canSeeRequests = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
+
+  const [pageTab, setPageTab] = useState<PageTab>('list')
+  const [search, setSearch] = useState(globalSearch)
+  const [filterStatus, setFilterStatus] = useState<JOStatus | 'All'>('All')
+  const [filterActivity, setFilterActivity] = useState<ActivityType | 'All'>('All')
+  const [filterPriority, setFilterPriority] = useState<Priority | 'All'>('All')
+  const [filterTeam, setFilterTeam] = useState<RequestingTeam | 'All'>('All')
+  const [showForm, setShowForm] = useState(false)
+  const [selectedJO, setSelectedJO] = useState<JobOrder | null>(null)
+  const [detailTab, setDetailTab] = useState<DetailTab>('overview')
+  const [form, setForm] = useState(emptyForm)
+  const [formError, setFormError] = useState('')
+
+  // Edit mode
+  const [editMode, setEditMode] = useState(false)
+  const [editForm, setEditForm] = useState(emptyForm)
+  const [editSaved, setEditSaved] = useState(false)
+
+  // Requests tab state
+  const [reviewRequest, setReviewRequest] = useState<BookingRequest | null>(null)
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([])
+  const [requestSuccess, setRequestSuccess] = useState('')
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  // Per-JO local state
+  const [fileRefs, setFileRefs] = useState<Record<string, FileRef[]>>({})
+  const [comments, setComments] = useState<Record<string, Comment[]>>({})
+  const [newLink, setNewLink] = useState({ label: '', url: '' })
+  const [linkError, setLinkError] = useState('')
+  const [newComment, setNewComment] = useState('')
+
+  // Sync local search to global search store
+  useEffect(() => { setSearch(globalSearch) }, [globalSearch])
+  function handleSearchChange(val: string) { setSearch(val); setGlobalSearch(val) }
+
+  const canCreate = currentUser?.role === 'Admin' || currentUser?.role === 'Brand Team'
+  const canApprove = currentUser?.role === 'Admin'
+  const canProgress = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
+  const canEdit = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
+
+  const filtered = useMemo(() => {
+    return jobOrders.filter((j) => {
+      if (search && !j.projectName.toLowerCase().includes(search.toLowerCase()) &&
+          !j.joNumber.toLowerCase().includes(search.toLowerCase()) &&
+          !j.campaign.toLowerCase().includes(search.toLowerCase())) return false
+      if (filterStatus !== 'All' && j.status !== filterStatus) return false
+      if (filterActivity !== 'All' && j.activityType !== filterActivity) return false
+      if (filterPriority !== 'All' && j.priority !== filterPriority) return false
+      if (filterTeam !== 'All' && j.requestingTeam !== filterTeam) return false
+      return true
+    })
+  }, [jobOrders, search, filterStatus, filterActivity, filterPriority, filterTeam])
+
+  async function handleCreate() {
+    if (!form.projectName || !form.deadline) {
+      setFormError('Project name and deadline are required.')
+      return
+    }
+    const jo: JobOrder = {
+      id: generateId(),
+      joNumber: generateJONumber(jobOrders.length),
+      ...form,
+      requesterId: currentUser!.id,
+      status: 'Pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: currentUser!.id,
+    }
+    await db.jobOrders.add(jo)
+    addJobOrder(jo)
+
+    const adminNotif = {
+      id: generateId(),
+      type: 'approval_notification' as const,
+      title: 'New Job Order Submitted',
+      message: `${jo.joNumber} – "${jo.projectName}" submitted by ${currentUser?.name}. Awaiting approval.`,
+      read: false,
+      createdAt: new Date().toISOString(),
+      targetUserId: 'u1',
+      joId: jo.id,
+    }
+    await db.notifications.add(adminNotif)
+    addNotification(adminNotif)
+
+    setShowForm(false)
+    setForm(emptyForm)
+    setFormError('')
+  }
+
+  async function handleStatusChange(jo: JobOrder, newStatus: JOStatus) {
+    const updated: JobOrder = { ...jo, status: newStatus, updatedAt: new Date().toISOString() }
+    await db.jobOrders.put(updated)
+    updateJobOrder(updated)
+
+    const log = {
+      id: generateId(),
+      joId: jo.id,
+      joNumber: jo.joNumber,
+      fromStatus: jo.status,
+      toStatus: newStatus,
+      changedBy: currentUser?.name ?? 'Unknown',
+      changedAt: new Date().toISOString(),
+      notes: '',
+    }
+    await db.statusLogs.add(log)
+    addStatusLog(log)
+
+    const notif = {
+      id: generateId(),
+      type: 'status_changed' as const,
+      title: 'JO Status Updated',
+      message: `${jo.joNumber} moved from "${jo.status}" to "${newStatus}"`,
+      read: false,
+      createdAt: new Date().toISOString(),
+      targetUserId: jo.requesterId,
+      joId: jo.id,
+    }
+    await db.notifications.add(notif)
+    addNotification(notif)
+
+    if (selectedJO?.id === jo.id) setSelectedJO(updated)
+  }
+
+  async function handleEditSave() {
+    if (!selectedJO || !editForm.projectName || !editForm.deadline) return
+    const updated: JobOrder = {
+      ...selectedJO,
+      ...editForm,
+      updatedAt: new Date().toISOString(),
+    }
+    await db.jobOrders.put(updated)
+    updateJobOrder(updated)
+    setSelectedJO(updated)
+    setEditMode(false)
+    setEditSaved(true)
+    setTimeout(() => setEditSaved(false), 2000)
+  }
+
+  function openDetail(jo: JobOrder) {
+    setSelectedJO(jo)
+    setDetailTab('overview')
+    setEditMode(false)
+    setEditForm({
+      requestingTeam: jo.requestingTeam,
+      projectName: jo.projectName,
+      campaign: jo.campaign,
+      activityType: jo.activityType,
+      deliverables: jo.deliverables,
+      priority: jo.priority,
+      deadline: jo.deadline,
+      launchDate: jo.launchDate ?? '',
+      assignedMemberIds: [...jo.assignedMemberIds],
+      notes: jo.notes ?? '',
+    })
+    setNewLink({ label: '', url: '' })
+    setNewComment('')
+    setLinkError('')
+  }
+
+  function addFileRef() {
+    if (!newLink.url.trim()) { setLinkError('URL is required'); return }
+    const ref: FileRef = {
+      id: generateId(),
+      label: newLink.label.trim() || newLink.url,
+      url: newLink.url.trim(),
+      addedAt: new Date().toISOString(),
+      addedBy: currentUser?.name ?? 'Unknown',
+    }
+    setFileRefs(prev => ({ ...prev, [selectedJO!.id]: [...(prev[selectedJO!.id] ?? []), ref] }))
+    setNewLink({ label: '', url: '' })
+    setLinkError('')
+  }
+
+  function removeFileRef(joId: string, refId: string) {
+    setFileRefs(prev => ({ ...prev, [joId]: (prev[joId] ?? []).filter(r => r.id !== refId) }))
+  }
+
+  function addComment() {
+    if (!newComment.trim() || !selectedJO) return
+    const c: Comment = {
+      id: generateId(),
+      text: newComment.trim(),
+      author: currentUser?.name ?? 'Unknown',
+      createdAt: new Date().toISOString(),
+    }
+    setComments(prev => ({ ...prev, [selectedJO.id]: [...(prev[selectedJO.id] ?? []), c] }))
+    setNewComment('')
+  }
+
+  const joLogs = selectedJO ? statusLogs.filter((l) => l.joId === selectedJO.id) : []
+  const joFiles = selectedJO ? (fileRefs[selectedJO.id] ?? []) : []
+  const joComments = selectedJO ? (comments[selectedJO.id] ?? []) : []
+
+  // Requests tab helpers
+  const pendingCount = bookingRequests.filter(r => r.status === 'Pending Review').length
+
+  function openReview(req: BookingRequest) {
+    setReviewRequest(req)
+    setSelectedMemberIds(req.assignedMemberIds ?? [])
+    setRequestSuccess('')
+  }
+
+  function toggleMember(id: string) {
+    setSelectedMemberIds(prev =>
+      prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
+    )
+  }
+
+  // Count active JOs assigned to a member (for utilization bar)
+  function memberActiveJOs(memberId: string): number {
+    return jobOrders.filter(
+      jo => jo.assignedMemberIds.includes(memberId) &&
+        jo.status !== 'Completed' && jo.status !== 'Cancelled'
+    ).length
+  }
+
+  async function handleRejectRequest(req: BookingRequest) {
+    const updated: BookingRequest = { ...req, status: 'Rejected' }
+    await db.bookingRequests.put(updated)
+    updateBookingRequest(updated)
+    setReviewRequest(null)
+  }
+
+  async function handleConvertToJO(req: BookingRequest) {
+    const newJO: JobOrder = {
+      id: generateId(),
+      joNumber: `JO-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`,
+      requestingTeam: (req.department as RequestingTeam) ?? 'BMG',
+      requesterId: 'admin',
+      projectName: `${req.activityType} — ${req.department}`,
+      campaign: '',
+      activityType: req.activityType,
+      deliverables: req.notes || '',
+      priority: 'Medium',
+      deadline: req.neededDate,
+      launchDate: req.neededDate,
+      assignedMemberIds: selectedMemberIds,
+      status: 'Pending',
+      notes: `Booking request from ${req.preparedBy} (${req.requestorEmail}). Venue: ${req.venue}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: 'Admin',
+    }
+    await db.jobOrders.put(newJO)
+    addJobOrder(newJO)
+
+    const updatedReq: BookingRequest = { ...req, status: 'Assigned', joId: newJO.id, assignedMemberIds: selectedMemberIds }
+    await db.bookingRequests.put(updatedReq)
+    updateBookingRequest(updatedReq)
+
+    setRequestSuccess(`Job Order ${newJO.joNumber} created successfully!`)
+    setTimeout(() => {
+      setReviewRequest(null)
+      setRequestSuccess('')
+    }, 2000)
+  }
+
+  function handleCopyLink() {
+    navigator.clipboard.writeText('http://localhost:5173/request')
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
+  }
+
+  return (
+    <div className="space-y-5 max-w-7xl">
+      {/* Page tab bar */}
+      <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700">
+        <button
+          onClick={() => setPageTab('list')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all -mb-px ${
+            pageTab === 'list'
+              ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+          }`}
+        >
+          <LayoutList size={15} />
+          Job Orders
+        </button>
+        {canSeeRequests && (
+          <button
+            onClick={() => setPageTab('requests')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all -mb-px ${
+              pageTab === 'requests'
+                ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+            }`}
+          >
+            <ClipboardList size={15} />
+            Requests
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* ── Requests Tab Panel ─────────────────────────────────── */}
+      {pageTab === 'requests' && canSeeRequests && (
+        <div className="space-y-5">
+          {/* Public Booking Link card */}
+          <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl px-5 py-4">
+            <ClipboardList size={18} className="text-blue-500 dark:text-blue-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide mb-0.5">
+                Public Booking Link
+              </p>
+              <p className="text-sm font-mono text-blue-600 dark:text-blue-400 truncate">
+                http://localhost:5173/request
+              </p>
+            </div>
+            <button
+              onClick={handleCopyLink}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                linkCopied
+                  ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60'
+              }`}
+            >
+              {linkCopied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
+              {linkCopied ? 'Copied!' : 'Copy Link'}
+            </button>
+          </div>
+
+          {/* Summary bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {([
+              ['Total', bookingRequests.length, 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300'],
+              ['Pending Review', bookingRequests.filter(r => r.status === 'Pending Review').length, 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'],
+              ['Assigned', bookingRequests.filter(r => r.status === 'Assigned').length, 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'],
+              ['Approved', bookingRequests.filter(r => r.status === 'Approved').length, 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'],
+            ] as [string, number, string][]).map(([label, count, cls]) => (
+              <div key={label} className={`rounded-2xl px-4 py-3 ${cls}`}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">{label}</p>
+                <p className="text-2xl font-black">{count}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Request list */}
+          {bookingRequests.length === 0 ? (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 py-16 text-center">
+              <ClipboardList size={36} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+              <p className="text-slate-500 dark:text-slate-400 text-sm">No booking requests yet.</p>
+              <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Share the public link to start receiving requests.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {bookingRequests.map((req) => {
+                const statusStyles: Record<BookingRequestStatus, string> = {
+                  'Pending Review': 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
+                  'Assigned':       'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+                  'Approved':       'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
+                  'Rejected':       'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
+                }
+                return (
+                  <div key={req.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 shadow-sm">
+                    <div className="flex flex-wrap items-start gap-3">
+                      {/* Reference badge */}
+                      <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-lg font-semibold shrink-0">
+                        #{req.id.slice(0, 8).toUpperCase()}
+                      </span>
+                      <ActivityBadge type={req.activityType} />
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusStyles[req.status]}`}>
+                        {req.status}
+                      </span>
+                      <div className="ml-auto">
+                        {req.status === 'Pending Review' ? (
+                          <Button size="sm" onClick={() => openReview(req)}>
+                            <Users size={13} /> Review &amp; Assign
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="secondary" onClick={() => openReview(req)}>
+                            View
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Dept:</span> {req.department}{req.departmentLocal ? ` (${req.departmentLocal})` : ''}</span>
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Prepared by:</span> {req.preparedBy}</span>
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Requestor:</span> {req.requestorEmail}</span>
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Encoded:</span> {formatDate(req.encodedAt)}</span>
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Needed:</span> {formatDate(req.neededDate)}</span>
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Venue:</span> {req.venue || '—'}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Review Modal */}
+          <Modal
+            open={!!reviewRequest}
+            onClose={() => { setReviewRequest(null); setRequestSuccess('') }}
+            title={reviewRequest ? `Review Request · #${reviewRequest.id.slice(0, 8).toUpperCase()}` : ''}
+            maxWidth="max-w-3xl"
+          >
+            {reviewRequest && (
+              <div className="space-y-6">
+                {/* Success toast */}
+                {requestSuccess && (
+                  <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 text-emerald-700 dark:text-emerald-300 text-sm font-semibold">
+                    <CheckCircle2 size={16} /> {requestSuccess}
+                  </div>
+                )}
+
+                {/* Request details (read-only) */}
+                <div>
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Request Details</p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <InfoBox label="Activity Type" value={reviewRequest.activityType} />
+                    <InfoBox label="Department" value={`${reviewRequest.department}${reviewRequest.departmentLocal ? ` (${reviewRequest.departmentLocal})` : ''}`} />
+                    <InfoBox label="Prepared By" value={reviewRequest.preparedBy} />
+                    <InfoBox label="Requestor Email" value={reviewRequest.requestorEmail} />
+                    <InfoBox label="Encoded At" value={formatDate(reviewRequest.encodedAt)} />
+                    <InfoBox label="Needed Date" value={formatDate(reviewRequest.neededDate)} />
+                    <InfoBox label="Venue" value={reviewRequest.venue || '—'} />
+                    <InfoBox label="Status" value={reviewRequest.status} />
+                    {reviewRequest.notes && (
+                      <div className="col-span-2 bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">Notes</p>
+                        <p className="text-sm text-slate-700 dark:text-slate-300">{reviewRequest.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Assign Team Members */}
+                {(reviewRequest.status === 'Pending Review' || reviewRequest.status === 'Assigned') && (
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+                      Assign Team Members
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
+                      {RESOURCES.map((r) => {
+                        const activeJOs = memberActiveJOs(r.id)
+                        const utilPct = Math.min(Math.round((activeJOs / 5) * 100), 100)
+                        const overloaded = utilPct > 90
+                        const selected = selectedMemberIds.includes(r.id)
+                        return (
+                          <label
+                            key={r.id}
+                            className={`flex items-start gap-2.5 cursor-pointer p-2.5 rounded-xl transition-colors border ${
+                              selected
+                                ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700'
+                                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => toggleMember(r.id)}
+                              className="mt-0.5 accent-blue-600"
+                            />
+                            <span className={`w-8 h-8 rounded-full ${r.color} flex items-center justify-center text-white text-[11px] font-bold shrink-0`}>
+                              {r.initials}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-1">
+                                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{r.name}</p>
+                                {overloaded && (
+                                  <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-600 dark:text-red-400 shrink-0">
+                                    <AlertTriangle size={10} /> Overloaded
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500">{r.role} · {r.team}</p>
+                              <div className="mt-1.5 flex items-center gap-2">
+                                <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      overloaded ? 'bg-red-500' : utilPct > 60 ? 'bg-amber-400' : 'bg-emerald-500'
+                                    }`}
+                                    style={{ width: `${utilPct}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">{activeJOs} active JOs</span>
+                              </div>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                {reviewRequest.status === 'Pending Review' && !requestSuccess && (
+                  <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                    <Button
+                      variant="danger"
+                      onClick={() => handleRejectRequest(reviewRequest)}
+                    >
+                      Reject
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={() => handleConvertToJO(reviewRequest)}
+                    >
+                      <CheckCircle2 size={14} /> Convert to JO &amp; Assign
+                    </Button>
+                  </div>
+                )}
+
+                {reviewRequest.status !== 'Pending Review' && (
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
+                      This request has been <span className="font-semibold">{reviewRequest.status.toLowerCase()}</span>.
+                      {reviewRequest.joId && (
+                        <span> Associated JO has been created.</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </Modal>
+        </div>
+      )}
+
+      {/* ── Job Orders List (existing) ─────────────────────────── */}
+      {pageTab === 'list' && (
+        <>
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            placeholder="Search JOs, projects, campaigns…"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
+          {search && (
+            <button onClick={() => handleSearchChange('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        {([
+          [filterStatus, setFilterStatus, ['All', ...STATUSES], 'All Statuses'],
+          [filterActivity, setFilterActivity, ['All', ...ACTIVITY_TYPES], 'All Activities'],
+          [filterPriority, setFilterPriority, ['All', ...PRIORITIES], 'All Priorities'],
+          [filterTeam, setFilterTeam, ['All', ...TEAMS], 'All Teams'],
+        ] as const).map(([val, setter, options, placeholder], i) => (
+          <select
+            key={i}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-700 dark:text-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={val as string}
+            onChange={(e) => (setter as (v: string) => void)(e.target.value)}
+          >
+            <option value="All">{placeholder}</option>
+            {(options as readonly string[]).filter(o => o !== 'All').map((o) => <option key={o}>{o}</option>)}
+          </select>
+        ))}
+
+        {canCreate && (
+          <Button onClick={() => setShowForm(true)}>
+            <Plus size={15} /> New JO
+          </Button>
+        )}
+      </div>
+
+      {/* Count */}
+      <p className="text-sm text-slate-500 dark:text-slate-400">
+        Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{filtered.length}</span> of {jobOrders.length} job orders
+        {search && <span className="ml-1 text-blue-600 dark:text-blue-400">· filtered by "{search}"</span>}
+      </p>
+
+      {/* Table */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
+              <tr>
+                {['JO #', 'Project / Campaign', 'Activity', 'Team', 'Priority', 'Deadline', 'Assigned', 'Status', 'Actions'].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-slate-400 dark:text-slate-500">
+                    No job orders found matching your filters.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((jo) => {
+                  const overdue = isOverdue(jo.deadline) && jo.status !== 'Completed' && jo.status !== 'Cancelled'
+                  const next = getNextStatus(jo.status)
+                  return (
+                    <tr
+                      key={jo.id}
+                      className="hover:bg-slate-50/60 dark:hover:bg-slate-700/30 transition-colors group cursor-pointer"
+                      onClick={() => openDetail(jo)}
+                    >
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-xs text-blue-600 dark:text-blue-400 font-medium">
+                          {jo.joNumber}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 max-w-[180px]">
+                        <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{jo.projectName}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{jo.campaign}</p>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap"><ActivityBadge type={jo.activityType} /></td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-lg">
+                          {jo.requestingTeam}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap"><PriorityBadge priority={jo.priority} /></td>
+                      <td className={`px-4 py-3 text-xs font-medium whitespace-nowrap ${overdue ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                        {overdue && '⚠ '}{formatDate(jo.deadline)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex -space-x-1">
+                          {jo.assignedMemberIds.slice(0, 3).map((id) => {
+                            const r = RESOURCES.find((r) => r.id === id)
+                            return r ? (
+                              <span key={id} title={r.name}
+                                className={`w-6 h-6 rounded-full ${r.color} border-2 border-white dark:border-slate-800 flex items-center justify-center text-white text-[9px] font-bold`}>
+                                {r.initials}
+                              </span>
+                            ) : null
+                          })}
+                          {jo.assignedMemberIds.length > 3 && (
+                            <span className="w-6 h-6 rounded-full bg-slate-300 dark:bg-slate-600 border-2 border-white dark:border-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 text-[9px] font-bold">
+                              +{jo.assignedMemberIds.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={jo.status} /></td>
+                      <td className="px-4 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {canProgress && next && jo.status !== 'Delayed' && jo.status !== 'Cancelled' && (
+                            <Button size="sm" variant="secondary" onClick={() => handleStatusChange(jo, next)} className="text-xs">
+                              → {next}
+                            </Button>
+                          )}
+                          {canApprove && jo.status !== 'Delayed' && jo.status !== 'Completed' && jo.status !== 'Cancelled' && (
+                            <Button size="sm" variant="danger" onClick={() => handleStatusChange(jo, 'Delayed')} className="text-xs">Delay</Button>
+                          )}
+                          {canApprove && jo.status !== 'Completed' && jo.status !== 'Cancelled' && (
+                            <Button size="sm" variant="danger" onClick={() => handleStatusChange(jo, 'Cancelled')} className="text-xs">Cancel</Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── JO Detail Modal ─────────────────────────────────────── */}
+      <Modal
+        open={!!selectedJO}
+        onClose={() => { setSelectedJO(null); setEditMode(false) }}
+        title={selectedJO ? `${selectedJO.joNumber} · ${selectedJO.projectName}` : ''}
+        maxWidth="max-w-3xl"
+      >
+        {selectedJO && (
+          <div className="space-y-4">
+            {/* Badges + edit toggle */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <ActivityBadge type={selectedJO.activityType} />
+              <StatusBadge status={selectedJO.status} />
+              <PriorityBadge priority={selectedJO.priority} />
+              {isOverdue(selectedJO.deadline) && selectedJO.status !== 'Completed' && selectedJO.status !== 'Cancelled' && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">
+                  ⚠ Overdue
+                </span>
+              )}
+              {editSaved && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                  <Check size={11} /> Saved
+                </span>
+              )}
+              {canEdit && !editMode && selectedJO.status !== 'Completed' && selectedJO.status !== 'Cancelled' && (
+                <button
+                  onClick={() => { setEditMode(true); setDetailTab('overview') }}
+                  className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 px-3 py-1.5 rounded-xl transition-colors border border-blue-200 dark:border-blue-800"
+                >
+                  <Pencil size={12} /> Edit JO
+                </button>
+              )}
+              {editMode && (
+                <div className="ml-auto flex gap-2">
+                  <button onClick={() => setEditMode(false)} className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={handleEditSave} className="flex items-center gap-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-xl transition-colors">
+                    <Check size={12} /> Save Changes
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Inner tabs */}
+            <div className="flex gap-1 border-b border-slate-100 dark:border-slate-700">
+              {([
+                ['overview', 'Overview', LayoutList],
+                ['activity', `Activity Log${joLogs.length ? ` (${joLogs.length})` : ''}`, Clock],
+                ['files', `Files${joFiles.length ? ` (${joFiles.length})` : ''}`, Paperclip],
+                ['comments', `Comments${joComments.length ? ` (${joComments.length})` : ''}`, MessageSquare],
+              ] as [DetailTab, string, React.ElementType][]).map(([id, label, Icon]) => {
+                const active = detailTab === id
+                return (
+                  <button key={id} onClick={() => setDetailTab(id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-all -mb-px ${
+                      active ? 'border-blue-600 text-blue-700 dark:text-blue-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                  >
+                    <Icon size={13} />{label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* ── Overview / Edit ── */}
+            {detailTab === 'overview' && (
+              editMode ? (
+                /* Edit form */
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Requesting Team</label>
+                      <select className="form-input" value={editForm.requestingTeam} onChange={e => setEditForm(f => ({ ...f, requestingTeam: e.target.value as RequestingTeam }))}>
+                        {TEAMS.map(t => <option key={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Activity Type</label>
+                      <select className="form-input" value={editForm.activityType} onChange={e => setEditForm(f => ({ ...f, activityType: e.target.value as ActivityType }))}>
+                        {ACTIVITY_TYPES.map(t => <option key={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Project Name *</label>
+                    <input className="form-input" value={editForm.projectName} onChange={e => setEditForm(f => ({ ...f, projectName: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Campaign</label>
+                    <input className="form-input" value={editForm.campaign} onChange={e => setEditForm(f => ({ ...f, campaign: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Deliverables</label>
+                    <textarea rows={3} className="form-input resize-none" value={editForm.deliverables} onChange={e => setEditForm(f => ({ ...f, deliverables: e.target.value }))} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Priority</label>
+                      <select className="form-input" value={editForm.priority} onChange={e => setEditForm(f => ({ ...f, priority: e.target.value as Priority }))}>
+                        {PRIORITIES.map(p => <option key={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Deadline *</label>
+                      <input type="date" className="form-input" value={editForm.deadline} onChange={e => setEditForm(f => ({ ...f, deadline: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Launch Date</label>
+                      <input type="date" className="form-input" value={editForm.launchDate} onChange={e => setEditForm(f => ({ ...f, launchDate: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-2">Assigned Members</label>
+                    <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2">
+                      {RESOURCES.map(r => (
+                        <label key={r.id} className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors">
+                          <input type="checkbox" checked={editForm.assignedMemberIds.includes(r.id)}
+                            onChange={e => setEditForm(f => ({
+                              ...f,
+                              assignedMemberIds: e.target.checked ? [...f.assignedMemberIds, r.id] : f.assignedMemberIds.filter(id => id !== r.id),
+                            }))}
+                          />
+                          <span className={`w-6 h-6 rounded-full ${r.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{r.initials}</span>
+                          <div>
+                            <p className="text-xs font-medium text-slate-900 dark:text-slate-100">{r.name}</p>
+                            <p className="text-[10px] text-slate-400">{r.role}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Notes</label>
+                    <textarea rows={2} className="form-input resize-none" value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
+                  </div>
+                </div>
+              ) : (
+                /* View mode */
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <InfoBox label="Requesting Team" value={selectedJO.requestingTeam} />
+                    <InfoBox label="Campaign" value={selectedJO.campaign || '—'} />
+                    <InfoBox label="Deadline" value={formatDate(selectedJO.deadline)} highlight={isOverdue(selectedJO.deadline) && selectedJO.status !== 'Completed'} />
+                    <InfoBox label="Launch Date" value={selectedJO.launchDate ? formatDate(selectedJO.launchDate) : '—'} />
+                    <InfoBox label="Created" value={formatDateTime(selectedJO.createdAt)} />
+                    <InfoBox label="Last Updated" value={formatDateTime(selectedJO.updatedAt)} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-1.5">Deliverables</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3 leading-relaxed">{selectedJO.deliverables || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-2">Assigned Members</p>
+                    {selectedJO.assignedMemberIds.length === 0 ? (
+                      <p className="text-sm text-slate-400 dark:text-slate-500 italic">No members assigned</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedJO.assignedMemberIds.map(id => {
+                          const r = RESOURCES.find(r => r.id === id)
+                          return r ? (
+                            <div key={id} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-lg px-2 py-1.5">
+                              <span className={`w-6 h-6 rounded-full ${r.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{r.initials}</span>
+                              <div>
+                                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">{r.name}</p>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400">{r.role}</p>
+                              </div>
+                            </div>
+                          ) : null
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  {selectedJO.notes && (
+                    <div>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-1.5">Notes</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3">{selectedJO.notes}</p>
+                    </div>
+                  )}
+                  {canProgress && selectedJO.status !== 'Completed' && selectedJO.status !== 'Cancelled' && (
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                      {getNextStatus(selectedJO.status) && selectedJO.status !== 'Delayed' && (
+                        <Button onClick={() => handleStatusChange(selectedJO, getNextStatus(selectedJO.status)!)}>
+                          Move to {getNextStatus(selectedJO.status)} <ChevronRight size={14} />
+                        </Button>
+                      )}
+                      {canApprove && selectedJO.status !== 'Delayed' && (
+                        <Button variant="danger" onClick={() => handleStatusChange(selectedJO, 'Delayed')}>Mark Delayed</Button>
+                      )}
+                      {canApprove && (
+                        <Button variant="danger" onClick={() => handleStatusChange(selectedJO, 'Cancelled')}>Cancel JO</Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            )}
+
+            {/* ── Activity Log ── */}
+            {detailTab === 'activity' && (
+              <div className="space-y-3">
+                {joLogs.length === 0 ? (
+                  <div className="py-10 text-center text-slate-400 dark:text-slate-500 text-sm">
+                    <Clock size={28} className="mx-auto mb-2 opacity-40" />
+                    No status changes recorded yet.
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute left-[18px] top-0 bottom-0 w-px bg-slate-100 dark:bg-slate-700" />
+                    <div className="space-y-3">
+                      {joLogs.map(log => (
+                        <div key={log.id} className="flex gap-3 relative">
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 z-10 ring-2 ring-white dark:ring-slate-800 ${STATUS_COLORS[log.toStatus as JOStatus]}`}>
+                            {log.toStatus.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="flex-1 bg-slate-50 dark:bg-slate-700/40 rounded-xl px-4 py-3 mt-0.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                                  Status changed to <span className="text-blue-600 dark:text-blue-400">{log.toStatus}</span>
+                                </p>
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                  from <span className="font-medium">{log.fromStatus}</span> · by {log.changedBy}
+                                </p>
+                              </div>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">{formatDateTime(log.changedAt)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex gap-3 relative">
+                        <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-[10px] font-black shrink-0 z-10 ring-2 ring-white dark:ring-slate-800 text-slate-500 dark:text-slate-400">JO</div>
+                        <div className="flex-1 bg-slate-50 dark:bg-slate-700/40 rounded-xl px-4 py-3 mt-0.5">
+                          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Job Order Created</p>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{formatDateTime(selectedJO.createdAt)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Files & References ── */}
+            {detailTab === 'files' && (
+              <div className="space-y-4">
+                <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 space-y-3">
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Add Reference Link</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    <input value={newLink.label} onChange={e => setNewLink(l => ({ ...l, label: e.target.value }))} placeholder="Label (optional)" className="form-input col-span-2 text-xs" />
+                    <input value={newLink.url} onChange={e => setNewLink(l => ({ ...l, url: e.target.value }))} placeholder="https://..." className="form-input col-span-2 text-xs" />
+                    <button onClick={addFileRef} className="flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
+                      <Link2 size={13} /> Add
+                    </button>
+                  </div>
+                  {linkError && <p className="text-xs text-red-600 dark:text-red-400">{linkError}</p>}
+                </div>
+                {joFiles.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
+                    <Paperclip size={28} className="mx-auto mb-2 opacity-40" />No references added yet.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {joFiles.map(ref => (
+                      <div key={ref.id} className="flex items-center gap-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 group">
+                        <Link2 size={14} className="text-blue-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <a href={ref.url} target="_blank" rel="noopener noreferrer"
+                            className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline truncate block" onClick={e => e.stopPropagation()}>
+                            {ref.label}
+                          </a>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">Added by {ref.addedBy} · {formatDateTime(ref.addedAt)}</p>
+                        </div>
+                        <button onClick={() => removeFileRef(selectedJO.id, ref.id)}
+                          className="p-1 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Comments ── */}
+            {detailTab === 'comments' && (
+              <div className="space-y-4">
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {joComments.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
+                      <MessageSquare size={28} className="mx-auto mb-2 opacity-40" />No comments yet.
+                    </div>
+                  ) : joComments.map(c => (
+                    <div key={c.id} className="flex gap-3">
+                      <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-blue-500 to-blue-500 flex items-center justify-center text-[10px] font-black text-white shrink-0 mt-0.5">
+                        {c.author.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)}
+                      </div>
+                      <div className="flex-1 bg-slate-50 dark:bg-slate-700/40 rounded-xl px-3 py-2.5">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{c.author}</p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500">{formatDateTime(c.createdAt)}</p>
+                        </div>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{c.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 pt-1 border-t border-slate-100 dark:border-slate-700">
+                  <input value={newComment} onChange={e => setNewComment(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment() } }}
+                    placeholder="Add a comment… (Enter to submit)" className="form-input flex-1 text-sm" />
+                  <button onClick={addComment} disabled={!newComment.trim()}
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 text-white disabled:text-slate-400 rounded-xl transition-colors">
+                    <Send size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* ── New JO Form Modal ──────────────────────────────────── */}
+      <Modal open={showForm} onClose={() => { setShowForm(false); setFormError('') }} title="Create New Job Order" maxWidth="max-w-2xl">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Requesting Team *</label>
+              <select className="form-input" value={form.requestingTeam} onChange={(e) => setForm((f) => ({ ...f, requestingTeam: e.target.value as RequestingTeam }))}>
+                {TEAMS.map((t) => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Activity Type *</label>
+              <select className="form-input" value={form.activityType} onChange={(e) => setForm((f) => ({ ...f, activityType: e.target.value as ActivityType }))}>
+                {ACTIVITY_TYPES.map((t) => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Project Name *</label>
+            <input className="form-input" value={form.projectName} onChange={(e) => setForm((f) => ({ ...f, projectName: e.target.value }))} placeholder="e.g. Summer Campaign Launch" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Campaign</label>
+            <input className="form-input" value={form.campaign} onChange={(e) => setForm((f) => ({ ...f, campaign: e.target.value }))} placeholder="e.g. Summer 2026" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Deliverables</label>
+            <textarea rows={3} className="form-input resize-none" value={form.deliverables} onChange={(e) => setForm((f) => ({ ...f, deliverables: e.target.value }))} placeholder="List expected outputs, quantities, formats…" />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Priority</label>
+              <select className="form-input" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as Priority }))}>
+                {PRIORITIES.map((p) => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Deadline *</label>
+              <input type="date" className="form-input" value={form.deadline} onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Launch Date</label>
+              <input type="date" className="form-input" value={form.launchDate} onChange={(e) => setForm((f) => ({ ...f, launchDate: e.target.value }))} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">Assign Team Members</label>
+            <div className="grid grid-cols-2 gap-1.5 max-h-44 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2">
+              {RESOURCES.map((r) => (
+                <label key={r.id} className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors">
+                  <input type="checkbox" checked={form.assignedMemberIds.includes(r.id)}
+                    onChange={(e) => setForm((f) => ({
+                      ...f,
+                      assignedMemberIds: e.target.checked ? [...f.assignedMemberIds, r.id] : f.assignedMemberIds.filter((id) => id !== r.id),
+                    }))}
+                  />
+                  <span className={`w-6 h-6 rounded-full ${r.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{r.initials}</span>
+                  <div>
+                    <p className="text-xs font-medium text-slate-900 dark:text-slate-100">{r.name}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">{r.role}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Notes</label>
+            <textarea rows={2} className="form-input resize-none" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+          </div>
+          {formError && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{formError}</p>}
+          <div className="flex gap-2 pt-2">
+            <Button onClick={handleCreate} className="flex-1">Submit Job Order</Button>
+            <Button variant="secondary" onClick={() => { setShowForm(false); setFormError('') }}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
+        </>
+      )}
+    </div>
+  )
+}
+
+function InfoBox({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
+      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">{label}</p>
+      <p className={`text-sm font-semibold ${highlight ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>{value}</p>
+    </div>
+  )
+}
+

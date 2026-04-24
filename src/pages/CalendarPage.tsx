@@ -10,7 +10,6 @@ import { activityCalendarColors } from '../utils/colors'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ActivityBadge, StatusBadge } from '../components/ui/Badge'
-import { RESOURCES } from '../data/seed'
 import { formatDateTime, generateId } from '../utils/helpers'
 import type { ActivityType, CalendarEvent } from '../types'
 import { db } from '../db/database'
@@ -38,7 +37,7 @@ function EventChip({ event }: { event: CalendarEvent }) {
 
 export function CalendarPage() {
   const { calendarEvents, jobOrders, addCalendarEvent } = useDataStore()
-  const { currentUser } = useAppStore()
+  const { currentUser, resources } = useAppStore()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [filterTeam, setFilterTeam] = useState<FilterTeam>('All')
@@ -49,7 +48,7 @@ export function CalendarPage() {
   // Filter events
   const filteredEvents = useMemo(() => {
     if (filterTeam === 'All') return calendarEvents
-    const teamResources = RESOURCES.filter((r) => r.team === filterTeam).map((r) => r.id)
+    const teamResources = resources.filter((r) => r.team === filterTeam).map((r) => r.id)
     return calendarEvents.filter((e) =>
       e.assignedMemberIds.some((id) => teamResources.includes(id))
     )
@@ -369,7 +368,7 @@ export function CalendarPage() {
               </p>
               <div className="flex flex-wrap gap-2">
                 {selectedEvent.assignedMemberIds.map((id) => {
-                  const r = RESOURCES.find((r) => r.id === id)
+                  const r = resources.find((r) => r.id === id)
                   return r ? (
                     <div key={id} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-lg px-2 py-1.5">
                       <span className={`w-6 h-6 rounded-full ${r.color} flex items-center justify-center text-white text-[10px] font-bold`}>
@@ -481,7 +480,7 @@ export function CalendarPage() {
           <div>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-2">Assign Team Members</label>
             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-              {RESOURCES.map((r) => (
+              {resources.map((r) => (
                 <label key={r.id} className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 border border-transparent hover:border-slate-200 dark:hover:border-slate-600 transition-all">
                   <input
                     type="checkbox"

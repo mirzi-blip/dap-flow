@@ -9,7 +9,6 @@ import {
   CalendarClock, TrendingUp, ArrowUpRight, Ban,
 } from 'lucide-react'
 import { useAppStore, useDataStore } from '../store/useAppStore'
-import { RESOURCES } from '../data/seed'
 import { activityCalendarColors, teamColors } from '../utils/colors'
 import type { JOStatus, ActivityType } from '../types'
 
@@ -36,8 +35,8 @@ const activityIcon: Record<ActivityType, React.ElementType> = {
 }
 
 export function DashboardPage() {
-  const { setView, theme } = useAppStore()
-  const { jobOrders, calendarEvents } = useDataStore()
+  const { setView, theme, resources } = useAppStore()
+  const { jobOrders, calendarEvents, bookingRequests } = useDataStore()
   const isDark = theme === 'dark'
 
   // KPI counts
@@ -68,7 +67,7 @@ export function DashboardPage() {
   const teamWorkload = useMemo(() => {
     const teams = ['Photo', 'Video', 'Audio', 'Design'] as const
     return teams.map(team => {
-      const members = RESOURCES.filter(r => r.team === team)
+      const members = resources.filter(r => r.team === team)
       const totalActive = jobOrders.filter(j =>
         !['Completed','Cancelled','Delayed'].includes(j.status) &&
         members.some(m => j.assignedMemberIds.includes(m.id))
@@ -460,6 +459,41 @@ export function DashboardPage() {
             )}
           </div>
         )}
+      </div>
+
+      {/* ── 7-Step Booking Flow ──────────────────────────────────── */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">DAP Booking Flow</h3>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">4D System — Discern · Decide · Delegate · Deliver</p>
+          </div>
+        </div>
+        <div className="flex items-stretch gap-1 overflow-x-auto pb-1">
+          {([
+            { step: 1, label: 'Request\nSubmitted',  count: bookingRequests.length,                                                    color: '#7C3AED', phase: 'Discern' },
+            { step: 2, label: 'Pending\nReview',     count: bookingRequests.filter(r => r.status === 'Pending Review').length,         color: '#6366F1', phase: 'Discern' },
+            { step: 3, label: 'Members\nAssigned',   count: bookingRequests.filter(r => r.status === 'Assigned').length,               color: '#3B82F6', phase: 'Decide' },
+            { step: 4, label: 'JO\nScheduled',       count: scheduledJOs,                                                              color: '#0EA5E9', phase: 'Delegate' },
+            { step: 5, label: 'In\nProgress',        count: inProgressJOs,                                                             color: '#10B981', phase: 'Delegate' },
+            { step: 6, label: 'For\nReview',         count: forReviewJOs,                                                              color: '#F97316', phase: 'Deliver' },
+            { step: 7, label: 'Completed\n& Closed', count: completedJOs,                                                              color: '#10B981', phase: 'Deliver' },
+          ]).map((s, i, arr) => (
+            <div key={s.step} className="flex items-center gap-1 flex-1 min-w-[90px]">
+              <div className="flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white" style={{ background: s.color }}>
+                  {s.step}
+                </div>
+                <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 text-center leading-tight whitespace-pre-line">{s.label}</p>
+                <p className="text-xl font-black text-slate-900 dark:text-slate-100">{s.count}</p>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold text-white" style={{ background: s.color + 'cc' }}>{s.phase}</span>
+              </div>
+              {i < arr.length - 1 && (
+                <ArrowRight size={12} className="text-slate-300 dark:text-slate-600 shrink-0" />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── ROW 5: Recent JOs + Activity Mix ──────────────────────── */}

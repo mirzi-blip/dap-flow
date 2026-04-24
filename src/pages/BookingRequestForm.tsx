@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { db } from '../db/database'
+import { Camera, Aperture } from 'lucide-react'
+import { supabase, requestToRow } from '../lib/supabase'
 import type { ActivityType, BookingRequest } from '../types'
 import { generateId } from '../utils/helpers'
 
@@ -17,17 +18,22 @@ const DEPARTMENTS = ['BMG', 'MOD', 'MTO', 'CBE', 'Other']
 interface FormState {
   activityType: ActivityType | ''
   department: string
+  departmentOther: string
   departmentLocal: string
   requestorEmail: string
   preparedBy: string
+  projectName: string
   neededDate: string
+  startTime: string
+  endTime: string
   venue: string
   notes: string
 }
 
 const EMPTY: FormState = {
-  activityType: '', department: '', departmentLocal: '',
-  requestorEmail: '', preparedBy: '', neededDate: '', venue: '', notes: '',
+  activityType: '', department: '', departmentOther: '', departmentLocal: '',
+  requestorEmail: '', preparedBy: '', projectName: '',
+  neededDate: '', startTime: '', endTime: '', venue: '', notes: '',
 }
 
 const SERVICE_ICONS: Record<string, string> = {
@@ -48,14 +54,25 @@ export function BookingRequestForm() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 
+  const effectiveDepartment = form.department === 'Other' ? form.departmentOther.trim() : form.department
+
   const isValid =
     form.activityType !== '' && form.department !== '' &&
+    (form.department !== 'Other' || form.departmentOther.trim() !== '') &&
     form.departmentLocal.trim() !== '' && form.requestorEmail.trim() !== '' &&
-    form.preparedBy.trim() !== '' && form.neededDate !== '' && form.venue.trim() !== ''
+    form.preparedBy.trim() !== '' && form.projectName.trim() !== '' &&
+    form.neededDate !== '' && form.startTime !== '' && form.endTime !== '' &&
+    form.venue.trim() !== ''
 
   function field<K extends keyof FormState>(key: K) {
-    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-      setForm(prev => ({ ...prev, [key]: e.target.value }))
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+      const value = e.target.value
+      setForm(prev => ({
+        ...prev,
+        [key]: value,
+        ...(key === 'department' && value !== 'Other' ? { departmentOther: '' } : {}),
+      }))
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -68,19 +85,23 @@ export function BookingRequestForm() {
       const req: BookingRequest = {
         id,
         activityType: form.activityType as ActivityType,
-        department: form.department,
+        department: effectiveDepartment,
         departmentLocal: form.departmentLocal.trim(),
         requestorEmail: form.requestorEmail.trim(),
         preparedBy: form.preparedBy.trim(),
+        projectName: form.projectName.trim(),
         encodedAt: now,
         neededDate: form.neededDate,
+        startTime: form.startTime,
+        endTime: form.endTime,
         venue: form.venue.trim(),
         notes: form.notes.trim(),
         status: 'Pending Review',
         assignedMemberIds: [],
         createdAt: now,
       }
-      await db.bookingRequests.add(req)
+      const { error } = await supabase.from('booking_requests').insert(requestToRow(req))
+      if (error) throw error
       setSubmitted({ refId: id.slice(0, 8).toUpperCase(), email: form.requestorEmail.trim(), activity: form.activityType })
     } catch (err) {
       console.error(err)
@@ -95,10 +116,15 @@ export function BookingRequestForm() {
       <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(160deg,#0f4c81 0%,#1a6fb5 60%,#2389d7 100%)' }}>
         {/* Top bar */}
         <div className="flex items-center gap-3 px-8 py-4 border-b border-white/10">
-          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center font-black text-blue-700 text-sm">D</div>
+          <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600 flex items-center justify-center shadow-md shrink-0">
+            <Camera size={16} className="text-white" strokeWidth={2.5} />
+            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-sky-400 rounded-full flex items-center justify-center">
+              <Aperture size={8} className="text-white" strokeWidth={3} />
+            </span>
+          </div>
           <div>
-            <p className="text-white font-bold text-sm leading-none">Digital &amp; Arts Production</p>
-            <p className="text-blue-200 text-[10px] uppercase tracking-widest">Booking Portal</p>
+            <p className="text-white font-bold text-sm leading-none">DAP Flow</p>
+            <p className="text-blue-200 text-[10px] uppercase tracking-widest mt-0.5">Studio Booking Portal</p>
           </div>
         </div>
 
@@ -153,11 +179,14 @@ export function BookingRequestForm() {
       {/* Portal header */}
       <div className="flex items-center justify-between px-6 sm:px-10 py-4 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-md">
-            <span className="font-black text-blue-700 text-sm">D</span>
+          <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600 flex items-center justify-center shadow-md shrink-0">
+            <Camera size={16} className="text-white" strokeWidth={2.5} />
+            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-sky-400 rounded-full flex items-center justify-center">
+              <Aperture size={8} className="text-white" strokeWidth={3} />
+            </span>
           </div>
           <div>
-            <p className="text-white font-bold text-sm leading-none">Digital &amp; Arts Production (DAP)</p>
+            <p className="text-white font-bold text-sm leading-none">DAP Flow</p>
             <p className="text-blue-200 text-[10px] uppercase tracking-widest mt-0.5">Studio Booking Portal</p>
           </div>
         </div>
@@ -208,11 +237,27 @@ export function BookingRequestForm() {
 
           <form onSubmit={handleSubmit} className="p-7 space-y-5">
 
+            {/* Project name */}
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                Project Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                placeholder="Name or title of your project / activity"
+                value={form.projectName}
+                onChange={field('projectName')}
+                autoFocus
+                required
+              />
+            </div>
+
             {/* Department row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
-                  Department <span className="text-red-500">*</span>
+                  Requesting Department <span className="text-red-500">*</span>
                 </label>
                 <select
                   className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
@@ -223,6 +268,17 @@ export function BookingRequestForm() {
                   <option value="">Select department…</option>
                   {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
+                {form.department === 'Other' && (
+                  <input
+                    type="text"
+                    className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                    placeholder="Enter your department name"
+                    value={form.departmentOther}
+                    onChange={field('departmentOther')}
+                    required
+                    autoFocus
+                  />
+                )}
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
@@ -289,6 +345,34 @@ export function BookingRequestForm() {
                   value={form.neededDate}
                   onChange={field('neededDate')}
                   min={new Date().toISOString().split('T')[0]}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Time: start - end */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                  Start Time <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  value={form.startTime}
+                  onChange={field('startTime')}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                  End Time <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  value={form.endTime}
+                  onChange={field('endTime')}
                   required
                 />
               </div>

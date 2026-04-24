@@ -160,4 +160,9 @@
     from { transform: translateX(-100%); }
     to   { transform: translateX(0); }
   }
+  .animate-slide-in { animation: slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes slide-in {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
 }

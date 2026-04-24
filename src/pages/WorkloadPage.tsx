@@ -1,7 +1,6 @@
 ﻿import { useState, useMemo } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { useDataStore } from '../store/useAppStore'
-import { RESOURCES } from '../data/seed'
+import { useDataStore, useAppStore } from '../store/useAppStore'
 import { teamColors, activityCalendarColors } from '../utils/colors'
 import type { DAPTeam } from '../types'
 
@@ -9,11 +8,12 @@ const TEAMS: DAPTeam[] = ['Photo', 'Video', 'Audio', 'Design']
 
 export function WorkloadPage() {
   const { jobOrders } = useDataStore()
+  const { resources } = useAppStore()
   const [filterTeam, setFilterTeam] = useState<DAPTeam | 'All'>('All')
 
   const displayResources = useMemo(() =>
-    RESOURCES.filter(r => filterTeam === 'All' || r.team === filterTeam),
-    [filterTeam]
+    resources.filter(r => filterTeam === 'All' || r.team === filterTeam),
+    [resources, filterTeam]
   )
 
   function getMemberStats(resourceId: string) {
@@ -26,7 +26,7 @@ export function WorkloadPage() {
 
   const teamSummary = useMemo(() =>
     TEAMS.map(team => {
-      const members = RESOURCES.filter(r => r.team === team)
+      const members = resources.filter(r => r.team === team)
       const totalActive = jobOrders.filter(j =>
         !['Completed', 'Delayed', 'Cancelled'].includes(j.status) &&
         members.some(m => j.assignedMemberIds.includes(m.id))
@@ -36,7 +36,7 @@ export function WorkloadPage() {
         : 0
       return { team, members: members.length, totalActive, avgUtil }
     }),
-    [jobOrders]
+    [jobOrders, resources]
   )
 
   const projectLoad = useMemo(() => {

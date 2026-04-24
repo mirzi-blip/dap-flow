@@ -5,13 +5,13 @@ import {
   ClipboardList, Copy, CheckCircle2, Users, AlertTriangle,
 } from 'lucide-react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
-import { RESOURCES } from '../data/seed'
 import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus } from '../utils/helpers'
 import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus } from '../types'
 import { db } from '../db/database'
+import { supabase, requestToRow, jobOrderToRow } from '../lib/supabase'
 
 type PageTab = 'list' | 'requests'
 
@@ -53,8 +53,8 @@ const STATUS_COLORS: Record<JOStatus, string> = {
 }
 
 export function JobOrdersPage() {
-  const { jobOrders, addJobOrder, updateJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest } = useDataStore()
-  const { currentUser, globalSearch, setGlobalSearch } = useAppStore()
+  const { jobOrders, addJobOrder, updateJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest, addCalendarEvent } = useDataStore()
+  const { currentUser, globalSearch, setGlobalSearch, resources } = useAppStore()
 
   const canSeeRequests = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
 
@@ -127,6 +127,7 @@ export function JobOrdersPage() {
     }
     await db.jobOrders.add(jo)
     addJobOrder(jo)
+    supabase.from('job_orders').insert(jobOrderToRow(jo)).then(({ error }) => { if (error) console.error('JO sync error:', error) })
 
     const adminNotif = {
       id: generateId(),
@@ -150,6 +151,7 @@ export function JobOrdersPage() {
     const updated: JobOrder = { ...jo, status: newStatus, updatedAt: new Date().toISOString() }
     await db.jobOrders.put(updated)
     updateJobOrder(updated)
+    supabase.from('job_orders').update({ status: newStatus, updated_at: updated.updatedAt }).eq('id', jo.id).then(({ error }) => { if (error) console.error('JO sync error:', error) })
 
     const log = {
       id: generateId(),
@@ -178,6 +180,66 @@ export function JobOrdersPage() {
     addNotification(notif)
 
     if (selectedJO?.id === jo.id) setSelectedJO(updated)
+
+    // Auto-create calendar event + notify members when scheduled
+    if (newStatus === 'Scheduled') {
+      const ev = {
+        id: generateId(),
+        joId: jo.id,
+        title: jo.projectName,
+        activityType: jo.activityType,
+        startDate: jo.launchDate || jo.deadline,
+        endDate: jo.deadline,
+        assignedMemberIds: jo.assignedMemberIds,
+        location: '',
+        notes: jo.notes ?? '',
+        createdAt: new Date().toISOString(),
+      }
+      await db.calendarEvents.add(ev)
+      addCalendarEvent(ev)
+
+      for (const memberId of jo.assignedMemberIds) {
+        const member = resources.find(r => r.id === memberId)
+        if (member?.email) {
+          fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              memberNotification: true,
+              mode: 'scheduled',
+              memberEmail: member.email,
+              memberName: member.name,
+              joNumber: updated.joNumber,
+              projectName: updated.projectName,
+              activityType: updated.activityType,
+              priority: updated.priority,
+              deadline: updated.deadline,
+            }),
+          }).catch(console.error)
+        }
+      }
+    }
+
+    // Email the requestor if this JO came from a booking request
+    const JO_NOTIFY_STATUSES: JOStatus[] = ['Approved', 'Scheduled', 'In Progress', 'Completed', 'Delayed', 'Cancelled']
+    if (JO_NOTIFY_STATUSES.includes(newStatus)) {
+      const relatedReq = bookingRequests.find(r => r.joId === jo.id)
+      if (relatedReq) {
+        fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            direct: true,
+            requestorEmail: relatedReq.requestorEmail,
+            preparedBy: relatedReq.preparedBy,
+            activityType: relatedReq.activityType,
+            neededDate: relatedReq.neededDate,
+            status: newStatus,
+            id: jo.id,
+          }),
+        }).catch(console.error)
+      }
+    }
   }
 
   async function handleEditSave() {
@@ -189,6 +251,7 @@ export function JobOrdersPage() {
     }
     await db.jobOrders.put(updated)
     updateJobOrder(updated)
+    supabase.from('job_orders').update(jobOrderToRow(updated)).eq('id', updated.id).then(({ error }) => { if (error) console.error('JO sync error:', error) })
     setSelectedJO(updated)
     setEditMode(false)
     setEditSaved(true)
@@ -265,6 +328,16 @@ export function JobOrdersPage() {
     )
   }
 
+  function getConflicts(memberIds: string[], neededDate: string): string[] {
+    return memberIds.filter(id =>
+      jobOrders.some(jo =>
+        jo.assignedMemberIds.includes(id) &&
+        !['Completed', 'Cancelled'].includes(jo.status) &&
+        jo.deadline === neededDate
+      )
+    )
+  }
+
   // Count active JOs assigned to a member (for utilization bar)
   function memberActiveJOs(memberId: string): number {
     return jobOrders.filter(
@@ -275,7 +348,7 @@ export function JobOrdersPage() {
 
   async function handleRejectRequest(req: BookingRequest) {
     const updated: BookingRequest = { ...req, status: 'Rejected' }
-    await db.bookingRequests.put(updated)
+    await supabase.from('booking_requests').update({ status: 'Rejected' }).eq('id', updated.id)
     updateBookingRequest(updated)
     setReviewRequest(null)
   }
@@ -286,7 +359,7 @@ export function JobOrdersPage() {
       joNumber: `JO-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`,
       requestingTeam: (req.department as RequestingTeam) ?? 'BMG',
       requesterId: 'admin',
-      projectName: `${req.activityType} — ${req.department}`,
+      projectName: req.projectName || `${req.activityType} — ${req.department}`,
       campaign: '',
       activityType: req.activityType,
       deliverables: req.notes || '',
@@ -302,10 +375,33 @@ export function JobOrdersPage() {
     }
     await db.jobOrders.put(newJO)
     addJobOrder(newJO)
+    supabase.from('job_orders').insert(jobOrderToRow(newJO)).then(({ error }) => { if (error) console.error('JO sync error:', error) })
 
     const updatedReq: BookingRequest = { ...req, status: 'Assigned', joId: newJO.id, assignedMemberIds: selectedMemberIds }
-    await db.bookingRequests.put(updatedReq)
+    await supabase.from('booking_requests').update({ status: 'Assigned', jo_id: newJO.id, assigned_member_ids: selectedMemberIds }).eq('id', req.id)
     updateBookingRequest(updatedReq)
+
+    // Notify each assigned member by email
+    for (const memberId of selectedMemberIds) {
+      const member = resources.find(r => r.id === memberId)
+      if (member?.email) {
+        fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            memberNotification: true,
+            mode: 'assigned',
+            memberEmail: member.email,
+            memberName: member.name,
+            joNumber: newJO.joNumber,
+            projectName: newJO.projectName,
+            activityType: newJO.activityType,
+            priority: newJO.priority,
+            deadline: newJO.deadline,
+          }),
+        }).catch(console.error)
+      }
+    }
 
     setRequestSuccess(`Job Order ${newJO.joNumber} created successfully!`)
     setTimeout(() => {
@@ -314,8 +410,10 @@ export function JobOrdersPage() {
     }, 2000)
   }
 
+  const BOOKING_URL = 'https://dap-flow-tau.vercel.app/request'
+
   function handleCopyLink() {
-    navigator.clipboard.writeText('http://localhost:5173/request')
+    navigator.clipboard.writeText(BOOKING_URL)
     setLinkCopied(true)
     setTimeout(() => setLinkCopied(false), 2000)
   }
@@ -366,7 +464,7 @@ export function JobOrdersPage() {
                 Public Booking Link
               </p>
               <p className="text-sm font-mono text-blue-600 dark:text-blue-400 truncate">
-                http://localhost:5173/request
+                {BOOKING_URL}
               </p>
             </div>
             <button
@@ -437,12 +535,16 @@ export function JobOrdersPage() {
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Dept:</span> {req.department}{req.departmentLocal ? ` (${req.departmentLocal})` : ''}</span>
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Prepared by:</span> {req.preparedBy}</span>
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Requestor:</span> {req.requestorEmail}</span>
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Encoded:</span> {formatDate(req.encodedAt)}</span>
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Needed:</span> {formatDate(req.neededDate)}</span>
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Venue:</span> {req.venue || '—'}</span>
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Department:</span> {req.department || '—'}</span>
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Dept. Local:</span> {req.departmentLocal || '—'}</span>
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Prepared By:</span> {req.preparedBy}</span>
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Requestor Email:</span> {req.requestorEmail}</span>
+                      {req.projectName && <span className="sm:col-span-2"><span className="font-semibold text-slate-400 dark:text-slate-500">Project Name:</span> {req.projectName}</span>}
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Date Encoded:</span> {formatDate(req.encodedAt)}</span>
+                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Date Needed:</span> {formatDate(req.neededDate)}</span>
+                      {(req.startTime || req.endTime) && <span><span className="font-semibold text-slate-400 dark:text-slate-500">Time:</span> {req.startTime || '?'} – {req.endTime || '?'}</span>}
+                      <span className="sm:col-span-2"><span className="font-semibold text-slate-400 dark:text-slate-500">Venue / Location:</span> {req.venue || '—'}</span>
+                      {req.notes && <span className="sm:col-span-3"><span className="font-semibold text-slate-400 dark:text-slate-500">Additional Notes:</span> {req.notes}</span>}
                     </div>
                   </div>
                 )
@@ -470,20 +572,25 @@ export function JobOrdersPage() {
                 <div>
                   <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Request Details</p>
                   <div className="grid grid-cols-2 gap-2.5">
-                    <InfoBox label="Activity Type" value={reviewRequest.activityType} />
-                    <InfoBox label="Department" value={`${reviewRequest.department}${reviewRequest.departmentLocal ? ` (${reviewRequest.departmentLocal})` : ''}`} />
+                    <InfoBox label="Service Type" value={reviewRequest.activityType} />
+                    <InfoBox label="Status" value={reviewRequest.status} />
+                    <InfoBox label="Department" value={reviewRequest.department || '—'} />
+                    <InfoBox label="Department Local" value={reviewRequest.departmentLocal || '—'} />
                     <InfoBox label="Prepared By" value={reviewRequest.preparedBy} />
                     <InfoBox label="Requestor Email" value={reviewRequest.requestorEmail} />
-                    <InfoBox label="Encoded At" value={formatDate(reviewRequest.encodedAt)} />
-                    <InfoBox label="Needed Date" value={formatDate(reviewRequest.neededDate)} />
-                    <InfoBox label="Venue" value={reviewRequest.venue || '—'} />
-                    <InfoBox label="Status" value={reviewRequest.status} />
-                    {reviewRequest.notes && (
-                      <div className="col-span-2 bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">Notes</p>
-                        <p className="text-sm text-slate-700 dark:text-slate-300">{reviewRequest.notes}</p>
-                      </div>
+                    {reviewRequest.projectName && <div className="col-span-2"><InfoBox label="Project Name" value={reviewRequest.projectName} /></div>}
+                    <InfoBox label="Date Encoded" value={formatDate(reviewRequest.encodedAt)} />
+                    <InfoBox label="Date Needed" value={formatDate(reviewRequest.neededDate)} />
+                    {(reviewRequest.startTime || reviewRequest.endTime) && (
+                      <InfoBox label="Time" value={`${reviewRequest.startTime || '?'} – ${reviewRequest.endTime || '?'}`} />
                     )}
+                    <div className="col-span-2">
+                      <InfoBox label="Venue / Location" value={reviewRequest.venue || '—'} />
+                    </div>
+                    <div className="col-span-2 bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">Additional Notes</p>
+                      <p className="text-sm text-slate-700 dark:text-slate-300">{reviewRequest.notes || '—'}</p>
+                    </div>
                   </div>
                 </div>
 
@@ -494,7 +601,7 @@ export function JobOrdersPage() {
                       Assign Team Members
                     </p>
                     <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
-                      {RESOURCES.map((r) => {
+                      {resources.map((r) => {
                         const activeJOs = memberActiveJOs(r.id)
                         const utilPct = Math.min(Math.round((activeJOs / 5) * 100), 100)
                         const overloaded = utilPct > 90
@@ -545,6 +652,24 @@ export function JobOrdersPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Conflict detection warning */}
+                {reviewRequest.status === 'Pending Review' && selectedMemberIds.length > 0 && (() => {
+                  const conflicts = getConflicts(selectedMemberIds, reviewRequest.neededDate)
+                  if (conflicts.length === 0) return null
+                  const names = conflicts.map(id => resources.find(r => r.id === id)?.name ?? id).join(', ')
+                  return (
+                    <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+                      <AlertTriangle size={15} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-amber-700 dark:text-amber-300">Double-Booking Conflict Detected</p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                          {names} already assigned to another active JO on this date ({reviewRequest.neededDate}). Consider reassigning.
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Actions */}
                 {reviewRequest.status === 'Pending Review' && !requestSuccess && (
@@ -683,7 +808,7 @@ export function JobOrdersPage() {
                       <td className="px-4 py-3">
                         <div className="flex -space-x-1">
                           {jo.assignedMemberIds.slice(0, 3).map((id) => {
-                            const r = RESOURCES.find((r) => r.id === id)
+                            const r = resources.find((r) => r.id === id)
                             return r ? (
                               <span key={id} title={r.name}
                                 className={`w-6 h-6 rounded-full ${r.color} border-2 border-white dark:border-slate-800 flex items-center justify-center text-white text-[9px] font-bold`}>
@@ -838,7 +963,7 @@ export function JobOrdersPage() {
                   <div>
                     <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-2">Assigned Members</label>
                     <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2">
-                      {RESOURCES.map(r => (
+                      {resources.map(r => (
                         <label key={r.id} className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors">
                           <input type="checkbox" checked={editForm.assignedMemberIds.includes(r.id)}
                             onChange={e => setEditForm(f => ({
@@ -882,7 +1007,7 @@ export function JobOrdersPage() {
                     ) : (
                       <div className="flex flex-wrap gap-2">
                         {selectedJO.assignedMemberIds.map(id => {
-                          const r = RESOURCES.find(r => r.id === id)
+                          const r = resources.find(r => r.id === id)
                           return r ? (
                             <div key={id} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-lg px-2 py-1.5">
                               <span className={`w-6 h-6 rounded-full ${r.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{r.initials}</span>
@@ -1093,7 +1218,7 @@ export function JobOrdersPage() {
           <div>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">Assign Team Members</label>
             <div className="grid grid-cols-2 gap-1.5 max-h-44 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2">
-              {RESOURCES.map((r) => (
+              {resources.map((r) => (
                 <label key={r.id} className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors">
                   <input type="checkbox" checked={form.assignedMemberIds.includes(r.id)}
                     onChange={(e) => setForm((f) => ({

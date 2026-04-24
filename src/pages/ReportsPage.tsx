@@ -10,7 +10,6 @@ import {
   ArrowUpRight, ArrowDownRight, Minus,
 } from 'lucide-react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
-import { RESOURCES } from '../data/seed'
 import { activityCalendarColors, teamColors } from '../utils/colors'
 import { isOverdue } from '../utils/helpers'
 import type { ActivityType } from '../types'
@@ -79,7 +78,7 @@ function SectionHeader({ icon: Icon, title, subtitle, iconColor }: { icon: React
 
 export function ReportsPage() {
   const { jobOrders } = useDataStore()
-  const { theme } = useAppStore()
+  const { theme, resources } = useAppStore()
   const isDark = theme === 'dark'
 
   const tooltipStyle = {
@@ -158,7 +157,7 @@ export function ReportsPage() {
   }, [jobOrders])
 
   const resourceData = useMemo(() => {
-    return RESOURCES.map((r) => {
+    return resources.map((r) => {
       const assigned = jobOrders.filter((j) =>
         j.assignedMemberIds.includes(r.id) && !['Completed', 'Delayed'].includes(j.status)
       ).length
@@ -166,6 +165,22 @@ export function ReportsPage() {
       return { name: r.initials, fullName: r.name, role: r.role, util, color: r.color, team: r.team }
     })
   }, [jobOrders])
+
+  const turnaroundData = useMemo(() =>
+    ACTIVITY_TYPES.map((type) => {
+      const completed = jobOrders.filter((j) => j.activityType === type && j.status === 'Completed')
+      if (completed.length === 0) return null
+      const totalDays = completed.reduce((acc, j) => {
+        return acc + Math.max(0, Math.round((new Date(j.updatedAt).getTime() - new Date(j.createdAt).getTime()) / 86_400_000))
+      }, 0)
+      const avg = Math.round(totalDays / completed.length)
+      const color = activityCalendarColors[type]
+      const Icon = activityIcon[type]
+      return { type: type.split(' ')[0], fullType: type, avg, count: completed.length, color, icon: Icon }
+    }).filter(Boolean) as { type: string; fullType: ActivityType; avg: number; count: number; color: string; icon: React.ElementType }[],
+  [jobOrders])
+
+  const maxTurnaround = Math.max(...turnaroundData.map((d) => d.avg), 1)
 
   const priorityData = useMemo(() => {
     const map: Record<string, number> = { High: 0, Medium: 0, Low: 0 }
@@ -293,6 +308,36 @@ export function ReportsPage() {
                       <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
                     </div>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{pct}% done</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Average Turnaround Time */}
+      {turnaroundData.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
+          <SectionHeader icon={Clock} title="Avg Turnaround Time by Activity" subtitle="Days from creation to completion (completed JOs only)" />
+          <div className="space-y-3">
+            {turnaroundData.map((d) => {
+              const Icon = d.icon
+              const pct = Math.round((d.avg / maxTurnaround) * 100)
+              return (
+                <div key={d.fullType} className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 w-40 shrink-0">
+                    <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ background: d.color + '20' }}>
+                      <Icon size={12} style={{ color: d.color }} />
+                    </div>
+                    <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">{d.fullType.split(' ')[0]}</p>
+                  </div>
+                  <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: d.color }} />
+                  </div>
+                  <div className="w-28 shrink-0 flex items-center gap-2">
+                    <span className="text-sm font-black text-slate-900 dark:text-slate-100">{d.avg}d</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">avg · {d.count} completed</span>
                   </div>
                 </div>
               )

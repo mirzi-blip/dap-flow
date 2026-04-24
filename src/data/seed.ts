@@ -7,7 +7,7 @@ export const USERS: AppUser[] = [
     email: 'admin@dapflow.com',
     password: 'admin123',
     role: 'Admin',
-    avatar: 'AR',
+    avatar: '😎',
   },
   {
     id: 'u2',
@@ -16,7 +16,7 @@ export const USERS: AppUser[] = [
     password: 'dap123',
     role: 'DAP Team',
     resourceId: 'r1',
-    avatar: 'JL',
+    avatar: '📸',
   },
   {
     id: 'u3',
@@ -25,7 +25,7 @@ export const USERS: AppUser[] = [
     password: 'dap123',
     role: 'DAP Team',
     resourceId: 'r3',
-    avatar: 'SC',
+    avatar: '🎬',
   },
   {
     id: 'u4',
@@ -34,7 +34,7 @@ export const USERS: AppUser[] = [
     password: 'brand123',
     role: 'Brand Team',
     team: 'BMG',
-    avatar: 'BM',
+    avatar: '🎨',
   },
   {
     id: 'u5',
@@ -42,7 +42,7 @@ export const USERS: AppUser[] = [
     email: 'exec@dapflow.com',
     password: 'exec123',
     role: 'Leadership',
-    avatar: 'DR',
+    avatar: '👔',
   },
 ]
 

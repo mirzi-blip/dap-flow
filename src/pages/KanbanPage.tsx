@@ -1,6 +1,5 @@
 ﻿import { useState, useMemo } from 'react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
-import { RESOURCES } from '../data/seed'
 import { ActivityBadge, PriorityBadge, StatusBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -34,15 +33,17 @@ function KanbanCard({
   onAdvance,
   onView,
   canProgress,
+  resources,
 }: {
   jo: JobOrder
   onAdvance: (jo: JobOrder) => void
   onView: (jo: JobOrder) => void
   canProgress: boolean
+  resources: import('../types').Resource[]
 }) {
   const overdue = isOverdue(jo.deadline) && jo.status !== 'Completed'
   const next = getNextStatus(jo.status)
-  const members = RESOURCES.filter((r) => jo.assignedMemberIds.includes(r.id))
+  const members = resources.filter((r) => jo.assignedMemberIds.includes(r.id))
 
   return (
     <div
@@ -115,7 +116,7 @@ type DetailTab = 'overview' | 'activity'
 
 export function KanbanPage() {
   const { jobOrders, updateJobOrder, addStatusLog, addNotification, statusLogs } = useDataStore()
-  const { currentUser } = useAppStore()
+  const { currentUser, resources } = useAppStore()
   const [selectedJO, setSelectedJO] = useState<JobOrder | null>(null)
   const [detailTab, setDetailTab] = useState<DetailTab>('overview')
   const [reactivateJO, setReactivateJO] = useState<JobOrder | null>(null)
@@ -205,7 +206,7 @@ export function KanbanPage() {
                 {col.items.length === 0 ? (
                   <div className="text-center py-8 text-slate-300 dark:text-slate-600 text-xs">Empty</div>
                 ) : col.items.map((jo) => (
-                  <KanbanCard key={jo.id} jo={jo} onAdvance={handleAdvance} onView={openDetail} canProgress={canProgress} />
+                  <KanbanCard key={jo.id} jo={jo} onAdvance={handleAdvance} onView={openDetail} canProgress={canProgress} resources={resources} />
                 ))}
               </div>
             </div>
@@ -326,7 +327,7 @@ export function KanbanPage() {
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {selectedJO.assignedMemberIds.map(id => {
-                        const r = RESOURCES.find(r => r.id === id)
+                        const r = resources.find(r => r.id === id)
                         return r ? (
                           <div key={id} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-lg px-2 py-1.5">
                             <span className={`w-6 h-6 rounded-full ${r.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{r.initials}</span>

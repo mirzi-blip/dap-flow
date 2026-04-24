@@ -148,12 +148,15 @@ export interface BookingRequest {
   departmentLocal: string
   requestorEmail: string
   preparedBy: string
-  encodedAt: string       // ISO date string, auto-set to today on creation
-  neededDate: string      // ISO date string
+  encodedAt: string
+  neededDate: string
+  startTime: string
+  endTime: string
+  projectName: string
   venue: string
   notes: string
   status: BookingRequestStatus
   assignedMemberIds: string[]
-  joId?: string           // set once a JO is created from this request
+  joId?: string
   createdAt: string
 }

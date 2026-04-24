@@ -48,7 +48,7 @@ export function LoginPage() {
               <Camera size={18} className="text-white" strokeWidth={2.5} />
             </div>
             <div>
-              <p className="text-white font-black text-lg leading-none tracking-tight">D&amp;AP</p>
+              <p className="text-white font-black text-lg leading-none tracking-tight">DAP Flow</p>
               <p className="text-blue-300 text-[11px] mt-0.5 uppercase tracking-widest">Booking &amp; Workload</p>
             </div>
           </div>
@@ -75,7 +75,7 @@ export function LoginPage() {
         </div>
 
         {/* Footer */}
-        <p className="relative text-blue-400 text-xs">D&amp;AP Booking &amp; Workload v1.0 · MVP Phase 1</p>
+        <p className="relative text-blue-400 text-xs">DAP Booking &amp; Workload System · Working Title: DAP Flow · v1.0</p>
       </div>
 
       {/* ── Right panel (form) ───────────────────────────────── */}
@@ -87,7 +87,7 @@ export function LoginPage() {
             <Camera size={18} className="text-white" strokeWidth={2.5} />
           </div>
           <div>
-            <p className="font-black text-slate-900 text-base leading-none">D&amp;AP</p>
+            <p className="font-black text-slate-900 text-base leading-none">DAP Flow</p>
             <p className="text-slate-400 text-[10px] mt-0.5 uppercase tracking-widest">Booking &amp; Workload</p>
           </div>
         </div>
@@ -174,7 +174,7 @@ export function LoginPage() {
             </div>
           </div>
 
-          <p className="text-center text-xs text-slate-300 mt-6">Digital &amp; Arts Production (DAP) · Offline-capable PWA · v1.0</p>
+          <p className="text-center text-xs text-slate-300 mt-6">DAP Booking &amp; Workload System · Offline-capable PWA · v1.0</p>
         </div>
       </div>
     </div>

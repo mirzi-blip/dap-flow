@@ -129,7 +129,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
         {/* User avatar */}
         <div className="flex items-center gap-2 pl-1">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-blue-500 flex items-center justify-center text-[11px] font-black text-white shadow-sm">
+          <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-lg shadow-sm border border-slate-200 dark:border-slate-600">
             {currentUser?.avatar}
           </div>
           <div className="hidden lg:block">

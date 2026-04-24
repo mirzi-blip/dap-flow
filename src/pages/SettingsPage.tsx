@@ -4,15 +4,18 @@ import {
   X, Check, ChevronDown, Users, Lock, AlertTriangle,
   User, KeyRound, Save, Settings2, Sliders, Plug2,
   Calendar, MessageSquare, HardDrive, Layers, RefreshCw,
-  CheckCircle2, XCircle, ExternalLink,
+  CheckCircle2, XCircle, ExternalLink, Mail,
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
-import type { ManagedUser, UserRole, RequestingTeam, UserStatus } from '../types'
+import type { ManagedUser, UserRole, RequestingTeam, UserStatus, Resource, DAPSubRole, DAPTeam } from '../types'
 
 const ROLES: UserRole[] = ['Admin', 'DAP Team', 'Brand Team', 'Leadership']
 const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
 
-type SettingsTab = 'profile' | 'users' | 'capacity' | 'activity' | 'integrations'
+type SettingsTab = 'profile' | 'users' | 'team' | 'capacity' | 'activity' | 'integrations'
+
+const SUB_ROLES: DAPSubRole[] = ['Photographer', 'Videographer', 'Video Editor', 'Audio Editor', 'Graphic Designer']
+const DAP_TEAMS: DAPTeam[] = ['Photo', 'Video', 'Audio', 'Design']
 
 interface Integration {
   id: string
@@ -63,7 +66,14 @@ const ACTIVITY_TYPES = [
 ]
 
 export function SettingsPage() {
-  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser } = useAppStore()
+  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, resources, updateResource, addResource } = useAppStore()
+
+  const EMOJI_OPTIONS = [
+    '😀','😊','😎','🤓','😄','🥸','🤩','😇','🧐','😏',
+    '🤠','🥳','🤗','😍','🤑','🤖','👻','🎅','🧙','🕵️',
+    '👮','👷','🧑‍💼','👨‍🎨','👩‍🎨','👨‍💻','👩‍💻','🧑‍🎤','👨‍🚀','👩‍🚀',
+    '📸','🎬','🎨','🎧','✏️','🎤','🎥','🖼️','🎭','⭐',
+  ]
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
   const [modalMode, setModalMode] = useState<ModalMode>(null)
@@ -72,6 +82,8 @@ export function SettingsPage() {
   const [filterStatus, setFilterStatus] = useState<UserStatus | 'all'>('all')
   const [form, setForm] = useState<EditForm>({ name: '', email: '', password: '', role: 'DAP Team' })
   const [formError, setFormError] = useState('')
+  const [formEmoji, setFormEmoji] = useState('😊')
+  const [showFormEmojiPicker, setShowFormEmojiPicker] = useState(false)
 
   // My Profile state
   const [profileForm, setProfileForm] = useState({
@@ -79,7 +91,45 @@ export function SettingsPage() {
     email: currentUser?.email ?? '',
     password: '',
   })
+  const [profileEmoji, setProfileEmoji] = useState(currentUser?.avatar ?? '😊')
+  const [showProfileEmojiPicker, setShowProfileEmojiPicker] = useState(false)
   const [profileSaved, setProfileSaved] = useState(false)
+
+  // Team member editing state
+  const [editingMember, setEditingMember] = useState<Resource | null>(null)
+  const [addingMember, setAddingMember] = useState(false)
+  const [memberForm, setMemberForm] = useState<{ name: string; email: string; role: DAPSubRole; team: DAPTeam }>({ name: '', email: '', role: 'Photographer', team: 'Photo' })
+  const [memberSaved, setMemberSaved] = useState('')
+
+  const MEMBER_COLORS = ['bg-blue-500','bg-cyan-500','bg-purple-500','bg-red-500','bg-emerald-500','bg-teal-500','bg-amber-500','bg-pink-500','bg-indigo-500','bg-orange-500']
+
+  function openEditMember(r: Resource) {
+    setAddingMember(false)
+    setEditingMember(r)
+    setMemberForm({ name: r.name, email: r.email, role: r.role, team: r.team })
+  }
+
+  function openAddMember() {
+    setEditingMember(null)
+    setAddingMember(true)
+    setMemberForm({ name: '', email: '', role: 'Photographer', team: 'Photo' })
+  }
+
+  function saveMember() {
+    if (!memberForm.name.trim() || !memberForm.email.trim()) return
+    const inits = memberForm.name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    if (addingMember) {
+      const color = MEMBER_COLORS[resources.length % MEMBER_COLORS.length]
+      addResource({ id: `r${Date.now()}`, name: memberForm.name.trim(), email: memberForm.email.trim(), role: memberForm.role, team: memberForm.team, initials: inits, color, maxWeeklyHours: 40 })
+      setAddingMember(false)
+      setMemberSaved('new')
+    } else if (editingMember) {
+      updateResource({ ...editingMember, name: memberForm.name.trim(), email: memberForm.email.trim(), role: memberForm.role, team: memberForm.team, initials: inits })
+      setMemberSaved(editingMember.id)
+      setEditingMember(null)
+    }
+    setTimeout(() => setMemberSaved(''), 2000)
+  }
 
   const isAdmin = currentUser?.role === 'Admin'
   const displayed = managedUsers.filter(u => filterStatus === 'all' || u.status === filterStatus)
@@ -94,7 +144,7 @@ export function SettingsPage() {
         name: profileForm.name.trim(),
         email: profileForm.email.trim(),
         password: profileForm.password || managed.password,
-        avatar: initials(profileForm.name),
+        avatar: profileEmoji,
       })
     }
     setProfileSaved(true)
@@ -103,11 +153,13 @@ export function SettingsPage() {
 
   function openAdd() {
     setForm({ name: '', email: '', password: '', role: 'DAP Team' })
+    setFormEmoji('😊'); setShowFormEmojiPicker(false)
     setFormError(''); setEditTarget(null); setModalMode('add')
   }
 
   function openEdit(u: ManagedUser) {
     setForm({ name: u.name, email: u.email, password: '', role: u.role, team: u.team })
+    setFormEmoji(u.avatar ?? '😊'); setShowFormEmojiPicker(false)
     setFormError(''); setEditTarget(u); setModalMode('edit')
   }
 
@@ -123,13 +175,13 @@ export function SettingsPage() {
       addManagedUser({
         id: genId(), name: form.name.trim(), email: form.email.trim().toLowerCase(),
         password: form.password, role: form.role, team: form.team,
-        avatar: initials(form.name), status: 'active', createdAt: new Date().toISOString(),
+        avatar: formEmoji, status: 'active', createdAt: new Date().toISOString(),
       })
     } else if (editTarget) {
       updateManagedUser({
         ...editTarget, name: form.name.trim(), email: form.email.trim().toLowerCase(),
         password: form.password || editTarget.password, role: form.role,
-        team: form.team, avatar: initials(form.name),
+        team: form.team, avatar: formEmoji,
       })
     }
     setModalMode(null)
@@ -223,6 +275,7 @@ export function SettingsPage() {
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
     { id: 'profile',      label: 'My Profile',     icon: User },
     { id: 'users',        label: 'User Management', icon: Users },
+    { id: 'team',         label: 'Team Members',    icon: Mail },
     { id: 'capacity',     label: 'Capacity',        icon: Sliders },
     { id: 'activity',     label: 'Activity Types',  icon: Settings2 },
     { id: 'integrations', label: 'Integrations',    icon: Plug2 },
@@ -253,12 +306,135 @@ export function SettingsPage() {
         })}
       </div>
 
+      {/* ── TEAM MEMBERS ───────────────────────────────────────── */}
+      {activeTab === 'team' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">DAP Team Members</h3>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Edit names and emails — members receive notifications when assigned to a Job Order.</p>
+            </div>
+            {isAdmin && !addingMember && (
+              <button onClick={openAddMember} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
+                <UserPlus size={13} /> Add Member
+              </button>
+            )}
+          </div>
+
+          {/* Add member form */}
+          {addingMember && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 space-y-3">
+              <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide">New Team Member</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Full Name *</label>
+                  <input className="form-input text-sm" value={memberForm.name} onChange={e => setMemberForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" autoFocus />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Email *</label>
+                  <input type="email" className="form-input text-sm" value={memberForm.email} onChange={e => setMemberForm(f => ({ ...f, email: e.target.value }))} placeholder="member@company.com" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Role</label>
+                  <select className="form-input text-sm" value={memberForm.role} onChange={e => setMemberForm(f => ({ ...f, role: e.target.value as DAPSubRole }))}>
+                    {SUB_ROLES.map(r => <option key={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Team</label>
+                  <select className="form-input text-sm" value={memberForm.team} onChange={e => setMemberForm(f => ({ ...f, team: e.target.value as DAPTeam }))}>
+                    {DAP_TEAMS.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button onClick={saveMember} disabled={!memberForm.name.trim() || !memberForm.email.trim()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 text-white text-xs font-semibold rounded-xl transition-colors">
+                  <Check size={12} /> Add Member
+                </button>
+                <button onClick={() => setAddingMember(false)} className="px-3 py-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 text-xs font-semibold rounded-xl hover:bg-white dark:hover:bg-slate-700 transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          {memberSaved === 'new' && (
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">
+              <Check size={13} /> Member added successfully.
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {resources.map(r => (
+              <div key={r.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+                {editingMember?.id === r.id ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`w-9 h-9 rounded-full ${editingMember?.color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>{memberForm.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) || editingMember?.initials}</span>
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Editing</p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Full Name</label>
+                      <input className="form-input text-sm" value={memberForm.name} onChange={e => setMemberForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Email</label>
+                      <input type="email" className="form-input text-sm" value={memberForm.email} onChange={e => setMemberForm(f => ({ ...f, email: e.target.value }))} placeholder="member@company.com" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Role</label>
+                        <select className="form-input text-sm" value={memberForm.role} onChange={e => setMemberForm(f => ({ ...f, role: e.target.value as DAPSubRole }))}>
+                          {SUB_ROLES.map(role => <option key={role}>{role}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Team</label>
+                        <select className="form-input text-sm" value={memberForm.team} onChange={e => setMemberForm(f => ({ ...f, team: e.target.value as DAPTeam }))}>
+                          {DAP_TEAMS.map(t => <option key={t}>{t}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={saveMember} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
+                        <Check size={12} /> Save
+                      </button>
+                      <button onClick={() => setEditingMember(null)} className="px-3 py-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 text-xs font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3">
+                    <span className={`w-10 h-10 rounded-full ${r.color} flex items-center justify-center text-white text-sm font-bold shrink-0`}>{r.initials}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{r.name}</p>
+                        {memberSaved === r.id && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5"><Check size={10} /> Saved</span>}
+                        {isAdmin && (
+                          <button onClick={() => openEditMember(r)} className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 px-2 py-1 rounded-lg transition-colors shrink-0">
+                            <Pencil size={11} /> Edit
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{r.role} · {r.team} Team</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <Mail size={11} className="text-slate-400 shrink-0" />
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{r.email || <span className="italic text-amber-500">No email set</span>}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── MY PROFILE ─────────────────────────────────────────── */}
       {activeTab === 'profile' && (
         <div className="card p-6 max-w-lg">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-500 flex items-center justify-center text-lg font-black text-white shadow-md">
-              {currentUser?.avatar}
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-4xl shadow-md border border-slate-200 dark:border-slate-600">
+              {profileEmoji}
             </div>
             <div>
               <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">{currentUser?.name}</h3>
@@ -267,6 +443,31 @@ export function SettingsPage() {
           </div>
 
           <div className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5 uppercase tracking-wide">Avatar</label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowProfileEmojiPicker(v => !v)}
+                  className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 flex items-center justify-center text-4xl transition-all"
+                >
+                  {profileEmoji}
+                </button>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Click to choose your avatar</p>
+              </div>
+              {showProfileEmojiPicker && (
+                <div className="mt-2 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg">
+                  <div className="grid grid-cols-8 gap-1">
+                    {EMOJI_OPTIONS.map(e => (
+                      <button key={e} type="button" onClick={() => { setProfileEmoji(e); setShowProfileEmojiPicker(false) }}
+                        className={`text-xl p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${profileEmoji === e ? 'bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-400' : ''}`}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <div>
               <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5 uppercase tracking-wide">Display Name</label>
               <div className="relative">
@@ -369,7 +570,7 @@ export function SettingsPage() {
                 const isSelf = u.id === currentUser?.id
                 return (
                   <div key={u.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-500 flex items-center justify-center text-white font-black text-xs shrink-0 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl shrink-0 border border-slate-200 dark:border-slate-600">
                       {u.avatar}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -604,6 +805,28 @@ export function SettingsPage() {
               </button>
             </div>
             <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Avatar</label>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => setShowFormEmojiPicker(v => !v)}
+                    className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 flex items-center justify-center text-3xl transition-all">
+                    {formEmoji}
+                  </button>
+                  <p className="text-xs text-slate-400">Click to choose an avatar</p>
+                </div>
+                {showFormEmojiPicker && (
+                  <div className="mt-2 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg">
+                    <div className="grid grid-cols-8 gap-1">
+                      {EMOJI_OPTIONS.map(e => (
+                        <button key={e} type="button" onClick={() => { setFormEmoji(e); setShowFormEmojiPicker(false) }}
+                          className={`text-xl p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${formEmoji === e ? 'bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-400' : ''}`}>
+                          {e}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Full Name</label>
                 <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Maria Santos" className="form-input" />

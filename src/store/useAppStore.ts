@@ -30,6 +30,10 @@ interface AppState {
   terminateUser: (id: string) => void
   limitUser: (id: string) => void
   reinstateUser: (id: string) => void
+  updateResource: (r: Resource) => void
+  addResource: (r: Resource) => void
+  requestAlert: BookingRequest | null
+  setRequestAlert: (req: BookingRequest | null) => void
 }
 
 function seedManagedUsers(): ManagedUser[] {
@@ -51,6 +55,7 @@ export const useAppStore = create<AppState>()(
       managedUsers: seedManagedUsers(),
       theme: 'light',
       globalSearch: '',
+      requestAlert: null,
 
       login(email, password) {
         const { managedUsers } = get()
@@ -111,13 +116,41 @@ export const useAppStore = create<AppState>()(
       reinstateUser(id) {
         set(s => ({ managedUsers: s.managedUsers.map(m => m.id === id ? { ...m, status: 'active' } : m) }))
       },
+      updateResource(r) {
+        set(s => ({ resources: s.resources.map(x => x.id === r.id ? r : x) }))
+      },
+      addResource(r) {
+        set(s => ({ resources: [...s.resources, r] }))
+      },
+      setRequestAlert(req) { set({ requestAlert: req }) },
     }),
     {
       name: 'dap-flow-auth',
-      partialize: s => ({ currentUser: s.currentUser, view: s.view, managedUsers: s.managedUsers, theme: s.theme }),
+      partialize: s => ({ currentUser: s.currentUser, view: s.view, managedUsers: s.managedUsers, theme: s.theme, resources: s.resources }),
       onRehydrateStorage: () => (state) => {
         if (state?.theme) {
           document.documentElement.classList.toggle('dark', state.theme === 'dark')
+        }
+        // Migrate old letter-based avatars (e.g. "AR", "JL") to emoji
+        const isLetters = (av: string) => /^[A-Z]{1,4}$/.test(av ?? '')
+        if (state?.managedUsers) {
+          state.managedUsers = state.managedUsers.map(u => {
+            if (isLetters(u.avatar)) {
+              const seed = USERS.find(s => s.id === u.id)
+              return { ...u, avatar: seed?.avatar ?? '😊' }
+            }
+            return u
+          })
+        }
+        // Keep currentUser avatar in sync with managedUsers
+        if (state?.currentUser) {
+          const managed = state.managedUsers?.find(u => u.id === state.currentUser!.id)
+          if (managed) {
+            state.currentUser = { ...state.currentUser, avatar: managed.avatar }
+          } else if (isLetters(state.currentUser.avatar)) {
+            const seed = USERS.find(u => u.id === state.currentUser!.id)
+            state.currentUser = { ...state.currentUser, avatar: seed?.avatar ?? '😊' }
+          }
         }
       },
     }

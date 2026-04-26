@@ -212,6 +212,7 @@ interface DataState {
   setBookingRequests: (reqs: BookingRequest[]) => void
   addBookingRequest: (req: BookingRequest) => void
   updateBookingRequest: (req: BookingRequest) => void
+  deleteBookingRequest: (id: string) => void
 }
 
 export const useDataStore = create<DataState>()((set) => ({
@@ -243,4 +244,5 @@ export const useDataStore = create<DataState>()((set) => ({
   setBookingRequests: reqs => set({ bookingRequests: reqs }),
   addBookingRequest: req => set(s => ({ bookingRequests: [req, ...s.bookingRequests] })),
   updateBookingRequest: req => set(s => ({ bookingRequests: s.bookingRequests.map(r => r.id === req.id ? req : r) })),
+  deleteBookingRequest: id => set(s => ({ bookingRequests: s.bookingRequests.filter(r => r.id !== id) })),
 }))

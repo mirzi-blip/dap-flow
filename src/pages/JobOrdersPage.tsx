@@ -53,7 +53,7 @@ const STATUS_COLORS: Record<JOStatus, string> = {
 }
 
 export function JobOrdersPage() {
-  const { jobOrders, addJobOrder, updateJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest, addCalendarEvent } = useDataStore()
+  const { jobOrders, addJobOrder, updateJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest, deleteBookingRequest, addCalendarEvent } = useDataStore()
   const { currentUser, globalSearch, setGlobalSearch, resources } = useAppStore()
 
   const canSeeRequests = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
@@ -80,6 +80,11 @@ export function JobOrdersPage() {
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([])
   const [requestSuccess, setRequestSuccess] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<BookingRequest | null>(null)
+  const [deleteNote, setDeleteNote] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // Per-JO local state
   const [fileRefs, setFileRefs] = useState<Record<string, FileRef[]>>({})
@@ -346,6 +351,16 @@ export function JobOrdersPage() {
     ).length
   }
 
+  async function handleDeleteRequest() {
+    if (!deleteTarget) return
+    setDeleteLoading(true)
+    await supabase.from('booking_requests').delete().eq('id', deleteTarget.id)
+    deleteBookingRequest(deleteTarget.id)
+    setDeleteTarget(null)
+    setDeleteNote('')
+    setDeleteLoading(false)
+  }
+
   async function handleRejectRequest(req: BookingRequest) {
     const updated: BookingRequest = { ...req, status: 'Rejected' }
     await supabase.from('booking_requests').update({ status: 'Rejected' }).eq('id', updated.id)
@@ -522,7 +537,7 @@ export function JobOrdersPage() {
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusStyles[req.status]}`}>
                         {req.status}
                       </span>
-                      <div className="ml-auto">
+                      <div className="ml-auto flex items-center gap-2">
                         {req.status === 'Pending Review' ? (
                           <Button size="sm" onClick={() => openReview(req)}>
                             <Users size={13} /> Review &amp; Assign
@@ -532,6 +547,13 @@ export function JobOrdersPage() {
                             View
                           </Button>
                         )}
+                        <button
+                          onClick={() => { setDeleteTarget(req); setDeleteNote('') }}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800 transition-colors"
+                          title="Remove request"
+                        >
+                          <Trash2 size={13} /> Remove
+                        </button>
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400">
@@ -549,6 +571,53 @@ export function JobOrdersPage() {
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {/* Delete Confirmation Modal */}
+          {deleteTarget && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteTarget(null)} />
+              <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                    <Trash2 size={18} className="text-red-600 dark:text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Remove Request?</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                      This will permanently delete request <span className="font-mono font-semibold">#{deleteTarget.id.slice(0, 8).toUpperCase()}</span> from <span className="font-semibold">{deleteTarget.preparedBy}</span>. This cannot be undone.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1.5">
+                    Reason / Note <span className="text-slate-400 font-normal normal-case">(optional)</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+                    placeholder="e.g. Duplicate request, submitted in error…"
+                    value={deleteNote}
+                    onChange={e => setDeleteNote(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setDeleteTarget(null)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteRequest}
+                    disabled={deleteLoading}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 transition-colors"
+                  >
+                    {deleteLoading ? 'Removing…' : 'Yes, Remove'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

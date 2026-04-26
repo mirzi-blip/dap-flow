@@ -2,12 +2,6 @@
 import { useAppStore } from '../store/useAppStore'
 import { Lock, Mail, AlertCircle, Camera, ArrowRight, Eye, EyeOff } from 'lucide-react'
 
-const DEMO_ACCOUNTS = [
-  { label: 'Admin',      email: 'admin@dapflow.com',  password: 'admin123', color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
-  { label: 'DAP Team',   email: 'jordan@dapflow.com', password: 'dap123',   color: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-500' },
-  { label: 'Brand Team', email: 'brand@dapflow.com',  password: 'brand123', color: 'bg-pink-100 text-pink-700',   dot: 'bg-pink-500' },
-  { label: 'Leadership', email: 'exec@dapflow.com',   password: 'exec123',  color: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500' },
-]
 
 export function LoginPage() {
   const login = useAppStore(s => s.login)
@@ -24,10 +18,6 @@ export function LoginPage() {
     const ok = await login(email, password)
     if (!ok) setError('Invalid email or password.')
     setLoading(false)
-  }
-
-  function fillDemo(e: string, p: string) {
-    setEmail(e); setPassword(p); setError('')
   }
 
   return (
@@ -155,26 +145,6 @@ export function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Demo accounts */}
-          <div className="mt-7 pt-6 border-t border-slate-100">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Quick Demo Access</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO_ACCOUNTS.map(a => (
-                <button
-                  key={a.email}
-                  onClick={() => fillDemo(a.email, a.password)}
-                  className="flex items-center gap-2 p-3 rounded-xl bg-white border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 transition-all text-left shadow-sm"
-                >
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${a.dot}`} />
-                  <div className="min-w-0">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${a.color}`}>{a.label}</span>
-                    <p className="text-slate-400 text-[10px] mt-0.5 truncate">{a.email}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
 
           <p className="text-center text-xs text-slate-300 mt-6">DAP Booking &amp; Workload System · Offline-capable PWA · v1.0</p>
         </div>

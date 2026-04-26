@@ -4,7 +4,7 @@ import {
   X, Check, ChevronDown, Users, Lock, AlertTriangle,
   User, KeyRound, Save, Settings2, Sliders, Plug2,
   Calendar, MessageSquare, HardDrive, Layers, RefreshCw,
-  CheckCircle2, XCircle, ExternalLink, Mail,
+  CheckCircle2, XCircle, ExternalLink, Mail, Eye, EyeOff,
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import type { ManagedUser, UserRole, RequestingTeam, UserStatus, Resource, DAPSubRole, DAPTeam } from '../types'
@@ -94,6 +94,8 @@ export function SettingsPage() {
   const [profileEmoji, setProfileEmoji] = useState(currentUser?.avatar ?? '😊')
   const [showProfileEmojiPicker, setShowProfileEmojiPicker] = useState(false)
   const [profileSaved, setProfileSaved] = useState(false)
+  const [showProfileConfirm, setShowProfileConfirm] = useState(false)
+  const [revealedPasswords, setRevealedPasswords] = useState<Set<string>>(new Set())
 
   // Team member editing state
   const [editingMember, setEditingMember] = useState<Resource | null>(null)
@@ -137,6 +139,16 @@ export function SettingsPage() {
   // Profile save
   function handleProfileSave() {
     if (!profileForm.name.trim()) return
+    const emailChanged = profileForm.email.trim().toLowerCase() !== currentUser?.email?.toLowerCase()
+    const passwordChanged = profileForm.password.trim() !== ''
+    if (emailChanged || passwordChanged) {
+      setShowProfileConfirm(true)
+      return
+    }
+    commitProfileSave()
+  }
+
+  function commitProfileSave() {
     const managed = managedUsers.find(u => u.id === currentUser?.id)
     if (managed) {
       updateManagedUser({
@@ -147,6 +159,7 @@ export function SettingsPage() {
         avatar: profileEmoji,
       })
     }
+    setShowProfileConfirm(false)
     setProfileSaved(true)
     setTimeout(() => setProfileSaved(false), 2500)
   }
@@ -280,6 +293,14 @@ export function SettingsPage() {
     { id: 'activity',     label: 'Activity Types',  icon: Settings2 },
     { id: 'integrations', label: 'Integrations',    icon: Plug2 },
   ]
+
+  function toggleRevealPassword(id: string) {
+    setRevealedPasswords(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   return (
     <div className="space-y-5 max-w-[1100px]">
@@ -579,6 +600,16 @@ export function SettingsPage() {
                         {isSelf && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 font-bold px-1.5 py-0.5 rounded-full">You</span>}
                       </div>
                       <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{u.email}</p>
+                      {isAdmin && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <p className="text-xs font-mono text-slate-400 dark:text-slate-500">
+                            {revealedPasswords.has(u.id) ? u.password : '••••••••'}
+                          </p>
+                          <button type="button" onClick={() => toggleRevealPassword(u.id)} className="text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400 transition-colors">
+                            {revealedPasswords.has(u.id) ? <EyeOff size={11} /> : <Eye size={11} />}
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg hidden sm:block ${roleBadge[u.role]}`}>{u.role}</span>
                     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ring-1 ${sm.className}`}>
@@ -875,6 +906,35 @@ export function SettingsPage() {
                   {modalMode === 'add' ? 'Create User' : 'Save Changes'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Profile change confirmation modal */}
+      {showProfileConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Confirm credential change</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  {profileForm.email.trim().toLowerCase() !== currentUser?.email?.toLowerCase() && <span>Email will change to <strong>{profileForm.email}</strong>. </span>}
+                  {profileForm.password.trim() !== '' && <span>Password will be updated. </span>}
+                  You'll need to use your new credentials on your next login.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setShowProfileConfirm(false)} className="flex-1 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                Cancel
+              </button>
+              <button onClick={commitProfileSave} className="flex-1 py-2 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                Confirm &amp; Save
+              </button>
             </div>
           </div>
         </div>

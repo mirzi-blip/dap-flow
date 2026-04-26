@@ -29,6 +29,11 @@ export default function App() {
 
   const { currentUser, view, setOnline, setPendingSyncCount, theme, requestAlert, setRequestAlert, setView } = useAppStore()
 
+  // Load users from Supabase on startup (cross-browser sync)
+  useEffect(() => {
+    useAppStore.getState().initUsers()
+  }, [])
+
   // Sync theme class to <html> so Tailwind dark: variants work
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')

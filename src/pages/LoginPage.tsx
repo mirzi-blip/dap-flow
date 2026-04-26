@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { Lock, Mail, AlertCircle, Camera, ArrowRight } from 'lucide-react'
+import { Lock, Mail, AlertCircle, Camera, ArrowRight, Eye, EyeOff } from 'lucide-react'
 
 const DEMO_ACCOUNTS = [
   { label: 'Admin',      email: 'admin@dapflow.com',  password: 'admin123', color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
@@ -15,16 +15,15 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
+  const [showPw, setShowPw]     = useState(false)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
-    setTimeout(() => {
-      const ok = login(email, password)
-      if (!ok) setError('Invalid email or password. Try a demo account below.')
-      setLoading(false)
-    }, 400)
+    const ok = await login(email, password)
+    if (!ok) setError('Invalid email or password.')
+    setLoading(false)
   }
 
   function fillDemo(e: string, p: string) {
@@ -121,13 +120,16 @@ export function LoginPage() {
               <div className="relative">
                 <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="password"
+                  type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 pl-10 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all shadow-sm"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 pl-10 pr-10 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all shadow-sm"
                 />
+                <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                  {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
               </div>
             </div>
 

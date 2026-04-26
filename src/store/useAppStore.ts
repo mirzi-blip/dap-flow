@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { AppUser, JobOrder, CalendarEvent, Notification, StatusLog, Resource, ManagedUser, BookingRequest } from '../types'
 import { USERS, RESOURCES } from '../data/seed'
+import { supabase, rowToManagedUser, managedUserToRow } from '../lib/supabase'
 
 export type View = 'dashboard' | 'calendar' | 'joborders' | 'kanban' | 'workload' | 'reports' | 'settings'
 
@@ -15,7 +16,8 @@ interface AppState {
   theme: 'light' | 'dark'
   globalSearch: string
 
-  login: (email: string, password: string) => boolean
+  login: (email: string, password: string) => Promise<boolean>
+  initUsers: () => Promise<void>
   logout: () => void
   setView: (v: View) => void
   setOnline: (v: boolean) => void
@@ -57,33 +59,50 @@ export const useAppStore = create<AppState>()(
       globalSearch: '',
       requestAlert: null,
 
-      login(email, password) {
+      async login(email, password) {
+        // Try Supabase first (cross-browser source of truth)
+        try {
+          const { data } = await supabase
+            .from('app_users')
+            .select('*')
+            .eq('email', email.toLowerCase())
+            .single()
+          if (data) {
+            if (data.password !== password) return false
+            if (data.status === 'terminated') return false
+            const mu = rowToManagedUser(data)
+            // Sync to local store
+            set(s => ({
+              managedUsers: s.managedUsers.some(u => u.id === mu.id)
+                ? s.managedUsers.map(u => u.id === mu.id ? mu : u)
+                : [...s.managedUsers, mu],
+            }))
+            set({ currentUser: { id: mu.id, name: mu.name, email: mu.email, password: mu.password, role: mu.role, team: mu.team, avatar: mu.avatar, resourceId: mu.resourceId } })
+            return true
+          }
+        } catch { /* offline — fall through to local */ }
+        // Offline fallback: check local managedUsers
         const { managedUsers } = get()
-        // Check managed users first (may have been edited/terminated)
         const managed = managedUsers.find(
           u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
         )
         if (managed) {
           if (managed.status === 'terminated') return false
-          // Build AppUser from managed
-          const appUser: AppUser = {
-            id: managed.id, name: managed.name, email: managed.email,
-            password: managed.password, role: managed.role,
-            team: managed.team, avatar: managed.avatar,
-            resourceId: managed.resourceId,
-          }
-          set({ currentUser: appUser })
+          set({ currentUser: { id: managed.id, name: managed.name, email: managed.email, password: managed.password, role: managed.role, team: managed.team, avatar: managed.avatar, resourceId: managed.resourceId } })
           return true
         }
-        // Fallback to hardcoded seed
-        const user = USERS.find(
-          u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-        )
-        if (user) { set({ currentUser: user }); return true }
         return false
       },
 
       logout() { set({ currentUser: null, view: 'dashboard' }) },
+      async initUsers() {
+        try {
+          const { data, error } = await supabase.from('app_users').select('*').order('created_at', { ascending: true })
+          if (!error && data && data.length > 0) {
+            set({ managedUsers: data.map(rowToManagedUser) })
+          }
+        } catch { /* offline — keep local */ }
+      },
       setView(v) { set({ view: v }) },
       setOnline(v) { set({ isOnline: v }) },
       setPendingSyncCount(n) { set({ pendingSyncCount: n }) },
@@ -98,23 +117,29 @@ export const useAppStore = create<AppState>()(
       },
       setGlobalSearch(q) { set({ globalSearch: q }) },
 
-      addManagedUser(u) { set(s => ({ managedUsers: [...s.managedUsers, u] })) },
+      addManagedUser(u) {
+        set(s => ({ managedUsers: [...s.managedUsers, u] }))
+        supabase.from('app_users').insert(managedUserToRow(u)).then(({ error }) => { if (error) console.error('User sync error:', error) })
+      },
       updateManagedUser(u) {
         set(s => ({ managedUsers: s.managedUsers.map(m => m.id === u.id ? u : m) }))
-        // Refresh current user if it's the same person
         const cur = get().currentUser
         if (cur?.id === u.id) {
-          set({ currentUser: { ...cur, name: u.name, role: u.role, email: u.email } })
+          set({ currentUser: { ...cur, name: u.name, role: u.role, email: u.email, avatar: u.avatar } })
         }
+        supabase.from('app_users').update(managedUserToRow(u)).eq('id', u.id).then(({ error }) => { if (error) console.error('User sync error:', error) })
       },
       terminateUser(id) {
         set(s => ({ managedUsers: s.managedUsers.map(m => m.id === id ? { ...m, status: 'terminated' } : m) }))
+        supabase.from('app_users').update({ status: 'terminated' }).eq('id', id).then(({ error }) => { if (error) console.error('User sync error:', error) })
       },
       limitUser(id) {
         set(s => ({ managedUsers: s.managedUsers.map(m => m.id === id ? { ...m, status: 'limited' } : m) }))
+        supabase.from('app_users').update({ status: 'limited' }).eq('id', id).then(({ error }) => { if (error) console.error('User sync error:', error) })
       },
       reinstateUser(id) {
         set(s => ({ managedUsers: s.managedUsers.map(m => m.id === id ? { ...m, status: 'active' } : m) }))
+        supabase.from('app_users').update({ status: 'active' }).eq('id', id).then(({ error }) => { if (error) console.error('User sync error:', error) })
       },
       updateResource(r) {
         set(s => ({ resources: s.resources.map(x => x.id === r.id ? r : x) }))

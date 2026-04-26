@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam } from '../types'
+import type { BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam, ManagedUser } from '../types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
@@ -91,5 +91,35 @@ export function requestToRow(req: BookingRequest) {
     assigned_member_ids: req.assignedMemberIds,
     jo_id: req.joId ?? null,
     created_at: req.createdAt,
+  }
+}
+
+export function rowToManagedUser(row: Record<string, unknown>): ManagedUser {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    email: row.email as string,
+    password: row.password as string,
+    role: row.role as ManagedUser['role'],
+    team: (row.team as ManagedUser['team']) || undefined,
+    avatar: (row.avatar as string) || '😊',
+    resourceId: (row.resource_id as string) || undefined,
+    status: (row.status as ManagedUser['status']) || 'active',
+    createdAt: (row.created_at as string) || new Date().toISOString(),
+  }
+}
+
+export function managedUserToRow(u: ManagedUser) {
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    password: u.password,
+    role: u.role,
+    team: u.team || null,
+    avatar: u.avatar || '😊',
+    resource_id: u.resourceId || null,
+    status: u.status,
+    created_at: u.createdAt,
   }
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Camera, Aperture, ArrowRight, ArrowLeft } from 'lucide-react'
+import { Camera, Aperture, ArrowLeft } from 'lucide-react'
 import { supabase, requestToRow } from '../lib/supabase'
 import type { ActivityType, BookingRequest } from '../types'
 import { generateId } from '../utils/helpers'
@@ -215,7 +215,7 @@ export function BookingRequestForm() {
                 <button
                   key={type}
                   type="button"
-                  onClick={() => setForm(prev => ({ ...prev, activityType: type }))}
+                  onClick={() => { setForm(prev => ({ ...prev, activityType: type })); setPage(2) }}
                   className={`flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
                     form.activityType === type
                       ? 'bg-white border-white shadow-xl'
@@ -238,19 +238,7 @@ export function BookingRequestForm() {
               ))}
             </div>
 
-            <button
-              type="button"
-              disabled={!form.activityType}
-              onClick={() => setPage(2)}
-              className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: form.activityType ? 'linear-gradient(135deg,#ffffff 0%,#e0eeff 100%)' : '#94a3b8', color: form.activityType ? '#0f4c81' : '#fff' }}
-            >
-              Next — Fill in Details <ArrowRight size={16} />
-            </button>
-
-            {!form.activityType && (
-              <p className="text-center text-blue-300 text-xs mt-3">Select a service type to continue</p>
-            )}
+            <p className="text-center text-blue-200/60 text-xs">Click a service to continue</p>
           </div>
         </div>
 

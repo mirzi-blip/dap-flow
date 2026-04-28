@@ -9,23 +9,21 @@ import { db } from '../db/database'
 import { Calendar, AlertTriangle, ChevronRight, Eye, Clock, LayoutList } from 'lucide-react'
 
 const COLUMNS: { status: JOStatus; label: string; hex: string }[] = [
-  { status: 'Pending',     label: 'Backlog',       hex: '#EAB308' },
-  { status: 'Approved',    label: 'Approved',      hex: '#3B82F6' },
-  { status: 'Scheduled',   label: 'Scheduled',     hex: '#6366F1' },
-  { status: 'In Progress', label: 'In Production', hex: '#8B5CF6' },
-  { status: 'For Review',  label: 'For Review',    hex: '#F97316' },
-  { status: 'Completed',   label: 'Completed',     hex: '#10B981' },
+  { status: 'Pending',    label: 'Backlog',    hex: '#EAB308' },
+  { status: 'Approved',   label: 'Approved',   hex: '#3B82F6' },
+  { status: 'Scheduled',  label: 'Scheduled',  hex: '#6366F1' },
+  { status: 'For Review', label: 'For Review', hex: '#F97316' },
+  { status: 'Completed',  label: 'Completed',  hex: '#10B981' },
 ]
 
 const STATUS_COLORS: Record<JOStatus, string> = {
-  'Pending':     'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
-  'Approved':    'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  'Scheduled':   'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
-  'In Progress': 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  'For Review':  'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
-  'Completed':   'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
-  'Delayed':     'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
-  'Cancelled':   'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
+  'Pending':    'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
+  'Approved':   'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+  'Scheduled':  'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
+  'For Review': 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
+  'Completed':  'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
+  'Delayed':    'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
+  'Cancelled':  'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
 }
 
 function KanbanCard({
@@ -259,7 +257,7 @@ export function KanbanPage() {
         {reactivateJO && (
           <div className="space-y-2">
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Select the stage to move this job order to:</p>
-            {(['Pending', 'Approved', 'Scheduled', 'In Progress', 'For Review', 'Completed'] as JOStatus[]).map(status => {
+            {(['Pending', 'Approved', 'Scheduled', 'For Review', 'Completed'] as JOStatus[]).map(status => {
               const col = COLUMNS.find(c => c.status === status)
               return (
                 <button

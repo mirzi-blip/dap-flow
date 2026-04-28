@@ -55,28 +55,14 @@ export function isDueSoon(deadline: string, daysThreshold = 3): boolean {
 }
 
 export function getNextStatus(current: JOStatus): JOStatus | null {
-  const flow: JOStatus[] = [
-    'Pending',
-    'Approved',
-    'Scheduled',
-    'In Progress',
-    'For Review',
-    'Completed',
-  ]
+  const flow: JOStatus[] = ['Pending', 'Approved', 'Scheduled', 'For Review', 'Completed']
   const idx = flow.indexOf(current)
   if (idx === -1 || idx === flow.length - 1) return null
   return flow[idx + 1]
 }
 
 export function getPrevStatus(current: JOStatus): JOStatus | null {
-  const flow: JOStatus[] = [
-    'Pending',
-    'Approved',
-    'Scheduled',
-    'In Progress',
-    'For Review',
-    'Completed',
-  ]
+  const flow: JOStatus[] = ['Pending', 'Approved', 'Scheduled', 'For Review', 'Completed']
   const idx = flow.indexOf(current)
   if (idx <= 0) return null
   return flow[idx - 1]

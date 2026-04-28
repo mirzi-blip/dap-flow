@@ -146,7 +146,15 @@ export function CalendarPage() {
           <div className="flex items-center gap-2 min-w-[200px] justify-center">
             {viewMode === 'month' ? (
               <>
-                <span className="font-bold text-slate-900 dark:text-slate-100">{format(currentDate, 'MMMM')}</span>
+                <select
+                  value={currentDate.getMonth()}
+                  onChange={e => { const d = new Date(currentDate); d.setMonth(Number(e.target.value)); setCurrentDate(d) }}
+                  className="font-bold text-slate-900 dark:text-slate-100 bg-transparent border-none outline-none cursor-pointer text-sm"
+                >
+                  {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
+                    <option key={m} value={i}>{m}</option>
+                  ))}
+                </select>
                 <select
                   value={currentYear}
                   onChange={e => { const d = new Date(currentDate); d.setFullYear(Number(e.target.value)); setCurrentDate(d) }}

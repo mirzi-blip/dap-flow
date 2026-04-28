@@ -1,8 +1,8 @@
-﻿import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Search, X, Paperclip, Link2, MessageSquare,
   Clock, LayoutList, ChevronRight, Send, Trash2, Pencil, Check,
-  ClipboardList, Copy, CheckCircle2, Users, AlertTriangle,
+  ClipboardList, Copy, CheckCircle2, Users, AlertTriangle, ChevronUp, ChevronDown,
 } from 'lucide-react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
 import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
@@ -19,7 +19,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
   'Photo Shoot', 'Video Shoot', 'Static Artwork Design',
   'Video Editing', 'Audio Recording', 'Audio Editing',
 ]
-const STATUSES: JOStatus[] = ['Pending', 'Approved', 'Scheduled', 'In Progress', 'For Review', 'Completed', 'Delayed', 'Cancelled']
+const STATUSES: JOStatus[] = ['Pending', 'Approved', 'Scheduled', 'For Review', 'Completed', 'Delayed', 'Cancelled']
 const PRIORITIES: Priority[] = ['High', 'Medium', 'Low']
 const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
 
@@ -45,12 +45,13 @@ const STATUS_COLORS: Record<JOStatus, string> = {
   'Pending':     'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
   'Approved':    'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
   'Scheduled':   'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
-  'In Progress': 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
   'For Review':  'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   'Completed':   'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
   'Delayed':     'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
   'Cancelled':   'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
 }
+
+type SortCol = 'joNumber' | 'projectName' | 'activityType' | 'requestingTeam' | 'priority' | 'deadline' | 'status'
 
 export function JobOrdersPage() {
   const { jobOrders, addJobOrder, updateJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest, deleteBookingRequest, addCalendarEvent } = useDataStore()
@@ -70,6 +71,10 @@ export function JobOrdersPage() {
   const [form, setForm] = useState(emptyForm)
   const [formError, setFormError] = useState('')
 
+  // Sorting state
+  const [sortCol, setSortCol] = useState<SortCol | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+
   // Edit mode
   const [editMode, setEditMode] = useState(false)
   const [editForm, setEditForm] = useState(emptyForm)
@@ -85,6 +90,13 @@ export function JobOrdersPage() {
   const [deleteTarget, setDeleteTarget] = useState<BookingRequest | null>(null)
   const [deleteNote, setDeleteNote] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  // Confirmation modals state
+  const [confirmAction, setConfirmAction] = useState<{ type: 'schedule' | 'cancel' | 'forReview'; jo: JobOrder } | null>(null)
+
+  // Rejection modal state
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejectTarget, setRejectTarget] = useState<BookingRequest | null>(null)
 
   // Per-JO local state
   const [fileRefs, setFileRefs] = useState<Record<string, FileRef[]>>({})
@@ -102,8 +114,10 @@ export function JobOrdersPage() {
   const canProgress = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
   const canEdit = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
 
+  const PRIORITY_ORDER: Record<Priority, number> = { 'High': 0, 'Medium': 1, 'Low': 2 }
+
   const filtered = useMemo(() => {
-    return jobOrders.filter((j) => {
+    const base = jobOrders.filter((j) => {
       if (search && !j.projectName.toLowerCase().includes(search.toLowerCase()) &&
           !j.joNumber.toLowerCase().includes(search.toLowerCase()) &&
           !j.campaign.toLowerCase().includes(search.toLowerCase())) return false
@@ -113,7 +127,35 @@ export function JobOrdersPage() {
       if (filterTeam !== 'All' && j.requestingTeam !== filterTeam) return false
       return true
     })
-  }, [jobOrders, search, filterStatus, filterActivity, filterPriority, filterTeam])
+
+    if (!sortCol) return base
+
+    return [...base].sort((a, b) => {
+      let aVal: string | number = ''
+      let bVal: string | number = ''
+      switch (sortCol) {
+        case 'joNumber':        aVal = a.joNumber; bVal = b.joNumber; break
+        case 'projectName':     aVal = a.projectName; bVal = b.projectName; break
+        case 'activityType':    aVal = a.activityType; bVal = b.activityType; break
+        case 'requestingTeam':  aVal = a.requestingTeam; bVal = b.requestingTeam; break
+        case 'priority':        aVal = PRIORITY_ORDER[a.priority]; bVal = PRIORITY_ORDER[b.priority]; break
+        case 'deadline':        aVal = a.deadline; bVal = b.deadline; break
+        case 'status':          aVal = a.status; bVal = b.status; break
+      }
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [jobOrders, search, filterStatus, filterActivity, filterPriority, filterTeam, sortCol, sortDir])
+
+  function handleSortCol(col: SortCol) {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortCol(col)
+      setSortDir('asc')
+    }
+  }
 
   async function handleCreate() {
     if (!form.projectName || !form.deadline) {
@@ -226,7 +268,7 @@ export function JobOrdersPage() {
     }
 
     // Email the requestor if this JO came from a booking request
-    const JO_NOTIFY_STATUSES: JOStatus[] = ['Approved', 'Scheduled', 'In Progress', 'Completed', 'Delayed', 'Cancelled']
+    const JO_NOTIFY_STATUSES: JOStatus[] = ['Approved', 'Scheduled', 'Completed', 'Delayed', 'Cancelled']
     if (JO_NOTIFY_STATUSES.includes(newStatus)) {
       const relatedReq = bookingRequests.find(r => r.joId === jo.id)
       if (relatedReq) {
@@ -245,6 +287,28 @@ export function JobOrdersPage() {
         }).catch(console.error)
       }
     }
+  }
+
+  // Intercept status changes that need confirmation
+  function handleStatusChangeWithConfirm(jo: JobOrder, newStatus: JOStatus) {
+    if (newStatus === 'Scheduled') {
+      setConfirmAction({ type: 'schedule', jo })
+    } else if (newStatus === 'Cancelled') {
+      setConfirmAction({ type: 'cancel', jo })
+    } else if (newStatus === 'For Review') {
+      setConfirmAction({ type: 'forReview', jo })
+    } else {
+      handleStatusChange(jo, newStatus)
+    }
+  }
+
+  async function handleConfirmAction() {
+    if (!confirmAction) return
+    const { type, jo } = confirmAction
+    setConfirmAction(null)
+    if (type === 'schedule') await handleStatusChange(jo, 'Scheduled')
+    else if (type === 'cancel') await handleStatusChange(jo, 'Cancelled')
+    else if (type === 'forReview') await handleStatusChange(jo, 'For Review')
   }
 
   async function handleEditSave() {
@@ -319,7 +383,14 @@ export function JobOrdersPage() {
   const joComments = selectedJO ? (comments[selectedJO.id] ?? []) : []
 
   // Requests tab helpers
-  const pendingCount = bookingRequests.filter(r => r.status === 'Pending Review').length
+  const pendingApprovalForUser = bookingRequests.filter(r =>
+    r.status === 'Pending Approval' &&
+    (currentUser?.role === 'Admin' || r.approverEmail?.toLowerCase() === currentUser?.email?.toLowerCase())
+  )
+  const pendingReviewRequests = bookingRequests.filter(r =>
+    ['Pending Review', 'Assigned', 'Approved', 'Rejected'].includes(r.status)
+  )
+  const pendingCount = pendingApprovalForUser.length + bookingRequests.filter(r => r.status === 'Pending Review').length
 
   function openReview(req: BookingRequest) {
     setReviewRequest(req)
@@ -361,11 +432,24 @@ export function JobOrdersPage() {
     setDeleteLoading(false)
   }
 
+  function openRejectModal(req: BookingRequest) {
+    setRejectTarget(req)
+    setRejectReason('')
+  }
+
   async function handleRejectRequest(req: BookingRequest) {
     const updated: BookingRequest = { ...req, status: 'Rejected' }
     await supabase.from('booking_requests').update({ status: 'Rejected' }).eq('id', updated.id)
     updateBookingRequest(updated)
     setReviewRequest(null)
+    setRejectTarget(null)
+    setRejectReason('')
+  }
+
+  async function handleApproveRequest(req: BookingRequest) {
+    const updated: BookingRequest = { ...req, status: 'Pending Review' }
+    await supabase.from('booking_requests').update({ status: 'Pending Review' }).eq('id', req.id)
+    updateBookingRequest(updated)
   }
 
   async function handleConvertToJO(req: BookingRequest) {
@@ -433,6 +517,26 @@ export function JobOrdersPage() {
     setTimeout(() => setLinkCopied(false), 2000)
   }
 
+  // Sort icon helper
+  function SortIcon({ col }: { col: SortCol }) {
+    if (sortCol !== col) return <ChevronUp size={11} className="opacity-20 inline ml-0.5" />
+    return sortDir === 'asc'
+      ? <ChevronUp size={11} className="inline ml-0.5 text-blue-500" />
+      : <ChevronDown size={11} className="inline ml-0.5 text-blue-500" />
+  }
+
+  const sortableHeaders: { label: string; col: SortCol | null }[] = [
+    { label: 'JO #', col: 'joNumber' },
+    { label: 'Project / Campaign', col: 'projectName' },
+    { label: 'Activity', col: 'activityType' },
+    { label: 'Team', col: 'requestingTeam' },
+    { label: 'Priority', col: 'priority' },
+    { label: 'Deadline', col: 'deadline' },
+    { label: 'Assigned', col: null },
+    { label: 'Status', col: 'status' },
+    { label: 'Actions', col: null },
+  ]
+
   return (
     <div className="space-y-5 max-w-7xl">
       {/* Page tab bar */}
@@ -448,7 +552,7 @@ export function JobOrdersPage() {
           <LayoutList size={15} />
           Job Orders
         </button>
-        {canSeeRequests && (
+        {(canSeeRequests || pendingApprovalForUser.length > 0) && (
           <button
             onClick={() => setPageTab('requests')}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all -mb-px ${
@@ -469,108 +573,102 @@ export function JobOrdersPage() {
       </div>
 
       {/* ── Requests Tab Panel ─────────────────────────────────── */}
-      {pageTab === 'requests' && canSeeRequests && (
+      {pageTab === 'requests' && (
         <div className="space-y-5">
-          {/* Public Booking Link card */}
-          <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl px-5 py-4">
-            <ClipboardList size={18} className="text-blue-500 dark:text-blue-400 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide mb-0.5">
-                Public Booking Link
-              </p>
-              <p className="text-sm font-mono text-blue-600 dark:text-blue-400 truncate">
-                {BOOKING_URL}
-              </p>
-            </div>
-            <button
-              onClick={handleCopyLink}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                linkCopied
-                  ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                  : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60'
-              }`}
-            >
-              {linkCopied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
-              {linkCopied ? 'Copied!' : 'Copy Link'}
-            </button>
-          </div>
-
-          {/* Summary bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {([
-              ['Total', bookingRequests.length, 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300'],
-              ['Pending Review', bookingRequests.filter(r => r.status === 'Pending Review').length, 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'],
-              ['Assigned', bookingRequests.filter(r => r.status === 'Assigned').length, 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'],
-              ['Approved', bookingRequests.filter(r => r.status === 'Approved').length, 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'],
-            ] as [string, number, string][]).map(([label, count, cls]) => (
-              <div key={label} className={`rounded-2xl px-4 py-3 ${cls}`}>
-                <p className="text-[11px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">{label}</p>
-                <p className="text-2xl font-black">{count}</p>
+          {/* Public Booking Link card — Admin/DAP only */}
+          {canSeeRequests && (
+            <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl px-5 py-4">
+              <ClipboardList size={18} className="text-blue-500 dark:text-blue-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide mb-0.5">
+                  Public Booking Link
+                </p>
+                <p className="text-sm font-mono text-blue-600 dark:text-blue-400 truncate">
+                  {BOOKING_URL}
+                </p>
               </div>
-            ))}
-          </div>
+              <button
+                onClick={handleCopyLink}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                  linkCopied
+                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60'
+                }`}
+              >
+                {linkCopied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
+                {linkCopied ? 'Copied!' : 'Copy Link'}
+              </button>
+            </div>
+          )}
 
-          {/* Request list */}
-          {bookingRequests.length === 0 ? (
+          {/* Summary bar — Admin/DAP only */}
+          {canSeeRequests && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {([
+                ['Total', bookingRequests.length, 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300'],
+                ['Pending Review', bookingRequests.filter(r => r.status === 'Pending Review').length, 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'],
+                ['Assigned', bookingRequests.filter(r => r.status === 'Assigned').length, 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'],
+                ['Approved', bookingRequests.filter(r => r.status === 'Approved').length, 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'],
+              ] as [string, number, string][]).map(([label, count, cls]) => (
+                <div key={label} className={`rounded-2xl px-4 py-3 ${cls}`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">{label}</p>
+                  <p className="text-2xl font-black">{count}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Section 1: Pending Your Approval ── */}
+          {pendingApprovalForUser.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-black">{pendingApprovalForUser.length}</span>
+                Pending Your Approval
+              </h3>
+              {pendingApprovalForUser.map((req) => (
+                <RequestCard
+                  key={req.id}
+                  req={req}
+                  canSeeRequests={canSeeRequests}
+                  onReview={() => openReview(req)}
+                  onDelete={() => { setDeleteTarget(req); setDeleteNote('') }}
+                  onApprove={() => handleApproveRequest(req)}
+                  showApproveButton
+                />
+              ))}
+            </div>
+          )}
+
+          {/* ── Section 2: Pending Review (Admin/DAP only) ── */}
+          {canSeeRequests && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                Pending Review
+              </h3>
+              {pendingReviewRequests.length === 0 ? (
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 py-12 text-center">
+                  <ClipboardList size={32} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">No requests pending review.</p>
+                </div>
+              ) : (
+                pendingReviewRequests.map((req) => (
+                  <RequestCard
+                    key={req.id}
+                    req={req}
+                    canSeeRequests={canSeeRequests}
+                    onReview={() => openReview(req)}
+                    onDelete={() => { setDeleteTarget(req); setDeleteNote('') }}
+                  />
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Show empty state if no sections visible */}
+          {pendingApprovalForUser.length === 0 && !canSeeRequests && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 py-16 text-center">
               <ClipboardList size={36} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-              <p className="text-slate-500 dark:text-slate-400 text-sm">No booking requests yet.</p>
-              <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Share the public link to start receiving requests.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {bookingRequests.map((req) => {
-                const statusStyles: Record<BookingRequestStatus, string> = {
-                  'Pending Review': 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
-                  'Assigned':       'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-                  'Approved':       'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
-                  'Rejected':       'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
-                }
-                return (
-                  <div key={req.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 shadow-sm">
-                    <div className="flex flex-wrap items-start gap-3">
-                      {/* Reference badge */}
-                      <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-lg font-semibold shrink-0">
-                        #{req.id.slice(0, 8).toUpperCase()}
-                      </span>
-                      <ActivityBadge type={req.activityType} />
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusStyles[req.status]}`}>
-                        {req.status}
-                      </span>
-                      <div className="ml-auto flex items-center gap-2">
-                        {req.status === 'Pending Review' ? (
-                          <Button size="sm" onClick={() => openReview(req)}>
-                            <Users size={13} /> Review &amp; Assign
-                          </Button>
-                        ) : (
-                          <Button size="sm" variant="secondary" onClick={() => openReview(req)}>
-                            View
-                          </Button>
-                        )}
-                        <button
-                          onClick={() => { setDeleteTarget(req); setDeleteNote('') }}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800 transition-colors"
-                          title="Remove request"
-                        >
-                          <Trash2 size={13} /> Remove
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Department:</span> {req.department || '—'}</span>
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Dept. Local:</span> {req.departmentLocal || '—'}</span>
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Prepared By:</span> {req.preparedBy}</span>
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Requestor Email:</span> {req.requestorEmail}</span>
-                      {req.projectName && <span className="sm:col-span-2"><span className="font-semibold text-slate-400 dark:text-slate-500">Project Name:</span> {req.projectName}</span>}
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Date Encoded:</span> {formatDate(req.encodedAt)}</span>
-                      <span><span className="font-semibold text-slate-400 dark:text-slate-500">Date Needed:</span> {formatDate(req.neededDate)}</span>
-                      {(req.startTime || req.endTime) && <span><span className="font-semibold text-slate-400 dark:text-slate-500">Time:</span> {req.startTime || '?'} – {req.endTime || '?'}</span>}
-                      <span className="sm:col-span-2"><span className="font-semibold text-slate-400 dark:text-slate-500">Venue / Location:</span> {req.venue || '—'}</span>
-                      {req.notes && <span className="sm:col-span-3"><span className="font-semibold text-slate-400 dark:text-slate-500">Additional Notes:</span> {req.notes}</span>}
-                    </div>
-                  </div>
-                )
-              })}
+              <p className="text-slate-500 dark:text-slate-400 text-sm">No requests require your approval.</p>
             </div>
           )}
 
@@ -621,6 +719,53 @@ export function JobOrdersPage() {
             </div>
           )}
 
+          {/* Reject Reason Modal */}
+          {rejectTarget && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setRejectTarget(null)} />
+              <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                    <X size={18} className="text-red-600 dark:text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Reject Request</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                      Please provide a reason for rejecting this request.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1.5">
+                    Reason <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={4}
+                    className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+                    placeholder="e.g. Incomplete information, outside scope, already handled…"
+                    value={rejectReason}
+                    onChange={e => setRejectReason(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setRejectTarget(null)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => { if (rejectReason.trim()) handleRejectRequest(rejectTarget) }}
+                    disabled={!rejectReason.trim()}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  >
+                    Confirm Rejection
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Review Modal */}
           <Modal
             open={!!reviewRequest}
@@ -649,9 +794,14 @@ export function JobOrdersPage() {
                     <InfoBox label="Requestor Email" value={reviewRequest.requestorEmail} />
                     {reviewRequest.projectName && <div className="col-span-2"><InfoBox label="Project Name" value={reviewRequest.projectName} /></div>}
                     <InfoBox label="Date Encoded" value={formatDate(reviewRequest.encodedAt)} />
-                    <InfoBox label="Date Needed" value={formatDate(reviewRequest.neededDate)} />
+                    <InfoBox label="Date Needed" value={`${formatDate(reviewRequest.neededDate)}${(reviewRequest as any).endDate ? ` – ${formatDate((reviewRequest as any).endDate)}` : ''}`} />
                     {(reviewRequest.startTime || reviewRequest.endTime) && (
                       <InfoBox label="Time" value={`${reviewRequest.startTime || '?'} – ${reviewRequest.endTime || '?'}`} />
+                    )}
+                    {(reviewRequest as any).approverName && (
+                      <div className="col-span-2">
+                        <InfoBox label="Approver" value={`${(reviewRequest as any).approverName} (${(reviewRequest as any).approverEmail})`} />
+                      </div>
                     )}
                     <div className="col-span-2">
                       <InfoBox label="Venue / Location" value={reviewRequest.venue || '—'} />
@@ -745,7 +895,7 @@ export function JobOrdersPage() {
                   <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                     <Button
                       variant="danger"
-                      onClick={() => handleRejectRequest(reviewRequest)}
+                      onClick={() => { setReviewRequest(null); openRejectModal(reviewRequest) }}
                     >
                       Reject
                     </Button>
@@ -831,9 +981,14 @@ export function JobOrdersPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
               <tr>
-                {['JO #', 'Project / Campaign', 'Activity', 'Team', 'Priority', 'Deadline', 'Assigned', 'Status', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                    {h}
+                {sortableHeaders.map(({ label, col }) => (
+                  <th
+                    key={label}
+                    className={`px-4 py-3 text-left text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide whitespace-nowrap ${col ? 'cursor-pointer select-none hover:text-slate-600 dark:hover:text-slate-300 transition-colors' : ''}`}
+                    onClick={col ? () => handleSortCol(col) : undefined}
+                  >
+                    {label}
+                    {col && <SortIcon col={col} />}
                   </th>
                 ))}
               </tr>
@@ -849,6 +1004,7 @@ export function JobOrdersPage() {
                 filtered.map((jo) => {
                   const overdue = isOverdue(jo.deadline) && jo.status !== 'Completed' && jo.status !== 'Cancelled'
                   const next = getNextStatus(jo.status)
+                  const isAssignedMember = currentUser?.resourceId ? jo.assignedMemberIds.includes(currentUser.resourceId) : false
                   return (
                     <tr
                       key={jo.id}
@@ -895,8 +1051,16 @@ export function JobOrdersPage() {
                       <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={jo.status} /></td>
                       <td className="px-4 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {canProgress && next && jo.status !== 'Delayed' && jo.status !== 'Cancelled' && (
-                            <Button size="sm" variant="secondary" onClick={() => handleStatusChange(jo, next)} className="text-xs">
+                          {/* Mark Complete button for assigned member when status is For Review */}
+                          {jo.status === 'For Review' && isAssignedMember && (
+                            <Button size="sm" onClick={() => handleStatusChangeWithConfirm(jo, 'Completed')} className="text-xs bg-emerald-600 hover:bg-emerald-700">
+                              <Check size={11} /> Mark Complete
+                            </Button>
+                          )}
+                          {/* Regular advance button (skip For Review → Completed for non-assigned members) */}
+                          {canProgress && next && jo.status !== 'Delayed' && jo.status !== 'Cancelled' &&
+                            !(jo.status === 'For Review' && next === 'Completed') && (
+                            <Button size="sm" variant="secondary" onClick={() => handleStatusChangeWithConfirm(jo, next)} className="text-xs">
                               → {next}
                             </Button>
                           )}
@@ -904,7 +1068,7 @@ export function JobOrdersPage() {
                             <Button size="sm" variant="danger" onClick={() => handleStatusChange(jo, 'Delayed')} className="text-xs">Delay</Button>
                           )}
                           {canApprove && jo.status !== 'Completed' && jo.status !== 'Cancelled' && (
-                            <Button size="sm" variant="danger" onClick={() => handleStatusChange(jo, 'Cancelled')} className="text-xs">Cancel</Button>
+                            <Button size="sm" variant="danger" onClick={() => handleStatusChangeWithConfirm(jo, 'Cancelled')} className="text-xs">Cancel</Button>
                           )}
                         </div>
                       </td>
@@ -916,6 +1080,59 @@ export function JobOrdersPage() {
           </table>
         </div>
       </div>
+
+      {/* ── Confirmation Modals ─────────────────────────────────── */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmAction(null)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                confirmAction.type === 'cancel'
+                  ? 'bg-red-100 dark:bg-red-900/30'
+                  : 'bg-blue-100 dark:bg-blue-900/30'
+              }`}>
+                {confirmAction.type === 'cancel'
+                  ? <Trash2 size={18} className="text-red-600 dark:text-red-400" />
+                  : <CheckCircle2 size={18} className="text-blue-600 dark:text-blue-400" />
+                }
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  {confirmAction.type === 'schedule' && 'Schedule Job Order?'}
+                  {confirmAction.type === 'cancel' && 'Cancel Job Order?'}
+                  {confirmAction.type === 'forReview' && 'Move to For Review?'}
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  {confirmAction.type === 'schedule' && `Are you sure you want to schedule this JO? (${confirmAction.jo.joNumber})`}
+                  {confirmAction.type === 'cancel' && `Are you sure you want to cancel ${confirmAction.jo.joNumber}? This cannot be undone.`}
+                  {confirmAction.type === 'forReview' && 'Please confirm you have aligned this with the requestor before proceeding.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={handleConfirmAction}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${
+                  confirmAction.type === 'cancel'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {confirmAction.type === 'schedule' && 'Yes, Schedule'}
+                {confirmAction.type === 'cancel' && 'Yes, Cancel'}
+                {confirmAction.type === 'forReview' && 'Yes, Proceed'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── JO Detail Modal ─────────────────────────────────────── */}
       <Modal
@@ -1098,8 +1315,15 @@ export function JobOrdersPage() {
                   )}
                   {canProgress && selectedJO.status !== 'Completed' && selectedJO.status !== 'Cancelled' && (
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
-                      {getNextStatus(selectedJO.status) && selectedJO.status !== 'Delayed' && (
-                        <Button onClick={() => handleStatusChange(selectedJO, getNextStatus(selectedJO.status)!)}>
+                      {/* Mark Complete for assigned member when For Review */}
+                      {selectedJO.status === 'For Review' && currentUser?.resourceId && selectedJO.assignedMemberIds.includes(currentUser.resourceId) && (
+                        <Button onClick={() => { handleStatusChange(selectedJO, 'Completed'); setSelectedJO(null) }} className="bg-emerald-600 hover:bg-emerald-700">
+                          <Check size={14} /> Mark as Complete
+                        </Button>
+                      )}
+                      {getNextStatus(selectedJO.status) && selectedJO.status !== 'Delayed' &&
+                        !(selectedJO.status === 'For Review' && getNextStatus(selectedJO.status) === 'Completed') && (
+                        <Button onClick={() => handleStatusChangeWithConfirm(selectedJO, getNextStatus(selectedJO.status)!)}>
                           Move to {getNextStatus(selectedJO.status)} <ChevronRight size={14} />
                         </Button>
                       )}
@@ -1107,7 +1331,7 @@ export function JobOrdersPage() {
                         <Button variant="danger" onClick={() => handleStatusChange(selectedJO, 'Delayed')}>Mark Delayed</Button>
                       )}
                       {canApprove && (
-                        <Button variant="danger" onClick={() => handleStatusChange(selectedJO, 'Cancelled')}>Cancel JO</Button>
+                        <Button variant="danger" onClick={() => handleStatusChangeWithConfirm(selectedJO, 'Cancelled')}>Cancel JO</Button>
                       )}
                     </div>
                   )}
@@ -1129,7 +1353,7 @@ export function JobOrdersPage() {
                     <div className="space-y-3">
                       {joLogs.map(log => (
                         <div key={log.id} className="flex gap-3 relative">
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 z-10 ring-2 ring-white dark:ring-slate-800 ${STATUS_COLORS[log.toStatus as JOStatus]}`}>
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 z-10 ring-2 ring-white dark:ring-slate-800 ${STATUS_COLORS[log.toStatus as JOStatus] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
                             {log.toStatus.slice(0, 2).toUpperCase()}
                           </div>
                           <div className="flex-1 bg-slate-50 dark:bg-slate-700/40 rounded-xl px-4 py-3 mt-0.5">
@@ -1321,6 +1545,89 @@ export function JobOrdersPage() {
   )
 }
 
+// ── Request Card Component ─────────────────────────────────────────────────
+interface RequestCardProps {
+  req: BookingRequest
+  canSeeRequests: boolean
+  onReview: () => void
+  onDelete: () => void
+  onApprove?: () => void
+  showApproveButton?: boolean
+}
+
+function RequestCard({ req, canSeeRequests, onReview, onDelete, onApprove, showApproveButton }: RequestCardProps) {
+  const statusStyles: Record<BookingRequestStatus, string> = {
+    'Pending Approval': 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
+    'Pending Review': 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
+    'Assigned':       'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+    'Approved':       'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
+    'Rejected':       'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
+  }
+  const reqAny = req as any
+  return (
+    <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 shadow-sm">
+      <div className="flex flex-wrap items-start gap-3">
+        <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-lg font-semibold shrink-0">
+          #{req.id.slice(0, 8).toUpperCase()}
+        </span>
+        <ActivityBadge type={req.activityType} />
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusStyles[req.status] ?? 'bg-slate-100 text-slate-600'}`}>
+          {req.status}
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          {showApproveButton && onApprove && (
+            <button
+              onClick={onApprove}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+            >
+              <CheckCircle2 size={13} /> Approve
+            </button>
+          )}
+          {canSeeRequests && (req.status === 'Pending Review' ? (
+            <Button size="sm" onClick={onReview}>
+              <Users size={13} /> Review &amp; Assign
+            </Button>
+          ) : (
+            <Button size="sm" variant="secondary" onClick={onReview}>
+              View
+            </Button>
+          ))}
+          {canSeeRequests && (
+            <button
+              onClick={onDelete}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800 transition-colors"
+              title="Remove request"
+            >
+              <Trash2 size={13} /> Remove
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+        <span><span className="font-semibold text-slate-400 dark:text-slate-500">Department:</span> {req.department || '—'}</span>
+        <span><span className="font-semibold text-slate-400 dark:text-slate-500">Dept. Local:</span> {req.departmentLocal || '—'}</span>
+        <span><span className="font-semibold text-slate-400 dark:text-slate-500">Prepared By:</span> {req.preparedBy}</span>
+        <span><span className="font-semibold text-slate-400 dark:text-slate-500">Requestor Email:</span> {req.requestorEmail}</span>
+        {req.projectName && <span className="sm:col-span-2"><span className="font-semibold text-slate-400 dark:text-slate-500">Project Name:</span> {req.projectName}</span>}
+        <span><span className="font-semibold text-slate-400 dark:text-slate-500">Date Encoded:</span> {formatDate(req.encodedAt)}</span>
+        <span>
+          <span className="font-semibold text-slate-400 dark:text-slate-500">Date Needed:</span>{' '}
+          {formatDate(req.neededDate)}{reqAny.endDate ? ` – ${formatDate(reqAny.endDate)}` : ''}
+        </span>
+        {(req.startTime || req.endTime) && <span><span className="font-semibold text-slate-400 dark:text-slate-500">Time:</span> {req.startTime || '?'} – {req.endTime || '?'}</span>}
+        <span className="sm:col-span-2"><span className="font-semibold text-slate-400 dark:text-slate-500">Venue / Location:</span> {req.venue || '—'}</span>
+        {reqAny.approverName && (
+          <span className="sm:col-span-3">
+            <span className="font-semibold text-slate-400 dark:text-slate-500">Approver:</span>{' '}
+            {reqAny.approverName} ({reqAny.approverEmail})
+          </span>
+        )}
+        {req.notes && <span className="sm:col-span-3"><span className="font-semibold text-slate-400 dark:text-slate-500">Additional Notes:</span> {req.notes}</span>}
+      </div>
+    </div>
+  )
+}
+
 function InfoBox({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
@@ -1329,4 +1636,3 @@ function InfoBox({ label, value, highlight }: { label: string; value: string; hi
     </div>
   )
 }
-

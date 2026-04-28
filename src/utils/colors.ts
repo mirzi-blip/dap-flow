@@ -32,7 +32,7 @@ export const statusColors: Record<JOStatus, { bg: string; text: string; ring: st
   Pending:      { bg: 'bg-amber-50',   text: 'text-amber-700',  ring: 'ring-amber-200',  glow: '#F59E0B' },
   Approved:     { bg: 'bg-sky-50',     text: 'text-sky-700',    ring: 'ring-sky-200',    glow: '#0EA5E9' },
   Scheduled:    { bg: 'bg-indigo-50',  text: 'text-indigo-700', ring: 'ring-indigo-200', glow: '#6366F1' },
-  'In Progress':{ bg: 'bg-blue-50',  text: 'text-blue-700', ring: 'ring-blue-200', glow: '#8B5CF6' },
+
   'For Review': { bg: 'bg-orange-50',  text: 'text-orange-700', ring: 'ring-orange-200', glow: '#F97316' },
   Completed:    { bg: 'bg-emerald-50', text: 'text-emerald-700',ring: 'ring-emerald-200',glow: '#10B981' },
   Delayed:      { bg: 'bg-red-50',     text: 'text-red-700',    ring: 'ring-red-200',    glow: '#EF4444' },

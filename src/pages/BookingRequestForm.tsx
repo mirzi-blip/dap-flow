@@ -22,8 +22,11 @@ interface FormState {
   departmentLocal: string
   requestorEmail: string
   preparedBy: string
+  approverName: string
+  approverEmail: string
   projectName: string
   neededDate: string
+  endDate: string
   startTime: string
   endTime: string
   venue: string
@@ -32,8 +35,9 @@ interface FormState {
 
 const EMPTY: FormState = {
   activityType: '', department: '', departmentOther: '', departmentLocal: '',
-  requestorEmail: '', preparedBy: '', projectName: '',
-  neededDate: '', startTime: '', endTime: '', venue: '', notes: '',
+  requestorEmail: '', preparedBy: '', approverName: '', approverEmail: '',
+  projectName: '', neededDate: '', endDate: '', startTime: '', endTime: '',
+  venue: '', notes: '',
 }
 
 const SERVICE_ICONS: Record<string, string> = {
@@ -75,20 +79,28 @@ export function BookingRequestForm() {
   const [page, setPage] = useState<1 | 2>(1)
   const [form, setForm] = useState<FormState>(EMPTY)
   const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState<{ refId: string; email: string; activity: string } | null>(null)
+  const [submitted, setSubmitted] = useState<{ refId: string; email: string; activity: string; approverName: string } | null>(null)
 
   const today = new Date().toLocaleDateString('en-PH', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 
   const effectiveDepartment = form.department === 'Other' ? form.departmentOther.trim() : form.department
+  const todayIso = new Date().toISOString().split('T')[0]
 
   const isPage2Valid =
     form.department !== '' &&
     (form.department !== 'Other' || form.departmentOther.trim() !== '') &&
-    form.departmentLocal.trim() !== '' && form.requestorEmail.trim() !== '' &&
-    form.preparedBy.trim() !== '' && form.projectName.trim() !== '' &&
-    form.neededDate !== '' && form.startTime !== '' && form.endTime !== '' &&
+    form.departmentLocal.trim() !== '' &&
+    form.requestorEmail.trim() !== '' &&
+    form.preparedBy.trim() !== '' &&
+    form.approverName.trim() !== '' &&
+    form.approverEmail.trim() !== '' &&
+    form.projectName.trim() !== '' &&
+    form.neededDate !== '' &&
+    form.endDate !== '' &&
+    form.startTime !== '' &&
+    form.endTime !== '' &&
     form.venue.trim() !== ''
 
   function field<K extends keyof FormState>(key: K) {
@@ -116,20 +128,48 @@ export function BookingRequestForm() {
         departmentLocal: form.departmentLocal.trim(),
         requestorEmail: form.requestorEmail.trim(),
         preparedBy: form.preparedBy.trim(),
+        approverName: form.approverName.trim(),
+        approverEmail: form.approverEmail.trim(),
         projectName: form.projectName.trim(),
         encodedAt: now,
         neededDate: form.neededDate,
+        endDate: form.endDate,
         startTime: form.startTime,
         endTime: form.endTime,
         venue: form.venue.trim(),
         notes: form.notes.trim(),
-        status: 'Pending Review',
+        status: 'Pending Approval',
         assignedMemberIds: [],
         createdAt: now,
       }
       const { error } = await supabase.from('booking_requests').insert(requestToRow(req))
       if (error) throw error
-      setSubmitted({ refId: id.slice(0, 8).toUpperCase(), email: form.requestorEmail.trim(), activity: form.activityType })
+
+      // Notify approver by email
+      fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approvalRequest: true,
+          approverEmail: form.approverEmail.trim(),
+          approverName: form.approverName.trim(),
+          preparedBy: form.preparedBy.trim(),
+          activityType: form.activityType,
+          projectName: form.projectName.trim(),
+          department: effectiveDepartment,
+          neededDate: form.neededDate,
+          endDate: form.endDate,
+          venue: form.venue.trim(),
+          refId: id.slice(0, 8).toUpperCase(),
+        }),
+      }).catch(console.error)
+
+      setSubmitted({
+        refId: id.slice(0, 8).toUpperCase(),
+        email: form.requestorEmail.trim(),
+        activity: form.activityType,
+        approverName: form.approverName.trim(),
+      })
     } catch (err) {
       console.error(err)
     } finally {
@@ -151,11 +191,17 @@ export function BookingRequestForm() {
             </div>
             <p className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-1">Successfully Submitted</p>
             <h2 className="text-2xl font-black text-slate-900 mb-1">Booking Request Received</h2>
-            <p className="text-slate-500 text-sm mb-6">Your request has been forwarded to the D&amp;AP team for review.</p>
-            <div className="bg-slate-50 rounded-2xl p-4 mb-6 border border-slate-100">
+            <p className="text-slate-500 text-sm mb-6">Your request has been sent to <span className="font-semibold text-slate-700">{submitted.approverName}</span> for approval.</p>
+            <div className="bg-slate-50 rounded-2xl p-4 mb-4 border border-slate-100">
               <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-2">Reference Number</p>
               <p className="font-mono font-black text-2xl text-blue-700 tracking-widest">{submitted.refId}</p>
               <p className="text-xs text-slate-400 mt-1">Save this for tracking your request</p>
+            </div>
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-6 text-left">
+              <p className="text-xs font-semibold text-amber-700">Next Step</p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                An approval request has been sent to <span className="font-semibold">{submitted.approverName}</span>. Once approved, the DAP team will be notified to proceed.
+              </p>
             </div>
             <div className="text-left space-y-2 mb-8">
               <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -163,8 +209,7 @@ export function BookingRequestForm() {
                 <span className="font-semibold">{submitted.activity}</span>
               </div>
               <p className="text-xs text-slate-500 pl-8">
-                A confirmation and status updates will be sent to{' '}
-                <span className="font-semibold text-slate-700">{submitted.email}</span>
+                Status updates will be sent to <span className="font-semibold text-slate-700">{submitted.email}</span>
               </p>
             </div>
             <button
@@ -180,13 +225,11 @@ export function BookingRequestForm() {
     )
   }
 
-  // ── Page 1: Service Type Selection ──────────────────────────────────────────
+  // ── Page 1: Service Type ────────────────────────────────────────────────────
   if (page === 1) {
     return (
       <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(160deg,#0f4c81 0%,#1a6fb5 60%,#2389d7 100%)' }}>
         <Header />
-
-        {/* Step indicator */}
         <div className="flex items-center justify-center gap-3 pt-6 pb-2">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-full bg-white text-blue-800 text-xs font-black flex items-center justify-center shadow">1</div>
@@ -198,50 +241,31 @@ export function BookingRequestForm() {
             <span className="text-white/50 text-xs font-semibold">Fill Details</span>
           </div>
         </div>
-
-        {/* Hero */}
         <div className="px-6 sm:px-10 py-6 text-center">
           <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">What service do you need?</h1>
-          <p className="text-blue-200 text-sm max-w-md mx-auto">
-            Choose the type of production service you'd like to book from the D&amp;AP team.
-          </p>
+          <p className="text-blue-200 text-sm max-w-md mx-auto">Click a service to continue to the booking form.</p>
         </div>
-
-        {/* Service cards */}
         <div className="flex-1 px-6 sm:px-10 pb-10">
           <div className="max-w-2xl mx-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
               {ACTIVITY_TYPES.map(type => (
                 <button
                   key={type}
                   type="button"
                   onClick={() => { setForm(prev => ({ ...prev, activityType: type })); setPage(2) }}
-                  className={`flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
-                    form.activityType === type
-                      ? 'bg-white border-white shadow-xl'
-                      : 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:border-white/40'
-                  }`}
+                  className="flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all bg-white/10 border-white/20 text-white hover:bg-white/20 hover:border-white/40 hover:scale-[1.02]"
                 >
                   <span className="text-3xl shrink-0">{SERVICE_ICONS[type]}</span>
                   <div>
-                    <p className={`text-sm font-bold leading-tight ${form.activityType === type ? 'text-blue-900' : 'text-white'}`}>{type}</p>
-                    <p className={`text-xs mt-0.5 leading-snug ${form.activityType === type ? 'text-blue-600' : 'text-white/60'}`}>{SERVICE_DESC[type]}</p>
+                    <p className="text-sm font-bold leading-tight">{type}</p>
+                    <p className="text-xs mt-0.5 leading-snug text-white/60">{SERVICE_DESC[type]}</p>
                   </div>
-                  {form.activityType === type && (
-                    <div className="ml-auto w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
                 </button>
               ))}
             </div>
-
             <p className="text-center text-blue-200/60 text-xs">Click a service to continue</p>
           </div>
         </div>
-
         <div className="text-center py-4 border-t border-white/10">
           <p className="text-blue-300 text-xs">Digital &amp; Arts Production (DAP) · Booking &amp; Workload Management App · {new Date().getFullYear()}</p>
         </div>
@@ -249,12 +273,11 @@ export function BookingRequestForm() {
     )
   }
 
-  // ── Page 2: Details Form ────────────────────────────────────────────────────
+  // ── Page 2: Details ─────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(160deg,#0f4c81 0%,#1a6fb5 60%,#2389d7 100%)' }}>
       <Header />
 
-      {/* Step indicator */}
       <div className="flex items-center justify-center gap-3 pt-6 pb-2">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-white/30 text-white text-xs font-black flex items-center justify-center">
@@ -271,14 +294,9 @@ export function BookingRequestForm() {
         </div>
       </div>
 
-      {/* Selected service pill + back */}
       <div className="px-6 sm:px-10 pt-5 pb-2">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setPage(1)}
-            className="flex items-center gap-1.5 text-blue-200 hover:text-white text-xs font-semibold transition-colors"
-          >
+          <button type="button" onClick={() => setPage(1)} className="flex items-center gap-1.5 text-blue-200 hover:text-white text-xs font-semibold transition-colors">
             <ArrowLeft size={14} /> Back
           </button>
           <div className="flex items-center gap-2 bg-white/15 border border-white/25 rounded-xl px-3 py-1.5">
@@ -289,12 +307,21 @@ export function BookingRequestForm() {
         </div>
       </div>
 
-      {/* Form card */}
       <div className="flex-1 px-6 sm:px-10 pb-10 pt-3">
         <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden">
           <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg,#0f4c81,#2389d7,#10b981)' }} />
 
           <form onSubmit={handleSubmit} className="p-7 space-y-5">
+
+            {/* Date Encoded (top, read-only) */}
+            <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Date Encoded</p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+            </div>
 
             {/* Project name */}
             <div>
@@ -383,24 +410,69 @@ export function BookingRequestForm() {
               </div>
             </div>
 
-            {/* Date encoded + needed date */}
+            {/* Approver */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">Date Encoded</label>
-                <div className="w-full border border-slate-100 bg-slate-50 rounded-xl px-3 py-2.5 text-sm text-slate-500 font-medium">
-                  {new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
-                </div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                  Approver Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                  placeholder="Manager / supervisor name"
+                  value={form.approverName}
+                  onChange={field('approverName')}
+                  required
+                />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
-                  Date Needed <span className="text-red-500">*</span>
+                  Approver Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                  placeholder="manager@company.com"
+                  value={form.approverEmail}
+                  onChange={field('approverEmail')}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Approver note */}
+            <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+              <span className="text-blue-500 text-sm mt-0.5">ℹ️</span>
+              <p className="text-xs text-blue-700 leading-relaxed">
+                Your request will first be sent to <span className="font-semibold">{form.approverName || 'your approver'}</span> for confirmation before the DAP team proceeds.
+              </p>
+            </div>
+
+            {/* Start date + End date */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                  Start Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   value={form.neededDate}
                   onChange={field('neededDate')}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={todayIso}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                  End Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  value={form.endDate}
+                  onChange={field('endDate')}
+                  min={form.neededDate || todayIso}
                   required
                 />
               </div>
@@ -463,15 +535,6 @@ export function BookingRequestForm() {
               />
             </div>
 
-            {/* Availability note */}
-            <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-              <span className="text-amber-500 text-base mt-0.5">ℹ️</span>
-              <p className="text-xs text-amber-700 leading-relaxed">
-                Team availability is reviewed by the D&amp;AP admin before assignment.
-                You'll receive an email notification at each stage of your request.
-              </p>
-            </div>
-
             {/* Submit */}
             <button
               type="submit"
@@ -488,12 +551,12 @@ export function BookingRequestForm() {
                   Submitting Request…
                 </>
               ) : (
-                'Submit Booking Request →'
+                'Submit for Approval →'
               )}
             </button>
 
             <p className="text-center text-xs text-slate-400">
-              By submitting, your request will be reviewed by the D&amp;AP admin team.
+              Your request will be sent to your approver first before the DAP team is notified.
             </p>
           </form>
         </div>

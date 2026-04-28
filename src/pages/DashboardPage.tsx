@@ -1,4 +1,4 @@
-﻿import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -6,9 +6,10 @@ import {
 import {
   AlertTriangle, CheckCircle2, Clock, Zap, ArrowRight,
   Plus, ClipboardList, Camera, Video, Mic, Palette, Scissors, Headphones,
-  CalendarClock, TrendingUp, ArrowUpRight, Ban,
+  CalendarClock, TrendingUp, ArrowUpRight, Ban, RefreshCw,
 } from 'lucide-react'
 import { useAppStore, useDataStore } from '../store/useAppStore'
+import { supabase, rowToJobOrder } from '../lib/supabase'
 import { activityCalendarColors, teamColors } from '../utils/colors'
 import type { JOStatus, ActivityType } from '../types'
 
@@ -18,7 +19,6 @@ const statusBadge: Record<JOStatus, string> = {
   'Pending':     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   'Approved':    'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
   'Scheduled':   'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
-  'In Progress': 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
   'For Review':  'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
   'Completed':   'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
   'Delayed':     'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400',
@@ -39,24 +39,38 @@ export function DashboardPage() {
   const { jobOrders, calendarEvents, bookingRequests } = useDataStore()
   const isDark = theme === 'dark'
 
+  const now = new Date()
+  const [fromMonth, setFromMonth] = useState(now.getMonth())
+  const [fromYear, setFromYear] = useState(now.getFullYear())
+  const [toMonth, setToMonth] = useState(now.getMonth())
+  const [toYear, setToYear] = useState(now.getFullYear())
+  const [refreshing, setRefreshing] = useState(false)
+
+  const filteredJOs = useMemo(() => {
+    const from = new Date(fromYear, fromMonth, 1)
+    const to = new Date(toYear, toMonth + 1, 0, 23, 59, 59)
+    return jobOrders.filter(j => {
+      const d = new Date(j.createdAt)
+      return d >= from && d <= to
+    })
+  }, [jobOrders, fromMonth, fromYear, toMonth, toYear])
+
   // KPI counts
-  const totalJOs      = jobOrders.length
-  const activeJOs     = jobOrders.filter(j => !['Completed','Cancelled','Delayed'].includes(j.status)).length
-  const pendingJOs    = jobOrders.filter(j => j.status === 'Pending').length
-  const approvedJOs   = jobOrders.filter(j => j.status === 'Approved').length
-  const scheduledJOs  = jobOrders.filter(j => j.status === 'Scheduled').length
-  const inProgressJOs = jobOrders.filter(j => j.status === 'In Progress').length
-  const forReviewJOs  = jobOrders.filter(j => j.status === 'For Review').length
-  const completedJOs  = jobOrders.filter(j => j.status === 'Completed').length
-  const delayedJOs    = jobOrders.filter(j => j.status === 'Delayed').length
-  const cancelledJOs  = jobOrders.filter(j => j.status === 'Cancelled').length
+  const totalJOs      = filteredJOs.length
+  const activeJOs     = filteredJOs.filter(j => !['Completed','Cancelled','Delayed'].includes(j.status)).length
+  const pendingJOs    = filteredJOs.filter(j => j.status === 'Pending').length
+  const approvedJOs   = filteredJOs.filter(j => j.status === 'Approved').length
+  const scheduledJOs  = filteredJOs.filter(j => j.status === 'Scheduled').length
+  const forReviewJOs  = filteredJOs.filter(j => j.status === 'For Review').length
+  const completedJOs  = filteredJOs.filter(j => j.status === 'Completed').length
+  const delayedJOs    = filteredJOs.filter(j => j.status === 'Delayed').length
+  const cancelledJOs  = filteredJOs.filter(j => j.status === 'Cancelled').length
 
   // Status breakdown config
   const STATUS_BREAKDOWN = [
     { label: 'Pending',     count: pendingJOs,    color: '#F59E0B' },
     { label: 'Approved',    count: approvedJOs,   color: '#3B82F6' },
     { label: 'Scheduled',   count: scheduledJOs,  color: '#6366F1' },
-    { label: 'In Progress', count: inProgressJOs, color: '#8B5CF6' },
     { label: 'For Review',  count: forReviewJOs,  color: '#F97316' },
     { label: 'Completed',   count: completedJOs,  color: '#10B981' },
     { label: 'Delayed',     count: delayedJOs,    color: '#EF4444' },
@@ -68,13 +82,13 @@ export function DashboardPage() {
     const teams = ['Photo', 'Video', 'Audio', 'Design'] as const
     return teams.map(team => {
       const members = resources.filter(r => r.team === team)
-      const totalActive = jobOrders.filter(j =>
+      const totalActive = filteredJOs.filter(j =>
         !['Completed','Cancelled','Delayed'].includes(j.status) &&
         members.some(m => j.assignedMemberIds.includes(m.id))
       ).length
       const avgUtil = members.length
         ? Math.round(members.reduce((acc, r) => {
-            const active = jobOrders.filter(jo =>
+            const active = filteredJOs.filter(jo =>
               jo.assignedMemberIds.includes(r.id) &&
               !['Completed','Delayed','Cancelled'].includes(jo.status)
             ).length
@@ -84,7 +98,7 @@ export function DashboardPage() {
       const color = teamColors[team]
       return { team, util: avgUtil, totalActive, members: members.length, color }
     })
-  }, [jobOrders])
+  }, [filteredJOs])
 
   // Today's schedule snapshot (per wireframe ROW 3)
   const todaySchedule = useMemo(() => {
@@ -110,23 +124,23 @@ export function DashboardPage() {
 
   // Alerts (per wireframe ROW 4)
   const overbookedTeams = teamWorkload.filter(t => t.util > 90)
-  const nearDeadline = jobOrders.filter(j => {
+  const nearDeadline = filteredJOs.filter(j => {
     if (['Completed','Cancelled'].includes(j.status)) return false
     const d = Math.ceil((new Date(j.deadline).getTime() - Date.now()) / 86400_000)
     return d >= 0 && d <= 5
   }).length
 
   // Recent JOs
-  const recentJOs = useMemo(() => jobOrders.slice(0, 6), [jobOrders])
+  const recentJOs = useMemo(() => filteredJOs.slice(0, 6), [filteredJOs])
 
   // Donut data
   const activityMix = useMemo(() => {
     const map: Record<string, number> = {}
-    jobOrders.filter(j => !['Cancelled'].includes(j.status)).forEach(j => {
+    filteredJOs.filter(j => !['Cancelled'].includes(j.status)).forEach(j => {
       map[j.activityType] = (map[j.activityType] || 0) + 1
     })
     return Object.entries(map).map(([name, value]) => ({ name, value }))
-  }, [jobOrders])
+  }, [filteredJOs])
 
   const PIE_COLORS = ['#7C3AED','#EC4899','#F97316','#10B981','#3B82F6','#F59E0B']
 
@@ -137,8 +151,45 @@ export function DashboardPage() {
     color: isDark ? '#f1f5f9' : '#0f172a',
   }
 
+  async function handleRefresh() {
+    setRefreshing(true)
+    try {
+      const { data } = await supabase.from('job_orders').select('*').order('created_at', { ascending: false })
+      if (data) useDataStore.getState().setJobOrders(data.map(rowToJobOrder))
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   return (
     <div className="space-y-4 lg:space-y-5 max-w-[1400px]">
+
+      {/* Date range filter + refresh */}
+      <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 rounded-2xl px-5 py-3 shadow-sm border border-slate-100 dark:border-slate-700">
+        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Filter Period</span>
+        <div className="flex items-center gap-2">
+          <select value={fromMonth} onChange={e => setFromMonth(Number(e.target.value))} className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+          </select>
+          <select value={fromYear} onChange={e => setFromYear(Number(e.target.value))} className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <span className="text-xs text-slate-400">to</span>
+        <div className="flex items-center gap-2">
+          <select value={toMonth} onChange={e => setToMonth(Number(e.target.value))} className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+          </select>
+          <select value={toYear} onChange={e => setToYear(Number(e.target.value))} className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white transition-colors ml-auto">
+          <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+          {refreshing ? 'Refreshing…' : 'Refresh'}
+        </button>
+        <p className="text-xs text-slate-400 dark:text-slate-500 w-full">Showing <span className="font-semibold text-slate-700 dark:text-slate-300">{filteredJOs.length}</span> job orders in this period</p>
+      </div>
 
       {/* Page heading + actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -474,10 +525,9 @@ export function DashboardPage() {
             { step: 1, label: 'Request\nSubmitted',  count: bookingRequests.length,                                                    color: '#7C3AED', phase: 'Discern' },
             { step: 2, label: 'Pending\nReview',     count: bookingRequests.filter(r => r.status === 'Pending Review').length,         color: '#6366F1', phase: 'Discern' },
             { step: 3, label: 'Members\nAssigned',   count: bookingRequests.filter(r => r.status === 'Assigned').length,               color: '#3B82F6', phase: 'Decide' },
-            { step: 4, label: 'JO\nScheduled',       count: scheduledJOs,                                                              color: '#0EA5E9', phase: 'Delegate' },
-            { step: 5, label: 'In\nProgress',        count: inProgressJOs,                                                             color: '#10B981', phase: 'Delegate' },
-            { step: 6, label: 'For\nReview',         count: forReviewJOs,                                                              color: '#F97316', phase: 'Deliver' },
-            { step: 7, label: 'Completed\n& Closed', count: completedJOs,                                                              color: '#10B981', phase: 'Deliver' },
+            { step: 4, label: 'JO\nScheduled',       count: scheduledJOs,  color: '#0EA5E9', phase: 'Delegate' },
+            { step: 5, label: 'For\nReview',         count: forReviewJOs,  color: '#F97316', phase: 'Deliver' },
+            { step: 6, label: 'Completed\n& Closed', count: completedJOs,  color: '#10B981', phase: 'Deliver' },
           ]).map((s, i, arr) => (
             <div key={s.step} className="flex items-center gap-1 flex-1 min-w-[90px]">
               <div className="flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
@@ -558,7 +608,7 @@ export function DashboardPage() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <p className="text-xl font-black text-slate-900 dark:text-slate-100">{inProgressJOs}</p>
+                <p className="text-xl font-black text-slate-900 dark:text-slate-100">{activeJOs}</p>
                 <p className="text-[9px] text-slate-400 dark:text-slate-500 font-semibold">Active</p>
               </div>
             </div>
@@ -577,4 +627,3 @@ export function DashboardPage() {
     </div>
   )
 }
-

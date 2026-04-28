@@ -25,7 +25,6 @@ export type JOStatus =
   | 'Pending'
   | 'Approved'
   | 'Scheduled'
-  | 'In Progress'
   | 'For Review'
   | 'Completed'
   | 'Delayed'
@@ -139,7 +138,7 @@ export interface SyncQueueItem {
   synced: boolean
 }
 
-export type BookingRequestStatus = 'Pending Review' | 'Assigned' | 'Approved' | 'Rejected'
+export type BookingRequestStatus = 'Pending Approval' | 'Pending Review' | 'Assigned' | 'Approved' | 'Rejected'
 
 export interface BookingRequest {
   id: string
@@ -148,8 +147,11 @@ export interface BookingRequest {
   departmentLocal: string
   requestorEmail: string
   preparedBy: string
+  approverName: string
+  approverEmail: string
   encodedAt: string
   neededDate: string
+  endDate?: string
   startTime: string
   endTime: string
   projectName: string

@@ -1,10 +1,21 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AppUser, JobOrder, CalendarEvent, Notification, StatusLog, Resource, ManagedUser, BookingRequest } from '../types'
+import type { AppUser, JobOrder, CalendarEvent, Notification, StatusLog, Resource, ManagedUser, BookingRequest, Approver, BookingDepartment } from '../types'
 import { USERS, RESOURCES } from '../data/seed'
-import { supabase, rowToManagedUser, managedUserToRow } from '../lib/supabase'
+import { supabase, rowToManagedUser, managedUserToRow, rowToApprover, approverToRow, rowToDepartment, departmentToRow } from '../lib/supabase'
+import { DEFAULT_PERMISSIONS, type RolePermissions, type PermissionKey } from '../data/permissions'
+import type { UserRole } from '../types'
 
 export type View = 'dashboard' | 'calendar' | 'joborders' | 'kanban' | 'workload' | 'reports' | 'settings'
+
+const DEFAULT_DEPARTMENTS: BookingDepartment[] = [
+  { id: 'dept_bmg',   name: 'BMG',   isDefault: true, createdAt: new Date(0).toISOString() },
+  { id: 'dept_mod',   name: 'MOD',   isDefault: true, createdAt: new Date(0).toISOString() },
+  { id: 'dept_mto',   name: 'MTO',   isDefault: true, createdAt: new Date(0).toISOString() },
+  { id: 'dept_cbe',   name: 'CBE',   isDefault: true, createdAt: new Date(0).toISOString() },
+  { id: 'dept_sales', name: 'Sales', isDefault: true, createdAt: new Date(0).toISOString() },
+  { id: 'dept_hr',    name: 'HR',    isDefault: true, createdAt: new Date(0).toISOString() },
+]
 
 interface AppState {
   currentUser: AppUser | null
@@ -36,6 +47,30 @@ interface AppState {
   addResource: (r: Resource) => void
   requestAlert: BookingRequest | null
   setRequestAlert: (req: BookingRequest | null) => void
+
+  // Approvers
+  approvers: Approver[]
+  addApprover: (a: Approver) => void
+  updateApprover: (a: Approver) => void
+  removeApprover: (id: string) => void
+  initApprovers: () => Promise<void>
+
+  // Booking Departments
+  departments: BookingDepartment[]
+  addDepartment: (d: BookingDepartment) => void
+  updateDepartment: (d: BookingDepartment) => void
+  removeDepartment: (id: string) => void
+  initDepartments: () => Promise<void>
+
+  // RBAC
+  rolePermissions: RolePermissions
+  updateRolePermissions: (role: UserRole, perms: PermissionKey[]) => void
+  resetRolePermissions: (role: UserRole) => void
+
+  showPasswordExpiry: boolean
+  setShowPasswordExpiry: (v: boolean) => void
+  passwordLastChanged: Record<string, string>
+  setPasswordLastChanged: (userId: string, date: string) => void
 }
 
 function seedManagedUsers(): ManagedUser[] {
@@ -58,19 +93,20 @@ export const useAppStore = create<AppState>()(
       theme: 'light',
       globalSearch: '',
       requestAlert: null,
+      showPasswordExpiry: false,
+      passwordLastChanged: {},
+      rolePermissions: DEFAULT_PERMISSIONS,
+      approvers: [],
+      departments: DEFAULT_DEPARTMENTS,
 
       async login(email, password) {
-        // Try Supabase first (cross-browser source of truth)
+        // Try Supabase first — uses server-side RPC so password is never exposed in transit
         try {
           const { data } = await supabase
-            .from('app_users')
-            .select('*')
-            .eq('email', email.toLowerCase())
-            .single()
+            .rpc('check_login', { p_email: email.toLowerCase(), p_password: password })
           if (data) {
-            if (data.password !== password) return false
-            if (data.status === 'terminated') return false
-            const mu = rowToManagedUser(data)
+            // check_login returns null if credentials are wrong / user terminated
+            const mu = rowToManagedUser({ ...data, password })   // re-attach password for local fallback
             // Sync to local store
             set(s => ({
               managedUsers: s.managedUsers.some(u => u.id === mu.id)
@@ -78,6 +114,15 @@ export const useAppStore = create<AppState>()(
                 : [...s.managedUsers, mu],
             }))
             set({ currentUser: { id: mu.id, name: mu.name, email: mu.email, password: mu.password, role: mu.role, team: mu.team, avatar: mu.avatar, resourceId: mu.resourceId } })
+            // Check password expiry
+            {
+              const state = get()
+              const lastChanged = state.passwordLastChanged[mu.id]
+              const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+              if (!lastChanged || lastChanged < ninetyDaysAgo) {
+                set({ showPasswordExpiry: true })
+              }
+            }
             return true
           }
         } catch { /* offline — fall through to local */ }
@@ -89,6 +134,15 @@ export const useAppStore = create<AppState>()(
         if (managed) {
           if (managed.status === 'terminated') return false
           set({ currentUser: { id: managed.id, name: managed.name, email: managed.email, password: managed.password, role: managed.role, team: managed.team, avatar: managed.avatar, resourceId: managed.resourceId } })
+          // Check password expiry
+          {
+            const state = get()
+            const lastChanged = state.passwordLastChanged[managed.id]
+            const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+            if (!lastChanged || lastChanged < ninetyDaysAgo) {
+              set({ showPasswordExpiry: true })
+            }
+          }
           return true
         }
         return false
@@ -97,9 +151,19 @@ export const useAppStore = create<AppState>()(
       logout() { set({ currentUser: null, view: 'dashboard' }) },
       async initUsers() {
         try {
-          const { data, error } = await supabase.from('app_users').select('*').order('created_at', { ascending: true })
+          const { data, error } = await supabase.from('app_users').select('id, name, email, role, team, avatar, status, resource_id, created_at').order('created_at', { ascending: true })
           if (!error && data && data.length > 0) {
-            set({ managedUsers: data.map(rowToManagedUser) })
+            const users = data.map(rowToManagedUser)
+            set(s => {
+              const cur = s.currentUser
+              const freshCur = cur ? users.find(u => u.id === cur.id) : null
+              return {
+                managedUsers: users,
+                ...(freshCur && cur ? {
+                  currentUser: { ...cur, name: freshCur.name, email: freshCur.email, role: freshCur.role, avatar: freshCur.avatar, team: freshCur.team },
+                } : {}),
+              }
+            })
           }
         } catch { /* offline — keep local */ }
       },
@@ -148,10 +212,75 @@ export const useAppStore = create<AppState>()(
         set(s => ({ resources: [...s.resources, r] }))
       },
       setRequestAlert(req) { set({ requestAlert: req }) },
+      setShowPasswordExpiry(v) { set({ showPasswordExpiry: v }) },
+
+      // ── Approvers ──────────────────────────────────────────────────────────────
+      addApprover(a) {
+        set(s => ({ approvers: [...s.approvers, a] }))
+        supabase.from('approvers').insert(approverToRow(a)).then(({ error }) => { if (error) console.error('Approver sync error:', error) })
+      },
+      updateApprover(a) {
+        set(s => ({ approvers: s.approvers.map(x => x.id === a.id ? a : x) }))
+        supabase.from('approvers').update(approverToRow(a)).eq('id', a.id).then(({ error }) => { if (error) console.error('Approver sync error:', error) })
+      },
+      removeApprover(id) {
+        set(s => ({ approvers: s.approvers.filter(a => a.id !== id) }))
+        supabase.from('approvers').delete().eq('id', id).then(({ error }) => { if (error) console.error('Approver sync error:', error) })
+      },
+      async initApprovers() {
+        try {
+          const { data, error } = await supabase.from('approvers').select('*').order('name', { ascending: true })
+          if (!error && data && data.length > 0) {
+            set({ approvers: data.map(rowToApprover) })
+          }
+        } catch { /* offline — keep local */ }
+      },
+
+      // ── Booking Departments ────────────────────────────────────────────────────
+      addDepartment(d) {
+        set(s => ({ departments: [...s.departments, d] }))
+        supabase.from('booking_departments').insert(departmentToRow(d)).then(({ error }) => { if (error) console.error('Dept sync error:', error) })
+      },
+      updateDepartment(d) {
+        set(s => ({ departments: s.departments.map(x => x.id === d.id ? d : x) }))
+        supabase.from('booking_departments').update(departmentToRow(d)).eq('id', d.id).then(({ error }) => { if (error) console.error('Dept sync error:', error) })
+      },
+      removeDepartment(id) {
+        set(s => ({ departments: s.departments.filter(d => d.id !== id) }))
+        supabase.from('booking_departments').delete().eq('id', id).then(({ error }) => { if (error) console.error('Dept sync error:', error) })
+      },
+      async initDepartments() {
+        try {
+          const { data, error } = await supabase.from('booking_departments').select('*').order('created_at', { ascending: true })
+          if (!error && data && data.length > 0) {
+            set({ departments: data.map(rowToDepartment) })
+          }
+        } catch { /* offline — keep local */ }
+      },
+
+      updateRolePermissions(role, perms) {
+        set(s => ({ rolePermissions: { ...s.rolePermissions, [role]: perms } }))
+      },
+      resetRolePermissions(role) {
+        set(s => ({ rolePermissions: { ...s.rolePermissions, [role]: DEFAULT_PERMISSIONS[role] } }))
+      },
+      setPasswordLastChanged(userId, date) {
+        set(s => ({ passwordLastChanged: { ...s.passwordLastChanged, [userId]: date } }))
+      },
     }),
     {
       name: 'dap-flow-auth',
-      partialize: s => ({ currentUser: s.currentUser, view: s.view, managedUsers: s.managedUsers, theme: s.theme, resources: s.resources }),
+      partialize: s => ({
+        currentUser: s.currentUser,
+        view: s.view,
+        managedUsers: s.managedUsers,
+        theme: s.theme,
+        resources: s.resources,
+        passwordLastChanged: s.passwordLastChanged,
+        rolePermissions: s.rolePermissions,
+        approvers: s.approvers,
+        departments: s.departments,
+      }),
       onRehydrateStorage: () => (state) => {
         if (state?.theme) {
           document.documentElement.classList.toggle('dark', state.theme === 'dark')
@@ -177,6 +306,17 @@ export const useAppStore = create<AppState>()(
             state.currentUser = { ...state.currentUser, avatar: seed?.avatar ?? '😊' }
           }
         }
+        // Backfill any roles added after the user's localStorage was last saved
+        if (state?.rolePermissions) {
+          for (const role of Object.keys(DEFAULT_PERMISSIONS) as (keyof typeof DEFAULT_PERMISSIONS)[]) {
+            if (!(role in state.rolePermissions)) {
+              state.rolePermissions[role] = DEFAULT_PERMISSIONS[role]
+            }
+          }
+        }
+        // Backfill approvers/departments for users who upgraded from a version without them
+        if (!state?.approvers) state!.approvers = []
+        if (!state?.departments || state.departments.length === 0) state!.departments = DEFAULT_DEPARTMENTS
       },
     }
   )

@@ -9,7 +9,6 @@ const transporter = nodemailer.createTransport({
 })
 
 const STATUS_CONFIG = {
-  // Booking request statuses (triggered by Supabase webhook)
   Assigned: {
     subject: 'Booking Request Assigned',
     heading: 'Booking Request Assigned',
@@ -28,18 +27,11 @@ const STATUS_CONFIG = {
     headingColor: '#64748b',
     body: 'Thank you for your request. After careful review, we regret that we are unable to accommodate this request at this time. Please contact our team directly if you have any questions.',
   },
-  // JO progression statuses (triggered by direct API call from the app)
   Scheduled: {
     subject: 'Your Request Has Been Scheduled',
     heading: 'Request Scheduled 📅',
     headingColor: '#4f46e5',
-    body: 'Great news! Your request has been <strong style="color:#4f46e5">Scheduled</strong>. The D&amp;AP team will begin work on the date indicated. You\'ll receive another update once work starts.',
-  },
-  'In Progress': {
-    subject: 'Your Request is Now In Progress',
-    heading: 'Work Has Started',
-    headingColor: '#1d4ed8',
-    body: 'The D&amp;AP team has started working on your request. We\'ll keep you updated on the progress.',
+    body: 'Great news! Your request has been <strong style="color:#4f46e5">Scheduled</strong>. The D&amp;AP team will begin work on the date indicated.',
   },
   Completed: {
     subject: 'Your Request Has Been Completed',
@@ -63,34 +55,71 @@ const STATUS_CONFIG = {
 
 const PRIORITY_COLOR = { High: '#dc2626', Medium: '#d97706', Low: '#16a34a' }
 
+const STATUS_LABEL = {
+  Pending:    { color: '#64748b', icon: '🕐' },
+  Approved:   { color: '#1d4ed8', icon: '✅' },
+  Scheduled:  { color: '#4f46e5', icon: '📅' },
+  'For Review': { color: '#d97706', icon: '🔍' },
+  Completed:  { color: '#059669', icon: '✓'  },
+  Delayed:    { color: '#d97706', icon: '⚠️' },
+  Cancelled:  { color: '#64748b', icon: '🚫' },
+}
+
+function buildJOTable(joNumber, project, activity, priority, deadline, status, headingColor) {
+  const statusInfo = STATUS_LABEL[status] || { color: headingColor, icon: '' }
+  return `<table style="margin:20px 0;border-collapse:collapse;width:100%;font-size:14px">
+    <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;width:140px">JO Number</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1d4ed8">${joNumber}</td></tr>
+    <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Project</td><td style="padding:8px 12px">${project}</td></tr>
+    <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Activity</td><td style="padding:8px 12px">${activity}</td></tr>
+    <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Priority</td><td style="padding:8px 12px;font-weight:700;color:${PRIORITY_COLOR[priority] || '#64748b'}">${priority}</td></tr>
+    <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Deadline</td><td style="padding:8px 12px;font-weight:700;color:#dc2626">${deadline}</td></tr>
+    ${status ? `<tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Status</td><td style="padding:8px 12px;font-weight:700;color:${statusInfo.color}">${statusInfo.icon} ${status}</td></tr>` : ''}
+  </table>`
+}
+
+function buildJOEmailHtml(heading, headingColor, bodyHtml) {
+  return `<div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+    <div style="background:linear-gradient(135deg,#0f4c81,#2389d7);padding:20px 24px;border-radius:8px;margin-bottom:24px">
+      <p style="color:#bfdbfe;font-size:11px;font-weight:700;letter-spacing:0.1em;margin:0 0 4px">DIGITAL &amp; ARTS PRODUCTION (DAP)</p>
+      <h2 style="color:#fff;margin:0;font-size:20px">${heading}</h2>
+    </div>
+    ${bodyHtml}
+    <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px">
+      — Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management
+    </p>
+  </div>`
+}
+
 const MEMBER_CONFIG = {
   assigned: {
     subject: 'You Have Been Assigned to a Job Order',
-    heading: 'New Assignment',
+    heading: 'New Assignment 📋',
     headingColor: '#1d4ed8',
-    body: (name, joNumber, project, activity, priority, deadline) =>
-      `Hi <strong>${name}</strong>,<br><br>You have been assigned to a new Job Order. Please review the details below and coordinate with the team.<br><br>` +
-      `<table style="margin:20px 0;border-collapse:collapse;width:100%;font-size:14px">` +
-      `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;width:140px">JO Number</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1d4ed8">${joNumber}</td></tr>` +
-      `<tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Project</td><td style="padding:8px 12px">${project}</td></tr>` +
-      `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Activity</td><td style="padding:8px 12px">${activity}</td></tr>` +
-      `<tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Priority</td><td style="padding:8px 12px;font-weight:700;color:${PRIORITY_COLOR[priority] || '#64748b'}">${priority}</td></tr>` +
-      `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Deadline</td><td style="padding:8px 12px;font-weight:700;color:#dc2626">${deadline}</td></tr>` +
-      `</table>`,
+    intro: (name) => `Hi <strong>${name}</strong>,<br><br>You have been assigned to a Job Order. Please review the details below and coordinate with the team.`,
+  },
+  reassigned: {
+    subject: 'Job Order Reassignment',
+    heading: 'You Have Been Reassigned 🔄',
+    headingColor: '#4f46e5',
+    intro: (name) => `Hi <strong>${name}</strong>,<br><br>You have been reassigned to the following Job Order. Please take note of the updated details.`,
+  },
+  removed: {
+    subject: 'Removed from Job Order',
+    heading: 'Assignment Update',
+    headingColor: '#64748b',
+    intro: (name) => `Hi <strong>${name}</strong>,<br><br>You have been removed from the following Job Order. No further action is required on your part.`,
   },
   scheduled: {
     subject: 'Your Job Order Has Been Scheduled',
     heading: 'Job Order Scheduled 📅',
     headingColor: '#4f46e5',
-    body: (name, joNumber, project, activity, priority, deadline) =>
-      `Hi <strong>${name}</strong>,<br><br>The following Job Order has been scheduled. Please make sure you are available on the indicated date.<br><br>` +
-      `<table style="margin:20px 0;border-collapse:collapse;width:100%;font-size:14px">` +
-      `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;width:140px">JO Number</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#4f46e5">${joNumber}</td></tr>` +
-      `<tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Project</td><td style="padding:8px 12px">${project}</td></tr>` +
-      `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Activity</td><td style="padding:8px 12px">${activity}</td></tr>` +
-      `<tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Priority</td><td style="padding:8px 12px;font-weight:700;color:${PRIORITY_COLOR[priority] || '#64748b'}">${priority}</td></tr>` +
-      `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Date</td><td style="padding:8px 12px;font-weight:700;color:#4f46e5">${deadline}</td></tr>` +
-      `</table>`,
+    intro: (name) => `Hi <strong>${name}</strong>,<br><br>The following Job Order has been scheduled. Please make sure you are available on the indicated date.`,
+  },
+  status_update: {
+    subject: 'Job Order Status Update',
+    heading: 'Job Order Updated',
+    headingColor: '#1d4ed8',
+    intro: (name) => `Hi <strong>${name}</strong>,<br><br>The status of a Job Order you are assigned to has been updated. Please review the details below.`,
   },
 }
 
@@ -115,32 +144,95 @@ function buildHtml(config, preparedBy, refId, activityType, neededDate, status) 
     </div>`
 }
 
+function buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId) {
+  const appUrl = 'https://dap-flow-tau.vercel.app'
+  const approveUrl = `${appUrl}/api/approve?id=${fullId}&action=approve`
+  const rejectUrl  = `${appUrl}/api/approve?id=${fullId}&action=reject`
+  return `
+    <div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+      <div style="background:linear-gradient(135deg,#0f4c81,#2389d7);padding:20px 24px;border-radius:8px;margin-bottom:24px">
+        <p style="color:#bfdbfe;font-size:11px;font-weight:700;letter-spacing:0.1em;margin:0 0 4px">DIGITAL &amp; ARTS PRODUCTION (DAP)</p>
+        <h2 style="color:#fff;margin:0;font-size:20px">Booking Approval Required</h2>
+      </div>
+
+      <p>Hi <strong>${approverName}</strong>,</p>
+      <p><strong>${preparedBy}</strong> has submitted a studio booking request that requires your approval before it proceeds to the DAP team.</p>
+
+      <table style="margin:20px 0;border-collapse:collapse;width:100%;font-size:14px">
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;width:140px">Reference</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1d4ed8">#${refId}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Service Type</td><td style="padding:8px 12px">${activityType}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Project</td><td style="padding:8px 12px">${projectName || '—'}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Department</td><td style="padding:8px 12px">${department}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Start Date</td><td style="padding:8px 12px">${neededDate}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">End Date</td><td style="padding:8px 12px">${endDate || neededDate}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Venue</td><td style="padding:8px 12px">${venue}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Prepared By</td><td style="padding:8px 12px">${preparedBy}</td></tr>
+      </table>
+
+      <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:16px;margin:20px 0">
+        <p style="margin:0;font-weight:700;color:#854d0e;font-size:14px">⚠ Action Required</p>
+        <p style="margin:8px 0 0;color:#713f12;font-size:13px">
+          Please review the details above and click one of the buttons below to approve or decline this booking request.
+        </p>
+      </div>
+
+      <div style="display:flex;gap:12px;margin:20px 0">
+        <a href="${approveUrl}" style="flex:1;display:inline-block;background:linear-gradient(135deg,#059669,#10b981);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:14px 20px;border-radius:8px;text-align:center">
+          ✓ Approve Request
+        </a>
+        <a href="${rejectUrl}" style="flex:1;display:inline-block;background:#f1f5f9;color:#64748b;text-decoration:none;font-weight:700;font-size:14px;padding:14px 20px;border-radius:8px;text-align:center;border:1px solid #e2e8f0">
+          ✗ Decline Request
+        </a>
+      </div>
+
+      <p style="color:#94a3b8;font-size:12px;margin:12px 0">
+        You can also manage this request by logging into the DAP Flow app under <strong>Job Orders → Requests</strong>.
+      </p>
+
+      <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px">
+        — Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management
+      </p>
+    </div>`
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).json({ status: 'DAP email function is running ✓' })
 
   const body = req.body || {}
 
-  let to, preparedBy, refId, activityType, neededDate, status, config
+  // ── Approval request email to manager ──────────────────────────────────────
+  if (body.approvalRequest) {
+    const { approverEmail, approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId } = body
+    if (!approverEmail) return res.status(200).json({ ok: true })
+    try {
+      await transporter.sendMail({
+        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
+        replyTo: 'no-reply@dap-flow.noreply',
+        to: approverEmail,
+        subject: `[DAP] Approval Required: ${activityType} from ${preparedBy} — #${refId}`,
+        html: buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId),
+      })
+      return res.status(200).json({ ok: true })
+    } catch (err) {
+      console.error('Approval email error:', err?.message || err)
+      return res.status(500).json({ error: err?.message || 'Failed to send approval email' })
+    }
+  }
 
+  // ── Member notification ─────────────────────────────────────────────────────
   if (body.memberNotification) {
-    const { mode, memberEmail, memberName, joNumber, projectName, activityType, priority, deadline } = body
+    const { mode, memberEmail, memberName, joNumber, projectName, activityType, priority, deadline, status } = body
     const mc = MEMBER_CONFIG[mode]
     if (!mc || !memberEmail) return res.status(200).json({ ok: true })
     try {
+      const tableHtml = buildJOTable(joNumber, projectName, activityType, priority || 'N/A', deadline, status || '', mc.headingColor)
+      const bodyHtml = `<p style="margin:0 0 16px">${mc.intro(memberName)}</p>${tableHtml}`
       await transporter.sendMail({
-        from: `"DAP Booking" <${process.env.GMAIL_USER}>`,
+        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
+        replyTo: 'no-reply@dap-flow.noreply',
         to: memberEmail,
         subject: `[DAP] ${mc.subject} — ${joNumber}`,
-        html: `<div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
-          <div style="background:linear-gradient(135deg,#0f4c81,#2389d7);padding:20px 24px;border-radius:8px;margin-bottom:24px">
-            <p style="color:#bfdbfe;font-size:11px;font-weight:700;letter-spacing:0.1em;margin:0 0 4px">DIGITAL &amp; ARTS PRODUCTION (DAP)</p>
-            <h2 style="color:#fff;margin:0;font-size:20px">${mc.heading}</h2>
-          </div>
-          <p>${mc.body(memberName, joNumber, projectName, activityType, priority || 'N/A', deadline)}</p>
-          <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px">
-            — Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management
-          </p>
-        </div>`,
+        html: buildJOEmailHtml(mc.heading, mc.headingColor, bodyHtml),
       })
       return res.status(200).json({ ok: true })
     } catch (err) {
@@ -149,8 +241,111 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // ── Completion notification to requestor ───────────────────────────────────
+  if (body.completionNotification) {
+    const {
+      requestorEmail, preparedBy, joNumber, projectName, activityType,
+      priority, deadline, completedBy, completedAt, remarks, refId,
+    } = body
+    if (!requestorEmail) return res.status(200).json({ ok: true })
+
+    // Format the completion date/time nicely
+    const completionDateStr = completedAt
+      ? new Date(completedAt).toLocaleString('en-PH', {
+          timeZone: 'Asia/Manila',
+          year: 'numeric', month: 'long', day: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: true,
+        })
+      : 'N/A'
+
+    const priorityColor = PRIORITY_COLOR[priority] || '#64748b'
+
+    const remarksRow = remarks
+      ? `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;vertical-align:top">Remarks</td><td style="padding:8px 12px;color:#475569;line-height:1.5">${remarks}</td></tr>`
+      : ''
+
+    const refRow = refId
+      ? `<tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Booking Ref</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1d4ed8">#${refId}</td></tr>`
+      : ''
+
+    const completionHtml = `
+      <div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+        <div style="background:linear-gradient(135deg,#065f46,#059669);padding:20px 24px;border-radius:8px;margin-bottom:24px">
+          <p style="color:#a7f3d0;font-size:11px;font-weight:700;letter-spacing:0.1em;margin:0 0 4px">DIGITAL &amp; ARTS PRODUCTION (DAP)</p>
+          <h2 style="color:#fff;margin:0;font-size:20px">Job Order Completed ✓</h2>
+        </div>
+
+        <p style="margin:0 0 8px">Hi <strong>${preparedBy || 'Requestor'}</strong>,</p>
+        <p style="margin:0 0 20px;color:#475569">
+          We are pleased to inform you that your Job Order has been successfully <strong style="color:#059669">completed</strong> by the D&amp;AP team. Please review the completion details below.
+        </p>
+
+        <table style="margin:0 0 24px;border-collapse:collapse;width:100%;font-size:14px">
+          ${refRow}
+          <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;width:140px">JO Number</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1d4ed8">${joNumber}</td></tr>
+          <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Project</td><td style="padding:8px 12px;font-weight:600">${projectName}</td></tr>
+          <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Activity</td><td style="padding:8px 12px">${activityType}</td></tr>
+          <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Priority</td><td style="padding:8px 12px;font-weight:700;color:${priorityColor}">${priority}</td></tr>
+          <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Deadline</td><td style="padding:8px 12px">${deadline}</td></tr>
+          <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Completed By</td><td style="padding:8px 12px;font-weight:700;color:#059669">${completedBy}</td></tr>
+          <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Completed On</td><td style="padding:8px 12px;font-weight:600">${completionDateStr}</td></tr>
+          ${remarksRow}
+        </table>
+
+        <div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:16px;margin:0 0 24px">
+          <p style="margin:0;font-size:13px;color:#065f46;line-height:1.6">
+            ✅ <strong>Status: Completed</strong><br>
+            If you have any questions about the output or need revisions, please contact the D&amp;AP team directly or reply to this email.
+          </p>
+        </div>
+
+        <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:8px">
+          — Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management
+        </p>
+      </div>`
+
+    try {
+      await transporter.sendMail({
+        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
+        replyTo: 'no-reply@dap-flow.noreply',
+        to: requestorEmail,
+        subject: `[DAP] Job Order Completed — ${joNumber}`,
+        html: completionHtml,
+      })
+      return res.status(200).json({ ok: true })
+    } catch (err) {
+      console.error('Completion email error:', err?.message || err)
+      return res.status(500).json({ error: err?.message || 'Failed to send completion email' })
+    }
+  }
+
+  // ── JO notification to requestor ────────────────────────────────────────────
+  if (body.joNotification) {
+    const { requestorEmail, preparedBy, joNumber, projectName, activityType, priority, deadline, status, refId } = body
+    if (!requestorEmail || !status) return res.status(200).json({ ok: true })
+    const statusInfo = STATUS_LABEL[status] || { color: '#64748b', icon: '' }
+    try {
+      const tableHtml = buildJOTable(joNumber, projectName, activityType, priority || 'N/A', deadline, status, statusInfo.color)
+      const refLine = refId ? `<p style="font-size:13px;color:#64748b;margin-top:8px">Booking Reference: <strong style="font-family:monospace;color:#1d4ed8">#${refId}</strong></p>` : ''
+      const bodyHtml = `<p style="margin:0 0 8px">Hi <strong>${preparedBy}</strong>,</p><p style="margin:0 0 16px;color:#475569">The Job Order linked to your booking request has been updated. Please review the details below.</p>${tableHtml}${refLine}`
+      await transporter.sendMail({
+        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
+        replyTo: 'no-reply@dap-flow.noreply',
+        to: requestorEmail,
+        subject: `[DAP] Job Order Update — ${joNumber}`,
+        html: buildJOEmailHtml(`Job Order Updated ${statusInfo.icon}`, statusInfo.color, bodyHtml),
+      })
+      return res.status(200).json({ ok: true })
+    } catch (err) {
+      console.error('JO notification email error:', err?.message || err)
+      return res.status(500).json({ error: err?.message || 'Failed to send email' })
+    }
+  }
+
+  // ── Direct call from app for JO / booking status changes ───────────────────
+  let to, preparedBy, refId, activityType, neededDate, status, config
+
   if (body.direct) {
-    // Direct call from the app for JO status changes
     const { requestorEmail, preparedBy: pb, activityType: at, neededDate: nd, status: st, id } = body
     if (!requestorEmail || !st) return res.status(200).json({ ok: true })
     config = STATUS_CONFIG[st]
@@ -178,7 +373,8 @@ module.exports = async function handler(req, res) {
 
   try {
     await transporter.sendMail({
-      from: `"DAP Booking" <${process.env.GMAIL_USER}>`,
+      from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
+      replyTo: 'no-reply@dap-flow.noreply',
       to,
       subject: `[DAP] ${config.subject} — #${refId}`,
       html: buildHtml(config, preparedBy, refId, activityType, neededDate, status),

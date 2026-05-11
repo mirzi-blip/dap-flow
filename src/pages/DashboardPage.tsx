@@ -7,6 +7,7 @@ import {
   AlertTriangle, CheckCircle2, Clock, Zap, ArrowRight,
   Plus, ClipboardList, Camera, Video, Mic, Palette, Scissors, Headphones,
   CalendarClock, TrendingUp, ArrowUpRight, Ban, RefreshCw,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useAppStore, useDataStore } from '../store/useAppStore'
 import { supabase, rowToJobOrder } from '../lib/supabase'
@@ -40,31 +41,20 @@ export function DashboardPage() {
   const isDark = theme === 'dark'
 
   const now = new Date()
-  const [fromMonth, setFromMonth] = useState(now.getMonth())
-  const [fromYear, setFromYear] = useState(now.getFullYear())
-  const [toMonth, setToMonth] = useState(now.getMonth())
-  const [toYear, setToYear] = useState(now.getFullYear())
   const [refreshing, setRefreshing] = useState(false)
 
-  const filteredJOs = useMemo(() => {
-    const from = new Date(fromYear, fromMonth, 1)
-    const to = new Date(toYear, toMonth + 1, 0, 23, 59, 59)
-    return jobOrders.filter(j => {
-      const d = new Date(j.createdAt)
-      return d >= from && d <= to
-    })
-  }, [jobOrders, fromMonth, fromYear, toMonth, toYear])
-
-  // KPI counts
-  const totalJOs      = filteredJOs.length
-  const activeJOs     = filteredJOs.filter(j => !['Completed','Cancelled','Delayed'].includes(j.status)).length
-  const pendingJOs    = filteredJOs.filter(j => j.status === 'Pending').length
-  const approvedJOs   = filteredJOs.filter(j => j.status === 'Approved').length
-  const scheduledJOs  = filteredJOs.filter(j => j.status === 'Scheduled').length
-  const forReviewJOs  = filteredJOs.filter(j => j.status === 'For Review').length
-  const completedJOs  = filteredJOs.filter(j => j.status === 'Completed').length
-  const delayedJOs    = filteredJOs.filter(j => j.status === 'Delayed').length
-  const cancelledJOs  = filteredJOs.filter(j => j.status === 'Cancelled').length
+  // ── Single source of truth: raw store data, same as JO tab ──────────────
+  // No date-range filter here — Production Analytics has its own navigation.
+  // Using jobOrders directly ensures Dashboard total === JO tab total always.
+  const totalJOs      = jobOrders.length
+  const activeJOs     = jobOrders.filter(j => !['Completed','Cancelled','Delayed'].includes(j.status)).length
+  const pendingJOs    = jobOrders.filter(j => j.status === 'Pending').length
+  const approvedJOs   = jobOrders.filter(j => j.status === 'Approved').length
+  const scheduledJOs  = jobOrders.filter(j => j.status === 'Scheduled').length
+  const forReviewJOs  = jobOrders.filter(j => j.status === 'For Review').length
+  const completedJOs  = jobOrders.filter(j => j.status === 'Completed').length
+  const delayedJOs    = jobOrders.filter(j => j.status === 'Delayed').length
+  const cancelledJOs  = jobOrders.filter(j => j.status === 'Cancelled').length
 
   // Status breakdown config
   const STATUS_BREAKDOWN = [
@@ -77,18 +67,18 @@ export function DashboardPage() {
     { label: 'Cancelled',   count: cancelledJOs,  color: '#94A3B8' },
   ]
 
-  // Team workload heatmap (per wireframe ROW 2)
+  // Team workload heatmap — uses all active JOs (same source as JO tab)
   const teamWorkload = useMemo(() => {
     const teams = ['Photo', 'Video', 'Audio', 'Design'] as const
     return teams.map(team => {
       const members = resources.filter(r => r.team === team)
-      const totalActive = filteredJOs.filter(j =>
+      const totalActive = jobOrders.filter(j =>
         !['Completed','Cancelled','Delayed'].includes(j.status) &&
         members.some(m => j.assignedMemberIds.includes(m.id))
       ).length
       const avgUtil = members.length
         ? Math.round(members.reduce((acc, r) => {
-            const active = filteredJOs.filter(jo =>
+            const active = jobOrders.filter(jo =>
               jo.assignedMemberIds.includes(r.id) &&
               !['Completed','Delayed','Cancelled'].includes(jo.status)
             ).length
@@ -98,7 +88,7 @@ export function DashboardPage() {
       const color = teamColors[team]
       return { team, util: avgUtil, totalActive, members: members.length, color }
     })
-  }, [filteredJOs])
+  }, [jobOrders, resources])
 
   // Today's schedule snapshot (per wireframe ROW 3)
   const todaySchedule = useMemo(() => {
@@ -109,38 +99,87 @@ export function DashboardPage() {
       .slice(0, 6)
   }, [calendarEvents])
 
-  // Monthly trend
-  const monthlyTrend = useMemo(() => {
-    const now = new Date()
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - 6 + i, 1)
-      const count = jobOrders.filter(j => {
-        const c = new Date(j.createdAt)
-        return c.getFullYear() === d.getFullYear() && c.getMonth() === d.getMonth()
-      }).length
-      return { label: MONTHS[d.getMonth()], count, current: i === 6 }
-    })
-  }, [jobOrders])
+  // Production Analytics state
+  const [analyticsView, setAnalyticsView] = useState<'year' | 'month'>('year')
+  const [analyticsYear, setAnalyticsYear] = useState(now.getFullYear())
+  const [analyticsMonth, setAnalyticsMonth] = useState(now.getMonth())
 
-  // Alerts (per wireframe ROW 4)
+  const analyticsData = useMemo(() => {
+    if (analyticsView === 'year') {
+      // 12 monthly bars for selected year
+      return Array.from({ length: 12 }, (_, m) => {
+        const count = jobOrders.filter(j => {
+          const d = new Date(j.createdAt)
+          return d.getFullYear() === analyticsYear && d.getMonth() === m
+        }).length
+        const completed = jobOrders.filter(j => {
+          const d = new Date(j.completedAt ?? j.createdAt)
+          return d.getFullYear() === analyticsYear && d.getMonth() === m && j.status === 'Completed'
+        }).length
+        return { label: MONTHS[m], count, completed, current: m === now.getMonth() && analyticsYear === now.getFullYear() }
+      })
+    } else {
+      // Daily bars for selected month/year
+      const daysInMonth = new Date(analyticsYear, analyticsMonth + 1, 0).getDate()
+      return Array.from({ length: daysInMonth }, (_, d) => {
+        const day = d + 1
+        const count = jobOrders.filter(j => {
+          const date = new Date(j.createdAt)
+          return date.getFullYear() === analyticsYear && date.getMonth() === analyticsMonth && date.getDate() === day
+        }).length
+        const completed = jobOrders.filter(j => {
+          const date = new Date(j.completedAt ?? j.createdAt)
+          return date.getFullYear() === analyticsYear && date.getMonth() === analyticsMonth && date.getDate() === day && j.status === 'Completed'
+        }).length
+        const isToday = day === now.getDate() && analyticsMonth === now.getMonth() && analyticsYear === now.getFullYear()
+        return { label: `${day}`, count, completed, current: isToday }
+      })
+    }
+  }, [jobOrders, analyticsView, analyticsYear, analyticsMonth, now])
+
+  function prevAnalytics() {
+    if (analyticsView === 'year') {
+      setAnalyticsYear(y => y - 1)
+    } else {
+      if (analyticsMonth === 0) { setAnalyticsMonth(11); setAnalyticsYear(y => y - 1) }
+      else setAnalyticsMonth(m => m - 1)
+    }
+  }
+  function nextAnalytics() {
+    if (analyticsView === 'year') {
+      setAnalyticsYear(y => y + 1)
+    } else {
+      if (analyticsMonth === 11) { setAnalyticsMonth(0); setAnalyticsYear(y => y + 1) }
+      else setAnalyticsMonth(m => m + 1)
+    }
+  }
+  const analyticsLabel = analyticsView === 'year'
+    ? `${analyticsYear}`
+    : `${MONTHS[analyticsMonth]} ${analyticsYear}`
+
+  // Alerts — scan all active JOs, no date gate
   const overbookedTeams = teamWorkload.filter(t => t.util > 90)
-  const nearDeadline = filteredJOs.filter(j => {
+  const nearDeadline = jobOrders.filter(j => {
     if (['Completed','Cancelled'].includes(j.status)) return false
     const d = Math.ceil((new Date(j.deadline).getTime() - Date.now()) / 86400_000)
     return d >= 0 && d <= 5
   }).length
 
-  // Recent JOs
-  const recentJOs = useMemo(() => filteredJOs.slice(0, 6), [filteredJOs])
+  // Recent JOs — most recently created, sorted descending
+  const recentJOs = useMemo(() =>
+    [...jobOrders]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 6),
+  [jobOrders])
 
-  // Donut data
+  // Activity mix donut — all non-cancelled JOs
   const activityMix = useMemo(() => {
     const map: Record<string, number> = {}
-    filteredJOs.filter(j => !['Cancelled'].includes(j.status)).forEach(j => {
+    jobOrders.filter(j => j.status !== 'Cancelled').forEach(j => {
       map[j.activityType] = (map[j.activityType] || 0) + 1
     })
     return Object.entries(map).map(([name, value]) => ({ name, value }))
-  }, [filteredJOs])
+  }, [jobOrders])
 
   const PIE_COLORS = ['#7C3AED','#EC4899','#F97316','#10B981','#3B82F6','#F59E0B']
 
@@ -164,31 +203,20 @@ export function DashboardPage() {
   return (
     <div className="space-y-4 lg:space-y-5 max-w-[1400px]">
 
-      {/* Date range filter + refresh */}
+      {/* Refresh bar — syncs from Supabase on demand */}
       <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 rounded-2xl px-5 py-3 shadow-sm border border-slate-100 dark:border-slate-700">
-        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Filter Period</span>
-        <div className="flex items-center gap-2">
-          <select value={fromMonth} onChange={e => setFromMonth(Number(e.target.value))} className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400">
-            {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-          </select>
-          <select value={fromYear} onChange={e => setFromYear(Number(e.target.value))} className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400">
-            {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            <span className="text-blue-600 dark:text-blue-400 font-black text-base">{totalJOs}</span> total job orders
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            {activeJOs} active · {completedJOs} completed · {delayedJOs} delayed · {cancelledJOs} cancelled
+          </p>
         </div>
-        <span className="text-xs text-slate-400">to</span>
-        <div className="flex items-center gap-2">
-          <select value={toMonth} onChange={e => setToMonth(Number(e.target.value))} className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400">
-            {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-          </select>
-          <select value={toYear} onChange={e => setToYear(Number(e.target.value))} className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400">
-            {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-        <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white transition-colors ml-auto">
+        <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white transition-colors">
           <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-          {refreshing ? 'Refreshing…' : 'Refresh'}
+          {refreshing ? 'Refreshing…' : 'Refresh Data'}
         </button>
-        <p className="text-xs text-slate-400 dark:text-slate-500 w-full">Showing <span className="font-semibold text-slate-700 dark:text-slate-300">{filteredJOs.length}</span> job orders in this period</p>
       </div>
 
       {/* Page heading + actions */}
@@ -442,27 +470,62 @@ export function DashboardPage() {
 
         {/* Production Analytics chart */}
         <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Production Analytics</h3>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Job orders by month</p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Identify workload peaks</p>
             </div>
             <button onClick={() => setView('reports')} className="btn-ghost">
               Reports <ArrowRight size={12} />
             </button>
           </div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={monthlyTrend} barSize={22} barCategoryGap="35%">
-              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: isDark ? '#64748b' : '#94a3b8' }} />
+
+          {/* View toggle + navigation */}
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-0.5">
+              {(['year', 'month'] as const).map(v => (
+                <button
+                  key={v}
+                  onClick={() => setAnalyticsView(v)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-md transition-all capitalize ${
+                    analyticsView === v
+                      ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                  }`}
+                >{v}</button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={prevAnalytics} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors">
+                <ChevronLeft size={14} />
+              </button>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 w-24 text-center">{analyticsLabel}</span>
+              <button onClick={nextAnalytics} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors">
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+
+          <ResponsiveContainer width="100%" height={170}>
+            <BarChart data={analyticsData} barSize={analyticsView === 'month' ? 8 : 18} barCategoryGap="25%">
+              <XAxis dataKey="label" axisLine={false} tickLine={false}
+                tick={{ fontSize: analyticsView === 'month' ? 9 : 11, fill: isDark ? '#64748b' : '#94a3b8' }}
+                interval={analyticsView === 'month' ? 3 : 0}
+              />
               <YAxis hide />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: isDark ? 'rgba(124,58,237,0.15)' : '#F5F3FF', radius: 6 }} />
-              <Bar dataKey="count" name="Job Orders" radius={[8, 8, 0, 0]}>
-                {monthlyTrend.map((e, i) => (
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: isDark ? 'rgba(124,58,237,0.1)' : '#F5F3FF', radius: 6 }} />
+              <Bar dataKey="count" name="Submitted" radius={[5, 5, 0, 0]} stackId="a">
+                {analyticsData.map((e, i) => (
                   <Cell key={i} fill={e.current ? '#7C3AED' : isDark ? '#312e81' : '#EDE9FE'} />
                 ))}
               </Bar>
+              <Bar dataKey="completed" name="Completed" radius={[5, 5, 0, 0]} fill="#10b981" opacity={0.7} />
             </BarChart>
           </ResponsiveContainer>
+          <div className="flex items-center gap-4 mt-1">
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-violet-600 inline-block" />Submitted</span>
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />Completed</span>
+          </div>
         </div>
       </div>
 

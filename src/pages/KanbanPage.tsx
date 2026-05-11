@@ -1,5 +1,6 @@
 ﻿import { useState, useMemo } from 'react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
+import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, PriorityBadge, StatusBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -115,11 +116,12 @@ type DetailTab = 'overview' | 'activity'
 export function KanbanPage() {
   const { jobOrders, updateJobOrder, addStatusLog, addNotification, statusLogs } = useDataStore()
   const { currentUser, resources } = useAppStore()
+  const { can } = usePermissions()
   const [selectedJO, setSelectedJO] = useState<JobOrder | null>(null)
   const [detailTab, setDetailTab] = useState<DetailTab>('overview')
   const [reactivateJO, setReactivateJO] = useState<JobOrder | null>(null)
 
-  const canProgress = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
+  const canProgress = can('pipeline', 'move_cards')
 
   const columns = useMemo(
     () => COLUMNS.map((col) => ({ ...col, items: jobOrders.filter((j) => j.status === col.status) })),

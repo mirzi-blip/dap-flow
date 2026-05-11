@@ -129,14 +129,22 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
         {/* User avatar */}
         <div className="flex items-center gap-2 pl-1">
-          <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-lg shadow-sm border border-slate-200 dark:border-slate-600">
-            {currentUser?.avatar}
+          <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-lg shadow-sm border border-slate-200 dark:border-slate-600 overflow-hidden shrink-0">
+            {(currentUser?.avatar?.startsWith('data:') || currentUser?.avatar?.startsWith('http'))
+              ? <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
+              : currentUser?.avatar}
           </div>
           <div className="hidden lg:block">
             <p className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-none">{currentUser?.name}</p>
             <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 leading-none">{currentUser?.role}</p>
           </div>
         </div>
+
+        {/* Divider */}
+        <div className="w-px h-6 bg-slate-100 dark:bg-slate-700 mx-0.5" />
+
+        {/* IPI logo */}
+        <img src="/ipi-logo.png" alt="IPI" className="h-8 w-auto object-contain shrink-0" />
       </div>
     </header>
   )

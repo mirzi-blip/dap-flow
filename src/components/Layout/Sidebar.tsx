@@ -4,28 +4,29 @@ import {
   Camera, Aperture, X,
 } from 'lucide-react'
 import { useAppStore, type View } from '../../store/useAppStore'
+import { usePermissions } from '../../hooks/usePermissions'
 
 const NAV_GROUPS = [
   {
     label: 'MAIN',
     items: [
-      { id: 'dashboard' as View, label: 'Dashboard',  icon: LayoutDashboard },
-      { id: 'calendar'  as View, label: 'Calendar',   icon: CalendarRange },
+      { id: 'dashboard' as View, label: 'Dashboard',  icon: LayoutDashboard, module: 'dashboard' },
+      { id: 'calendar'  as View, label: 'Calendar',   icon: CalendarRange,   module: 'calendar'  },
     ],
   },
   {
     label: 'WORK',
     items: [
-      { id: 'joborders' as View, label: 'Job Orders', icon: FileText },
-      { id: 'kanban'    as View, label: 'Pipeline',   icon: Workflow },
-      { id: 'workload'  as View, label: 'Workload',   icon: GanttChartSquare },
+      { id: 'joborders' as View, label: 'Job Orders', icon: FileText,          module: 'job_orders' },
+      { id: 'kanban'    as View, label: 'Pipeline',   icon: Workflow,          module: 'pipeline'   },
+      { id: 'workload'  as View, label: 'Workload',   icon: GanttChartSquare,  module: 'workload'   },
     ],
   },
   {
     label: 'INSIGHTS',
     items: [
-      { id: 'reports'  as View, label: 'Reports',  icon: TrendingUp },
-      { id: 'settings' as View, label: 'Settings', icon: SlidersHorizontal },
+      { id: 'reports'  as View, label: 'Reports',  icon: TrendingUp,       module: 'reports'   },
+      { id: 'settings' as View, label: 'Settings', icon: SlidersHorizontal, module: 'settings'  },
     ],
   },
 ]
@@ -34,6 +35,15 @@ interface SidebarProps { open: boolean; onClose: () => void }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { view, setView, currentUser, logout, isOnline } = useAppStore()
+  const { canView, can } = usePermissions()
+
+  // Settings has no "view" action — gate it on any settings permission instead
+  function canViewModule(module: string): boolean {
+    if (module === 'settings') {
+      return can('settings', 'view_profile') || can('settings', 'view_users') || can('settings', 'manage_users') || can('settings', 'manage_team') || can('settings', 'manage_permissions') || can('settings', 'manage_integrations')
+    }
+    return canView(module)
+  }
 
   function navigate(id: View) { setView(id); onClose() }
 
@@ -75,7 +85,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-blue-300/40 px-3 mb-1 mt-5 block">
               {group.label}
             </span>
-            {group.items.map(({ id, label, icon: Icon }) => {
+            {group.items.filter(item => canViewModule(item.module)).map(({ id, label, icon: Icon }) => {
               const active = view === id
               return (
                 <button
@@ -126,8 +136,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       <div className="px-3 pb-5">
         <div className="flex items-center gap-2.5 bg-white/8 border border-white/10 rounded-2xl px-3 py-3"
           style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-          <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-lg shrink-0">
-            {currentUser?.avatar}
+          <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-lg shrink-0 overflow-hidden">
+            {(currentUser?.avatar?.startsWith('data:') || currentUser?.avatar?.startsWith('http'))
+              ? <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
+              : currentUser?.avatar}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-white truncate">{currentUser?.name}</p>

@@ -29,6 +29,10 @@ export class DAPFlowDB extends Dexie {
     this.version(2).stores({
       bookingRequests: 'id, status, activityType, createdAt',
     })
+    this.version(3).stores({
+      jobOrders:
+        'id, joNumber, status, activityType, requestingTeam, priority, deadline, createdAt, createdBy, completedAt',
+    })
   }
 }
 

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useAppStore, useDataStore } from './store/useAppStore'
 import { db } from './db/database'
 import { supabase, rowToRequest, rowToJobOrder } from './lib/supabase'
+import { generateId } from './utils/helpers'
 import {
   SEED_JOB_ORDERS,
   SEED_CALENDAR_EVENTS,
@@ -27,7 +28,7 @@ export default function App() {
     return <BookingRequestForm />
   }
 
-  const { currentUser, view, setOnline, setPendingSyncCount, theme, requestAlert, setRequestAlert, setView } = useAppStore()
+  const { currentUser, view, setOnline, setPendingSyncCount, theme, requestAlert, setRequestAlert, setView, showPasswordExpiry, setShowPasswordExpiry, setPasswordLastChanged } = useAppStore()
 
   // Load users from Supabase on startup (cross-browser sync)
   useEffect(() => {
@@ -40,7 +41,7 @@ export default function App() {
   }, [theme])
   const {
     setJobOrders, setCalendarEvents, setNotifications,
-    setStatusLogs, seeded, setSeeded, setBookingRequests,
+    setStatusLogs, seeded, setSeeded, setBookingRequests, addNotification,
   } = useDataStore()
 
   // Online/offline detection
@@ -67,6 +68,38 @@ export default function App() {
     await new Promise((r) => setTimeout(r, 1200))
     await db.syncQueue.where('synced').equals(0 as any).modify({ synced: true })
     setPendingSyncCount(0)
+  }
+
+  // ── Auto-flag overdue JOs ───────────────────────────────────────────────────
+  // A JO is overdue when its deadline date is strictly before today (end of
+  // business day still counts as on-time). Runs on load and every 30 minutes.
+  async function autoFlagOverdueJOs() {
+    // Start of today in local time → compare dates fairly, not datetimes
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    const { data: activeJOs } = await supabase
+      .from('job_orders')
+      .select('id, deadline, status')
+      .not('status', 'in', '("Completed","Cancelled","Delayed")')
+
+    const overdueIds = (activeJOs ?? [])
+      .filter(j => j.deadline && new Date(j.deadline as string) < todayStart)
+      .map(j => j.id as string)
+
+    if (overdueIds.length === 0) return
+
+    const now = new Date().toISOString()
+    for (const id of overdueIds) {
+      await supabase.from('job_orders').update({ status: 'Delayed', updated_at: now }).eq('id', id)
+    }
+
+    // Reload all JOs so the UI reflects the new statuses
+    const { data: refreshed } = await supabase
+      .from('job_orders')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (refreshed) setJobOrders(refreshed.map(rowToJobOrder))
   }
 
   // Initialize DB — seed if empty, then load into UI state
@@ -135,6 +168,35 @@ export default function App() {
         .order('created_at', { ascending: false })
       setBookingRequests((bookingRows ?? []).map(rowToRequest))
 
+      // Auto-flag overdue JOs (initial run)
+      await autoFlagOverdueJOs()
+
+      // 3-day unacted booking request notification
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+      const { data: unacted } = await supabase.from('booking_requests').select('id').eq('status', 'Pending Approval').lt('created_at', threeDaysAgo)
+      if (unacted && unacted.length > 0) {
+        // Check if we already have a recent unacted notification (avoid duplicates)
+        const existingAlerts = await db.notifications.where('type').equals('conflict_alert').and(n => n.message.includes('pending approval')).toArray()
+        const recentAlert = existingAlerts.find(n => {
+          const created = new Date(n.createdAt)
+          const hoursSince = (Date.now() - created.getTime()) / 3600000
+          return hoursSince < 24 // Only suppress if alert was sent in last 24h
+        })
+        if (!recentAlert) {
+          const notif = {
+            id: generateId(),
+            type: 'conflict_alert' as const,
+            title: `${unacted.length} Request${unacted.length > 1 ? 's' : ''} Need Action`,
+            message: `${unacted.length} booking request${unacted.length > 1 ? 's have' : ' has'} been pending approval for more than 3 days. Please follow up with the approver.`,
+            read: false,
+            createdAt: new Date().toISOString(),
+            targetUserId: 'u1',
+          }
+          await db.notifications.add(notif)
+          addNotification(notif)
+        }
+      }
+
       setSeeded(true)
     }
 
@@ -161,13 +223,58 @@ export default function App() {
         updateJobOrder(rowToJobOrder(payload.new as Record<string, unknown>))
       })
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+
+    // Re-check for newly overdue JOs every 30 minutes while app is open
+    const overdueInterval = setInterval(autoFlagOverdueJOs, 30 * 60 * 1000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(overdueInterval)
+    }
   }, [])
 
   if (!currentUser) return <LoginPage />
 
   return (
     <>
+    {showPasswordExpiry && currentUser && (
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+              <span className="text-2xl">🔒</span>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Password Update Recommended</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Your password is over 90 days old. For security, please update it. You can also waive this reminder for now.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => {
+                setPasswordLastChanged(currentUser.id, new Date().toISOString())
+                setShowPasswordExpiry(false)
+              }}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+            >
+              Waive for now
+            </button>
+            <button
+              onClick={() => {
+                setShowPasswordExpiry(false)
+                setView('settings')
+              }}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            >
+              Change Password →
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     {requestAlert && (
       <div className="fixed bottom-5 right-5 z-[9999] w-80 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 rounded-2xl shadow-2xl overflow-hidden animate-slide-in">
         <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-2.5 flex items-center justify-between">

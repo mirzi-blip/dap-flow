@@ -1,10 +1,12 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Plus, Search, X, Paperclip, Link2, MessageSquare,
   Clock, LayoutList, ChevronRight, Send, Trash2, Pencil, Check,
-  ClipboardList, Copy, CheckCircle2, Users, AlertTriangle, ChevronUp, ChevronDown,
+  ClipboardList, Copy, CheckCircle2, Users, AlertTriangle, ChevronUp, ChevronDown, Upload,
+  CheckCheck,
 } from 'lucide-react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
+import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -38,7 +40,7 @@ const emptyForm = {
 
 type DetailTab = 'overview' | 'activity' | 'files' | 'comments'
 
-interface FileRef { id: string; label: string; url: string; addedAt: string; addedBy: string }
+interface FileRef { id: string; label: string; url: string; addedAt: string; addedBy: string; isFile?: boolean }
 interface Comment { id: string; text: string; author: string; createdAt: string }
 
 const STATUS_COLORS: Record<JOStatus, string> = {
@@ -56,8 +58,9 @@ type SortCol = 'joNumber' | 'projectName' | 'activityType' | 'requestingTeam' | 
 export function JobOrdersPage() {
   const { jobOrders, addJobOrder, updateJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest, deleteBookingRequest, addCalendarEvent } = useDataStore()
   const { currentUser, globalSearch, setGlobalSearch, resources } = useAppStore()
+  const { can } = usePermissions()
 
-  const canSeeRequests = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
+  const canSeeRequests = can('job_orders', 'view_requests')
 
   const [pageTab, setPageTab] = useState<PageTab>('list')
   const [search, setSearch] = useState(globalSearch)
@@ -93,6 +96,7 @@ export function JobOrdersPage() {
 
   // Confirmation modals state
   const [confirmAction, setConfirmAction] = useState<{ type: 'schedule' | 'cancel' | 'forReview'; jo: JobOrder } | null>(null)
+  const [deadlineChangeConfirm, setDeadlineChangeConfirm] = useState<string | null>(null)
 
   // Rejection modal state
   const [rejectReason, setRejectReason] = useState('')
@@ -103,16 +107,29 @@ export function JobOrdersPage() {
   const [comments, setComments] = useState<Record<string, Comment[]>>({})
   const [newLink, setNewLink] = useState({ label: '', url: '' })
   const [linkError, setLinkError] = useState('')
+  const [fileUploadError, setFileUploadError] = useState('')
   const [newComment, setNewComment] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Completion modal state
+  const [completionTarget, setCompletionTarget] = useState<JobOrder | null>(null)
+  const [completedByName, setCompletedByName] = useState('')
+  const [completionRemarks, setCompletionRemarks] = useState('')
+  const [completionFileUrl, setCompletionFileUrl] = useState<string | null>(null)
+  const [completionFileName, setCompletionFileName] = useState('')
+  const [completionError, setCompletionError] = useState('')
+  const [completionSuccess, setCompletionSuccess] = useState('')
+  const [completionLoading, setCompletionLoading] = useState(false)
+  const completionFileRef = useRef<HTMLInputElement>(null)
 
   // Sync local search to global search store
   useEffect(() => { setSearch(globalSearch) }, [globalSearch])
   function handleSearchChange(val: string) { setSearch(val); setGlobalSearch(val) }
 
-  const canCreate = currentUser?.role === 'Admin' || currentUser?.role === 'Brand Team'
-  const canApprove = currentUser?.role === 'Admin'
-  const canProgress = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
-  const canEdit = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
+  const canCreate = can('job_orders', 'create')
+  const canApprove = can('job_orders', 'approve')
+  const canProgress = can('job_orders', 'change_status')
+  const canEdit = can('job_orders', 'edit')
 
   const PRIORITY_ORDER: Record<Priority, number> = { 'High': 0, 'Medium': 1, 'Low': 2 }
 
@@ -228,7 +245,7 @@ export function JobOrdersPage() {
 
     if (selectedJO?.id === jo.id) setSelectedJO(updated)
 
-    // Auto-create calendar event + notify members when scheduled
+    // Auto-create calendar event when scheduled
     if (newStatus === 'Scheduled') {
       const ev = {
         id: generateId(),
@@ -244,48 +261,51 @@ export function JobOrdersPage() {
       }
       await db.calendarEvents.add(ev)
       addCalendarEvent(ev)
-
-      for (const memberId of jo.assignedMemberIds) {
-        const member = resources.find(r => r.id === memberId)
-        if (member?.email) {
-          fetch('https://dap-flow-tau.vercel.app/api/send-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              memberNotification: true,
-              mode: 'scheduled',
-              memberEmail: member.email,
-              memberName: member.name,
-              joNumber: updated.joNumber,
-              projectName: updated.projectName,
-              activityType: updated.activityType,
-              priority: updated.priority,
-              deadline: updated.deadline,
-            }),
-          }).catch(console.error)
-        }
-      }
     }
 
-    // Email the requestor if this JO came from a booking request
-    const JO_NOTIFY_STATUSES: JOStatus[] = ['Approved', 'Scheduled', 'Completed', 'Delayed', 'Cancelled']
-    if (JO_NOTIFY_STATUSES.includes(newStatus)) {
-      const relatedReq = bookingRequests.find(r => r.joId === jo.id)
-      if (relatedReq) {
+    // Notify ALL assigned members of the status change
+    const memberMode = newStatus === 'Scheduled' ? 'scheduled' : 'status_update'
+    for (const memberId of jo.assignedMemberIds) {
+      const member = resources.find(r => r.id === memberId)
+      if (member?.email) {
         fetch('https://dap-flow-tau.vercel.app/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            direct: true,
-            requestorEmail: relatedReq.requestorEmail,
-            preparedBy: relatedReq.preparedBy,
-            activityType: relatedReq.activityType,
-            neededDate: relatedReq.neededDate,
+            memberNotification: true,
+            mode: memberMode,
+            memberEmail: member.email,
+            memberName: member.name,
+            joNumber: updated.joNumber,
+            projectName: updated.projectName,
+            activityType: updated.activityType,
+            priority: updated.priority,
+            deadline: updated.deadline,
             status: newStatus,
-            id: jo.id,
           }),
         }).catch(console.error)
       }
+    }
+
+    // Notify the requestor via joNotification for every status change
+    const relatedReq = bookingRequests.find(r => r.joId === jo.id)
+    if (relatedReq?.requestorEmail) {
+      fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          joNotification: true,
+          requestorEmail: relatedReq.requestorEmail,
+          preparedBy: relatedReq.preparedBy,
+          joNumber: updated.joNumber,
+          projectName: updated.projectName,
+          activityType: updated.activityType,
+          priority: updated.priority,
+          deadline: updated.deadline,
+          status: newStatus,
+          refId: relatedReq.id.slice(0, 8).toUpperCase(),
+        }),
+      }).catch(console.error)
     }
   }
 
@@ -311,6 +331,163 @@ export function JobOrdersPage() {
     else if (type === 'forReview') await handleStatusChange(jo, 'For Review')
   }
 
+  function openCompletionModal(jo: JobOrder) {
+    setCompletionTarget(jo)
+    setCompletedByName(currentUser?.name ?? '')
+    setCompletionRemarks('')
+    setCompletionFileUrl(null)
+    setCompletionFileName('')
+    setCompletionError('')
+    setCompletionSuccess('')
+  }
+
+  function handleCompletionFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      setCompletionError('File too large. Maximum 5 MB.')
+      e.target.value = ''
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      setCompletionFileUrl(reader.result as string)
+      setCompletionFileName(file.name)
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  async function handleMarkComplete() {
+    if (!completionTarget) return
+
+    // ── Validation ──────────────────────────────────────────────────────────
+    if (!completedByName.trim()) {
+      setCompletionError('Completed By is required.')
+      return
+    }
+    if (!completionRemarks.trim()) {
+      setCompletionError('Completion Remarks are required.')
+      return
+    }
+
+    setCompletionLoading(true)
+    setCompletionError('')
+
+    const now = new Date().toISOString()
+    const updated: JobOrder = {
+      ...completionTarget,
+      status: 'Completed',
+      updatedAt: now,
+      completedAt: now,
+      completedBy: completedByName.trim(),
+      completionRemarks: completionRemarks.trim(),
+      ...(completionFileUrl ? { completionFileUrl } : {}),
+    }
+
+    try {
+      // ── 1. Persist locally ──────────────────────────────────────────────
+      await db.jobOrders.put(updated)
+      updateJobOrder(updated)
+
+      // ── 2. Sync to Supabase — await so we confirm success before emailing ──
+      const { error: syncError } = await supabase.from('job_orders').update({
+        status: 'Completed',
+        updated_at: now,
+        completed_at: now,
+        completed_by: updated.completedBy,
+        completion_remarks: updated.completionRemarks,
+        completion_file_url: updated.completionFileUrl ?? null,
+      }).eq('id', updated.id)
+
+      if (syncError) console.error('JO sync error:', syncError)
+
+      // ── 3. Status log ───────────────────────────────────────────────────
+      const log = {
+        id: generateId(),
+        joId: updated.id,
+        joNumber: updated.joNumber,
+        fromStatus: completionTarget.status,
+        toStatus: 'Completed' as JOStatus,
+        changedBy: updated.completedBy ?? completedByName.trim(),
+        changedAt: now,
+        notes: updated.completionRemarks ?? '',
+      }
+      await db.statusLogs.add(log)
+      addStatusLog(log)
+
+      // ── 4. In-app notification ──────────────────────────────────────────
+      const notif = {
+        id: generateId(),
+        type: 'status_changed' as const,
+        title: 'JO Completed',
+        message: `${updated.joNumber} has been marked as Completed by ${updated.completedBy}`,
+        read: false,
+        createdAt: now,
+        targetUserId: updated.requesterId,
+        joId: updated.id,
+      }
+      await db.notifications.add(notif)
+      addNotification(notif)
+
+      // Sync detail panel
+      if (selectedJO?.id === updated.id) setSelectedJO(updated)
+
+      // ── 5. Send completion email — only after DB confirmed ──────────────
+      //    Find the linked booking request for the requestor's email
+      const relatedReq = bookingRequests.find(r => r.joId === completionTarget.id)
+      let emailSent = false
+
+      if (relatedReq?.requestorEmail) {
+        try {
+          const emailRes = await fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              completionNotification: true,
+              requestorEmail: relatedReq.requestorEmail,
+              preparedBy: relatedReq.preparedBy,
+              joNumber: updated.joNumber,
+              projectName: updated.projectName,
+              activityType: updated.activityType,
+              priority: updated.priority,
+              deadline: updated.deadline,
+              completedBy: updated.completedBy,
+              completedAt: now,
+              remarks: updated.completionRemarks,
+              refId: relatedReq.id.slice(0, 8).toUpperCase(),
+            }),
+          })
+          emailSent = emailRes.ok
+          if (!emailRes.ok) {
+            const errBody = await emailRes.json().catch(() => ({}))
+            console.error('Completion email failed:', errBody)
+          }
+        } catch (emailErr) {
+          // Email failure must not roll back the completion — log and continue
+          console.error('Completion email error:', emailErr)
+        }
+      }
+
+      // ── 6. Show success state in modal, auto-close after 2.5 s ─────────
+      const emailNote = relatedReq?.requestorEmail
+        ? (emailSent ? ' · Notification sent to requestor.' : ' · Email could not be sent — please notify manually.')
+        : ''
+      setCompletionSuccess(`${updated.joNumber} marked as Completed.${emailNote}`)
+
+      setTimeout(() => {
+        setCompletionTarget(null)
+        setCompletionSuccess('')
+      }, 2500)
+
+    } catch (err) {
+      console.error('Mark complete error:', err)
+      setCompletionError('Something went wrong. Please try again.')
+    } finally {
+      setCompletionLoading(false)
+    }
+  }
+
   async function handleEditSave() {
     if (!selectedJO || !editForm.projectName || !editForm.deadline) return
     const updated: JobOrder = {
@@ -325,6 +502,69 @@ export function JobOrdersPage() {
     setEditMode(false)
     setEditSaved(true)
     setTimeout(() => setEditSaved(false), 2000)
+
+    // Detect member changes and send targeted emails
+    const oldIds = new Set(selectedJO.assignedMemberIds)
+    const newIds = new Set(editForm.assignedMemberIds)
+    const added   = editForm.assignedMemberIds.filter(id => !oldIds.has(id))
+    const removed = selectedJO.assignedMemberIds.filter(id => !newIds.has(id))
+
+    const EMAIL_BASE = 'https://dap-flow-tau.vercel.app/api/send-email'
+    const joPayload = {
+      joNumber: updated.joNumber,
+      projectName: updated.projectName,
+      activityType: updated.activityType,
+      priority: updated.priority,
+      deadline: updated.deadline,
+      status: updated.status,
+    }
+
+    for (const memberId of added) {
+      const member = resources.find(r => r.id === memberId)
+      if (member?.email) {
+        fetch(EMAIL_BASE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ memberNotification: true, mode: 'assigned', memberEmail: member.email, memberName: member.name, ...joPayload }),
+        }).catch(console.error)
+      }
+    }
+
+    for (const memberId of removed) {
+      const member = resources.find(r => r.id === memberId)
+      if (member?.email) {
+        fetch(EMAIL_BASE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ memberNotification: true, mode: 'removed', memberEmail: member.email, memberName: member.name, ...joPayload }),
+        }).catch(console.error)
+      }
+    }
+
+    // If the assignment or any key field changed, notify the requestor
+    const keyChanged =
+      added.length > 0 ||
+      removed.length > 0 ||
+      selectedJO.deadline !== editForm.deadline ||
+      selectedJO.priority !== editForm.priority ||
+      selectedJO.projectName !== editForm.projectName
+
+    if (keyChanged) {
+      const relatedReq = bookingRequests.find(r => r.joId === selectedJO.id)
+      if (relatedReq?.requestorEmail) {
+        fetch(EMAIL_BASE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            joNotification: true,
+            requestorEmail: relatedReq.requestorEmail,
+            preparedBy: relatedReq.preparedBy,
+            refId: relatedReq.id.slice(0, 8).toUpperCase(),
+            ...joPayload,
+          }),
+        }).catch(console.error)
+      }
+    }
   }
 
   function openDetail(jo: JobOrder) {
@@ -366,6 +606,31 @@ export function JobOrdersPage() {
     setFileRefs(prev => ({ ...prev, [joId]: (prev[joId] ?? []).filter(r => r.id !== refId) }))
   }
 
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    setFileUploadError('')
+    const file = e.target.files?.[0]
+    if (!file || !selectedJO) return
+    if (file.size > 2 * 1024 * 1024) {
+      setFileUploadError(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 2 MB.`)
+      e.target.value = ''
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const ref: FileRef = {
+        id: generateId(),
+        label: file.name,
+        url: reader.result as string,
+        addedAt: new Date().toISOString(),
+        addedBy: currentUser?.name ?? 'Unknown',
+        isFile: true,
+      }
+      setFileRefs(prev => ({ ...prev, [selectedJO.id]: [...(prev[selectedJO.id] ?? []), ref] }))
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
   function addComment() {
     if (!newComment.trim() || !selectedJO) return
     const c: Comment = {
@@ -385,10 +650,10 @@ export function JobOrdersPage() {
   // Requests tab helpers
   const pendingApprovalForUser = bookingRequests.filter(r =>
     r.status === 'Pending Approval' &&
-    (currentUser?.role === 'Admin' || r.approverEmail?.toLowerCase() === currentUser?.email?.toLowerCase())
+    (canApprove || r.approverEmail?.toLowerCase() === currentUser?.email?.toLowerCase())
   )
   const pendingReviewRequests = bookingRequests.filter(r =>
-    ['Pending Review', 'Assigned', 'Approved', 'Rejected'].includes(r.status)
+    r.status === 'Pending Review'
   )
   const pendingCount = pendingApprovalForUser.length + bookingRequests.filter(r => r.status === 'Pending Review').length
 
@@ -455,7 +720,7 @@ export function JobOrdersPage() {
   async function handleConvertToJO(req: BookingRequest) {
     const newJO: JobOrder = {
       id: generateId(),
-      joNumber: `JO-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`,
+      joNumber: generateJONumber(jobOrders.length),
       requestingTeam: (req.department as RequestingTeam) ?? 'BMG',
       requesterId: 'admin',
       projectName: req.projectName || `${req.activityType} — ${req.department}`,
@@ -467,7 +732,7 @@ export function JobOrdersPage() {
       launchDate: req.neededDate,
       assignedMemberIds: selectedMemberIds,
       status: 'Pending',
-      notes: `Booking request from ${req.preparedBy} (${req.requestorEmail}). Venue: ${req.venue}`,
+      notes: `Source Request: REF#${req.id.slice(0, 8).toUpperCase()} — submitted by ${req.preparedBy} (${req.requestorEmail}). Venue: ${req.venue}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       createdBy: 'Admin',
@@ -603,12 +868,10 @@ export function JobOrdersPage() {
 
           {/* Summary bar — Admin/DAP only */}
           {canSeeRequests && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {([
-                ['Total', bookingRequests.length, 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300'],
-                ['Pending Review', bookingRequests.filter(r => r.status === 'Pending Review').length, 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'],
-                ['Assigned', bookingRequests.filter(r => r.status === 'Assigned').length, 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'],
-                ['Approved', bookingRequests.filter(r => r.status === 'Approved').length, 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'],
+                ['Pending Approval', bookingRequests.filter(r => r.status === 'Pending Approval').length, 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'],
+                ['Pending Review', bookingRequests.filter(r => r.status === 'Pending Review').length, 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800'],
               ] as [string, number, string][]).map(([label, count, cls]) => (
                 <div key={label} className={`rounded-2xl px-4 py-3 ${cls}`}>
                   <p className="text-[11px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">{label}</p>
@@ -632,8 +895,6 @@ export function JobOrdersPage() {
                   canSeeRequests={canSeeRequests}
                   onReview={() => openReview(req)}
                   onDelete={() => { setDeleteTarget(req); setDeleteNote('') }}
-                  onApprove={() => handleApproveRequest(req)}
-                  showApproveButton
                 />
               ))}
             </div>
@@ -1012,9 +1273,17 @@ export function JobOrdersPage() {
                       onClick={() => openDetail(jo)}
                     >
                       <td className="px-4 py-3">
-                        <span className="font-mono text-xs text-blue-600 dark:text-blue-400 font-medium">
+                        <span className="font-mono text-xs text-blue-600 dark:text-blue-400 font-medium block">
                           {jo.joNumber}
                         </span>
+                        {(() => {
+                          const srcReq = bookingRequests.find(r => r.joId === jo.id)
+                          return srcReq ? (
+                            <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                              REF#{srcReq.id.slice(0, 8).toUpperCase()}
+                            </span>
+                          ) : null
+                        })()}
                       </td>
                       <td className="px-4 py-3 max-w-[180px]">
                         <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{jo.projectName}</p>
@@ -1051,21 +1320,18 @@ export function JobOrdersPage() {
                       <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={jo.status} /></td>
                       <td className="px-4 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {/* Mark Complete button for assigned member when status is For Review */}
-                          {jo.status === 'For Review' && isAssignedMember && (
-                            <Button size="sm" onClick={() => handleStatusChangeWithConfirm(jo, 'Completed')} className="text-xs bg-emerald-600 hover:bg-emerald-700">
-                              <Check size={11} /> Mark Complete
+                          {/* Mark Complete — only for authorized users when status is For Review */}
+                          {jo.status === 'For Review' && canProgress && (isAssignedMember || canApprove) && (
+                            <Button size="sm" onClick={() => openCompletionModal(jo)} className="text-xs bg-emerald-600 hover:bg-emerald-700">
+                              <CheckCheck size={11} /> Complete
                             </Button>
                           )}
-                          {/* Regular advance button (skip For Review → Completed for non-assigned members) */}
+                          {/* Regular advance button (skip For Review → Completed: handled by completion modal) */}
                           {canProgress && next && jo.status !== 'Delayed' && jo.status !== 'Cancelled' &&
                             !(jo.status === 'For Review' && next === 'Completed') && (
                             <Button size="sm" variant="secondary" onClick={() => handleStatusChangeWithConfirm(jo, next)} className="text-xs">
                               → {next}
                             </Button>
-                          )}
-                          {canApprove && jo.status !== 'Delayed' && jo.status !== 'Completed' && jo.status !== 'Cancelled' && (
-                            <Button size="sm" variant="danger" onClick={() => handleStatusChange(jo, 'Delayed')} className="text-xs">Delay</Button>
                           )}
                           {canApprove && jo.status !== 'Completed' && jo.status !== 'Cancelled' && (
                             <Button size="sm" variant="danger" onClick={() => handleStatusChangeWithConfirm(jo, 'Cancelled')} className="text-xs">Cancel</Button>
@@ -1128,6 +1394,45 @@ export function JobOrdersPage() {
                 {confirmAction.type === 'schedule' && 'Yes, Schedule'}
                 {confirmAction.type === 'cancel' && 'Yes, Cancel'}
                 {confirmAction.type === 'forReview' && 'Yes, Proceed'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deadline Change Confirmation */}
+      {deadlineChangeConfirm !== null && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeadlineChangeConfirm(null)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Change Deadline?</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Please confirm alignment with the <strong>requestor</strong> before changing the deadline. Have you checked with them that the new date works?
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setDeadlineChangeConfirm(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (deadlineChangeConfirm !== null) {
+                    setEditForm(prev => ({ ...prev, deadline: deadlineChangeConfirm }))
+                  }
+                  setDeadlineChangeConfirm(null)
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 transition-colors"
+              >
+                Yes, Change Deadline
               </button>
             </div>
           </div>
@@ -1239,7 +1544,7 @@ export function JobOrdersPage() {
                     </div>
                     <div>
                       <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Deadline *</label>
-                      <input type="date" className="form-input" value={editForm.deadline} onChange={e => setEditForm(f => ({ ...f, deadline: e.target.value }))} />
+                      <input type="date" className="form-input" value={editForm.deadline} onChange={e => setDeadlineChangeConfirm(e.target.value)} />
                     </div>
                     <div>
                       <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Launch Date</label>
@@ -1274,6 +1579,41 @@ export function JobOrdersPage() {
               ) : (
                 /* View mode */
                 <div className="space-y-4">
+                  {/* Source Request linkage */}
+                  {(() => {
+                    const srcReq = bookingRequests.find(r => r.joId === selectedJO.id)
+                    if (!srcReq) return null
+                    return (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-3">
+                        <p className="text-[10px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-wide mb-2">Source Booking Request</p>
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">REF#</span>
+                            <span className="font-mono font-black text-sm text-blue-700 dark:text-blue-300 tracking-widest">
+                              {srcReq.id.slice(0, 8).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">JO#</span>
+                            <span className="font-mono font-bold text-sm text-slate-700 dark:text-slate-300">
+                              {selectedJO.joNumber}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-blue-100 dark:border-blue-800 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                          <span className="text-slate-400 dark:text-slate-500">Requested by</span>
+                          <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.preparedBy}</span>
+                          <span className="text-slate-400 dark:text-slate-500">Department</span>
+                          <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.department} {srcReq.departmentLocal ? `· ${srcReq.departmentLocal}` : ''}</span>
+                          <span className="text-slate-400 dark:text-slate-500">Approver</span>
+                          <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.approverName || '—'}</span>
+                          <span className="text-slate-400 dark:text-slate-500">Venue</span>
+                          <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.venue || '—'}</span>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <InfoBox label="Requesting Team" value={selectedJO.requestingTeam} />
                     <InfoBox label="Campaign" value={selectedJO.campaign || '—'} />
@@ -1315,10 +1655,10 @@ export function JobOrdersPage() {
                   )}
                   {canProgress && selectedJO.status !== 'Completed' && selectedJO.status !== 'Cancelled' && (
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
-                      {/* Mark Complete for assigned member when For Review */}
-                      {selectedJO.status === 'For Review' && currentUser?.resourceId && selectedJO.assignedMemberIds.includes(currentUser.resourceId) && (
-                        <Button onClick={() => { handleStatusChange(selectedJO, 'Completed'); setSelectedJO(null) }} className="bg-emerald-600 hover:bg-emerald-700">
-                          <Check size={14} /> Mark as Complete
+                      {/* Mark Complete modal trigger — For Review + authorized */}
+                      {selectedJO.status === 'For Review' && (canApprove || (currentUser?.resourceId && selectedJO.assignedMemberIds.includes(currentUser.resourceId))) && (
+                        <Button onClick={() => openCompletionModal(selectedJO)} className="bg-emerald-600 hover:bg-emerald-700">
+                          <CheckCheck size={14} /> Mark as Complete
                         </Button>
                       )}
                       {getNextStatus(selectedJO.status) && selectedJO.status !== 'Delayed' &&
@@ -1327,11 +1667,30 @@ export function JobOrdersPage() {
                           Move to {getNextStatus(selectedJO.status)} <ChevronRight size={14} />
                         </Button>
                       )}
-                      {canApprove && selectedJO.status !== 'Delayed' && (
-                        <Button variant="danger" onClick={() => handleStatusChange(selectedJO, 'Delayed')}>Mark Delayed</Button>
-                      )}
                       {canApprove && (
                         <Button variant="danger" onClick={() => handleStatusChangeWithConfirm(selectedJO, 'Cancelled')}>Cancel JO</Button>
+                      )}
+                    </div>
+                  )}
+                  {/* Completion summary for completed JOs */}
+                  {selectedJO.status === 'Completed' && selectedJO.completedAt && (
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+                        <CheckCheck size={13} /> Completed
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        <span className="font-semibold">By:</span> {selectedJO.completedBy} · <span className="font-semibold">On:</span> {formatDateTime(selectedJO.completedAt)}
+                      </p>
+                      {selectedJO.completionRemarks && (
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          <span className="font-semibold">Remarks:</span> {selectedJO.completionRemarks}
+                        </p>
+                      )}
+                      {selectedJO.completionFileUrl && (
+                        <a href={selectedJO.completionFileUrl} target="_blank" rel="noreferrer" download
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                          <Paperclip size={11} /> Download attachment
+                        </a>
                       )}
                     </div>
                   )}
@@ -1398,6 +1757,18 @@ export function JobOrdersPage() {
                   </div>
                   {linkError && <p className="text-xs text-red-600 dark:text-red-400">{linkError}</p>}
                 </div>
+                <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 space-y-2">
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Upload File</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">Maximum file size: 2 MB</p>
+                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                  <button
+                    onClick={() => { setFileUploadError(''); fileInputRef.current?.click() }}
+                    className="flex items-center gap-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 text-slate-700 dark:text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
+                  >
+                    <Upload size={13} className="text-blue-500" /> Choose File to Upload
+                  </button>
+                  {fileUploadError && <p className="text-xs text-red-600 dark:text-red-400">{fileUploadError}</p>}
+                </div>
                 {joFiles.length === 0 ? (
                   <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
                     <Paperclip size={28} className="mx-auto mb-2 opacity-40" />No references added yet.
@@ -1406,13 +1777,15 @@ export function JobOrdersPage() {
                   <div className="space-y-2">
                     {joFiles.map(ref => (
                       <div key={ref.id} className="flex items-center gap-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 group">
-                        <Link2 size={14} className="text-blue-500 shrink-0" />
+                        {ref.isFile ? <Paperclip size={14} className="text-emerald-500 shrink-0" /> : <Link2 size={14} className="text-blue-500 shrink-0" />}
                         <div className="flex-1 min-w-0">
-                          <a href={ref.url} target="_blank" rel="noopener noreferrer"
+                          <a href={ref.url} target="_blank" rel="noopener noreferrer" download={ref.isFile ? ref.label : undefined}
                             className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline truncate block" onClick={e => e.stopPropagation()}>
                             {ref.label}
                           </a>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">Added by {ref.addedBy} · {formatDateTime(ref.addedAt)}</p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                            {ref.isFile ? 'File · ' : 'Link · '}Added by {ref.addedBy} · {formatDateTime(ref.addedAt)}
+                          </p>
                         </div>
                         <button onClick={() => removeFileRef(selectedJO.id, ref.id)}
                           className="p-1 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg">
@@ -1539,6 +1912,151 @@ export function JobOrdersPage() {
           </div>
         </div>
       </Modal>
+
+      {/* ── Completion Modal ──────────────────────────────────────── */}
+      {completionTarget && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !completionLoading && !completionSuccess && setCompletionTarget(null)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+
+            {/* Header */}
+            <div className="flex items-start gap-3">
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-colors ${completionSuccess ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-emerald-50 dark:bg-emerald-900/20'}`}>
+                <CheckCheck size={20} className="text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Mark as Completed</h3>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  {completionTarget.joNumber} · {completionTarget.projectName}
+                </p>
+              </div>
+            </div>
+
+            {/* ── Success state ── */}
+            {completionSuccess ? (
+              <div className="flex flex-col items-center gap-3 py-4 text-center">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <CheckCheck size={26} className="text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Job Order Completed!</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{completionSuccess}</p>
+                </div>
+                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1 overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full animate-pulse" style={{ width: '100%' }} />
+                </div>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500">Closing automatically…</p>
+              </div>
+            ) : (
+              <>
+                {/* ── Completed By — required, auto-filled but editable ── */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1.5">
+                    Completed By <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Name of the person completing this JO"
+                    value={completedByName}
+                    onChange={e => { setCompletedByName(e.target.value); setCompletionError('') }}
+                    disabled={completionLoading}
+                  />
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                    Auto-filled from your account. Edit if completing on behalf of someone else.
+                  </p>
+                </div>
+
+                {/* ── Completion Remarks — required ── */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1.5">
+                    Completion Remarks <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    className="form-input resize-none"
+                    placeholder="Describe what was delivered, any notes, or final comments…"
+                    value={completionRemarks}
+                    onChange={e => { setCompletionRemarks(e.target.value); setCompletionError('') }}
+                    disabled={completionLoading}
+                  />
+                </div>
+
+                {/* ── Attachment — optional ── */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1.5">
+                    Proof / Attachment <span className="text-slate-400 font-normal">(optional · max 5 MB)</span>
+                  </label>
+                  <input ref={completionFileRef} type="file" className="hidden" onChange={handleCompletionFileChange} />
+                  {completionFileUrl ? (
+                    <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">
+                      <Paperclip size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="text-xs text-emerald-700 dark:text-emerald-300 font-medium flex-1 truncate">{completionFileName}</span>
+                      <button onClick={() => { setCompletionFileUrl(null); setCompletionFileName('') }} className="text-red-400 hover:text-red-600 transition-colors">
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => completionFileRef.current?.click()}
+                      disabled={completionLoading}
+                      className="w-full flex items-center gap-2 justify-center border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-xl py-3 text-xs text-slate-400 dark:text-slate-500 hover:border-blue-300 dark:hover:border-blue-600 hover:text-blue-500 dark:hover:text-blue-400 transition-colors disabled:pointer-events-none"
+                    >
+                      <Upload size={14} /> Click to attach a file
+                    </button>
+                  )}
+                </div>
+
+                {/* ── Email notice ── */}
+                <div className="flex items-start gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-3 py-2.5">
+                  <Send size={12} className="text-blue-500 dark:text-blue-400 mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                    A completion email will automatically be sent to the requestor after saving (if a linked booking request exists).
+                  </p>
+                </div>
+
+                {/* ── Error message ── */}
+                {completionError && (
+                  <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2">
+                    <AlertTriangle size={13} className="text-red-500 dark:text-red-400 shrink-0" />
+                    <p className="text-xs text-red-600 dark:text-red-400">{completionError}</p>
+                  </div>
+                )}
+
+                {/* ── Loading status ── */}
+                {completionLoading && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="animate-spin w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full shrink-0" />
+                    Saving completion record &amp; sending notification…
+                  </div>
+                )}
+
+                {/* ── Actions ── */}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setCompletionTarget(null)}
+                    disabled={completionLoading}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleMarkComplete}
+                    disabled={completionLoading || !completedByName.trim() || !completionRemarks.trim()}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {completionLoading
+                      ? <><span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Saving…</>
+                      : <><CheckCheck size={15} /> Confirm Completion</>
+                    }
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
         </>
       )}
     </div>
@@ -1551,11 +2069,9 @@ interface RequestCardProps {
   canSeeRequests: boolean
   onReview: () => void
   onDelete: () => void
-  onApprove?: () => void
-  showApproveButton?: boolean
 }
 
-function RequestCard({ req, canSeeRequests, onReview, onDelete, onApprove, showApproveButton }: RequestCardProps) {
+function RequestCard({ req, canSeeRequests, onReview, onDelete }: RequestCardProps) {
   const statusStyles: Record<BookingRequestStatus, string> = {
     'Pending Approval': 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
     'Pending Review': 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
@@ -1575,14 +2091,6 @@ function RequestCard({ req, canSeeRequests, onReview, onDelete, onApprove, showA
           {req.status}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          {showApproveButton && onApprove && (
-            <button
-              onClick={onApprove}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
-            >
-              <CheckCircle2 size={13} /> Approve
-            </button>
-          )}
           {canSeeRequests && (req.status === 'Pending Review' ? (
             <Button size="sm" onClick={onReview}>
               <Users size={13} /> Review &amp; Assign

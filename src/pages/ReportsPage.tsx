@@ -1,23 +1,27 @@
-﻿import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend,
+  PieChart, Pie, Cell, Legend,
 } from 'recharts'
 import {
   TrendingUp, CheckCircle2, Clock, AlertTriangle, BarChart3,
   PieChart as PieIcon, Users, Target, Zap, Activity,
   Camera, Video, Palette, Scissors, Mic, Headphones,
-  ArrowUpRight, ArrowDownRight, Minus,
+  ArrowUpRight, ArrowDownRight, Minus, Filter, X,
 } from 'lucide-react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
-import { activityCalendarColors, teamColors } from '../utils/colors'
+import { activityCalendarColors } from '../utils/colors'
 import { isOverdue } from '../utils/helpers'
 import type { ActivityType } from '../types'
+
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 const ACTIVITY_TYPES: ActivityType[] = [
   'Photo Shoot', 'Video Shoot', 'Static Artwork Design',
   'Video Editing', 'Audio Recording', 'Audio Editing',
 ]
+
+const PREDEFINED_TEAMS = ['BMG', 'MOD', 'MTO', 'CBE']
 
 const activityIcon: Record<ActivityType, React.ElementType> = {
   'Photo Shoot':           Camera,
@@ -77,9 +81,37 @@ function SectionHeader({ icon: Icon, title, subtitle, iconColor }: { icon: React
 }
 
 export function ReportsPage() {
-  const { jobOrders } = useDataStore()
+  const { jobOrders, calendarEvents } = useDataStore()
   const { theme, resources } = useAppStore()
   const isDark = theme === 'dark'
+
+  const now = new Date()
+
+  // ── Global Year & Month filter (drives KPIs, status, activity, teams, resources, priority, turnaround) ──
+  const [filterYear,  setFilterYear]  = useState<number | 'all'>('all')
+  const [filterMonth, setFilterMonth] = useState<number | 'all'>('all')
+
+  // ── JO Trend: own From–To date range (independent chart control) ──
+  const [trendFromMonth, setTrendFromMonth] = useState(now.getMonth() >= 5 ? now.getMonth() - 5 : 0)
+  const [trendFromYear, setTrendFromYear]   = useState(now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1)
+  const [trendToMonth, setTrendToMonth]     = useState(now.getMonth())
+  const [trendToYear, setTrendToYear]       = useState(now.getFullYear())
+
+  // ── Global filtered JO set used by all sections except JO Trend ──
+  const globalFilteredJOs = useMemo(() => {
+    return jobOrders.filter(j => {
+      const d = new Date(j.createdAt)
+      if (filterYear  !== 'all' && d.getFullYear() !== filterYear)  return false
+      if (filterMonth !== 'all' && d.getMonth()    !== filterMonth) return false
+      return true
+    })
+  }, [jobOrders, filterYear, filterMonth])
+
+  const isFiltered = filterYear !== 'all' || filterMonth !== 'all'
+  const filterLabel = [
+    filterMonth !== 'all' ? MONTHS_SHORT[filterMonth as number] : null,
+    filterYear  !== 'all' ? String(filterYear) : null,
+  ].filter(Boolean).join(' ') || 'All Time'
 
   const tooltipStyle = {
     background: isDark ? '#1e293b' : '#fff',
@@ -89,42 +121,46 @@ export function ReportsPage() {
     boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
   }
 
+  // ── KPI summary — uses globalFilteredJOs ──
   const summary = useMemo(() => {
-    const total = jobOrders.length
-    const completed = jobOrders.filter((j) => j.status === 'Completed').length
-    const delayed = jobOrders.filter((j) => j.status === 'Delayed').length
-    const cancelled = jobOrders.filter((j) => j.status === 'Cancelled').length
-    const inFlight = jobOrders.filter((j) => ['Scheduled', 'In Progress', 'For Review'].includes(j.status)).length
+    const jos = globalFilteredJOs
+    const total = jos.length
+    const completed = jos.filter((j) => j.status === 'Completed').length
+    const delayed = jos.filter((j) => j.status === 'Delayed').length
+    const cancelled = jos.filter((j) => j.status === 'Cancelled').length
+    const inFlight = jos.filter((j) => ['Scheduled', 'In Progress', 'For Review'].includes(j.status)).length
     const completionRate = total ? Math.round((completed / total) * 100) : 0
-    const onTimeCompleted = jobOrders.filter((j) => j.status === 'Completed' && !isOverdue(j.deadline)).length
+    const onTimeCompleted = jos.filter((j) => j.status === 'Completed' && !isOverdue(j.deadline)).length
     const onTimeRate = completed ? Math.round((onTimeCompleted / completed) * 100) : 0
     const executionIndex = Math.round((onTimeRate * 0.6 + completionRate * 0.4))
     return { total, completed, delayed, cancelled, inFlight, completionRate, onTimeRate, executionIndex }
-  }, [jobOrders])
+  }, [globalFilteredJOs])
 
+  // ── JO Trend — uses its own From–To range, not global filter ──
   const monthlyData = useMemo(() => {
-    return Array.from({ length: 6 }, (_, i) => {
-      const d = new Date()
-      d.setMonth(d.getMonth() - (5 - i))
-      const label = d.toLocaleDateString('en-US', { month: 'short' })
-      const y = d.getFullYear()
-      const m = d.getMonth()
+    const result = []
+    let y = trendFromYear, m = trendFromMonth
+    while (y < trendToYear || (y === trendToYear && m <= trendToMonth)) {
       const inMonth = jobOrders.filter((j) => {
         const c = new Date(j.createdAt)
         return c.getFullYear() === y && c.getMonth() === m
       })
-      return {
-        month: label,
+      result.push({
+        month: `${MONTHS_SHORT[m]} ${y !== trendFromYear || result.length > 11 ? `'${String(y).slice(2)}` : ''}`.trim(),
         submitted: inMonth.length,
         completed: inMonth.filter((j) => j.status === 'Completed').length,
         delayed: inMonth.filter((j) => j.status === 'Delayed').length,
-      }
-    })
-  }, [jobOrders])
+      })
+      if (m === 11) { m = 0; y++ } else { m++ }
+      if (result.length > 24) break
+    }
+    return result
+  }, [jobOrders, trendFromMonth, trendFromYear, trendToMonth, trendToYear])
 
+  // ── Activity Type — uses globalFilteredJOs ──
   const activityData = useMemo(() =>
     ACTIVITY_TYPES.map((type) => {
-      const all = jobOrders.filter((j) => j.activityType === type)
+      const all = globalFilteredJOs.filter((j) => j.activityType === type)
       return {
         type: type.split(' ')[0],
         fullType: type,
@@ -134,13 +170,14 @@ export function ReportsPage() {
         icon: activityIcon[type],
       }
     }).filter((a) => a.total > 0),
-  [jobOrders])
+  [globalFilteredJOs])
 
+  // ── Status Distribution — uses globalFilteredJOs ──
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {}
-    jobOrders.forEach((j) => { counts[j.status] = (counts[j.status] || 0) + 1 })
+    globalFilteredJOs.forEach((j) => { counts[j.status] = (counts[j.status] || 0) + 1 })
     return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [jobOrders])
+  }, [globalFilteredJOs])
 
   const statusColors2: Record<string, string> = {
     Pending: '#eab308', Approved: '#3b82f6', Scheduled: '#6366f1',
@@ -148,55 +185,119 @@ export function ReportsPage() {
     Delayed: '#ef4444', Cancelled: '#94a3b8',
   }
 
+  // ── JOs by Requesting Team — uses globalFilteredJOs, with "Others" catch-all ──
   const teamData = useMemo(() => {
-    return ['BMG', 'MOD', 'MTO', 'CBE'].map((team) => ({
+    const predefined = PREDEFINED_TEAMS.map((team) => ({
       team,
-      total: jobOrders.filter((j) => j.requestingTeam === team).length,
-      completed: jobOrders.filter((j) => j.requestingTeam === team && j.status === 'Completed').length,
+      total:     globalFilteredJOs.filter((j) => j.requestingTeam === team).length,
+      completed: globalFilteredJOs.filter((j) => j.requestingTeam === team && j.status === 'Completed').length,
     }))
-  }, [jobOrders])
+    const othersJOs = globalFilteredJOs.filter((j) => !PREDEFINED_TEAMS.includes(j.requestingTeam))
+    if (othersJOs.length > 0) {
+      predefined.push({
+        team: 'Others',
+        total:     othersJOs.length,
+        completed: othersJOs.filter((j) => j.status === 'Completed').length,
+      })
+    }
+    return predefined
+  }, [globalFilteredJOs])
 
+  // ── Individual Resource Load — uses globalFilteredJOs ──
   const resourceData = useMemo(() => {
     return resources.map((r) => {
-      const assigned = jobOrders.filter((j) =>
-        j.assignedMemberIds.includes(r.id) && !['Completed', 'Delayed'].includes(j.status)
+      const assigned = globalFilteredJOs.filter((j) =>
+        j.assignedMemberIds.includes(r.id) && !['Completed', 'Cancelled'].includes(j.status)
       ).length
       const util = Math.min(100, Math.round((assigned / 5) * 100))
       return { name: r.initials, fullName: r.name, role: r.role, util, color: r.color, team: r.team }
     })
-  }, [jobOrders])
+  }, [globalFilteredJOs, resources])
 
+  // ── Turnaround — uses globalFilteredJOs ──
   const turnaroundData = useMemo(() =>
     ACTIVITY_TYPES.map((type) => {
-      const completed = jobOrders.filter((j) => j.activityType === type && j.status === 'Completed')
+      const completed = globalFilteredJOs.filter((j) => j.activityType === type && j.status === 'Completed' && j.completedAt)
       if (completed.length === 0) return null
       const totalDays = completed.reduce((acc, j) => {
-        return acc + Math.max(0, Math.round((new Date(j.updatedAt).getTime() - new Date(j.createdAt).getTime()) / 86_400_000))
+        const linkedEvents = calendarEvents.filter(e => e.joId === j.id)
+        const startRaw = linkedEvents.length > 0
+          ? linkedEvents.reduce((min, e) => e.startDate < min ? e.startDate : min, linkedEvents[0].startDate)
+          : (j.deadline || j.createdAt)
+        const start = new Date(startRaw).getTime()
+        const end   = new Date(j.completedAt!).getTime()
+        return acc + Math.max(0, Math.round((end - start) / 86_400_000))
       }, 0)
       const avg = Math.round(totalDays / completed.length)
       const color = activityCalendarColors[type]
       const Icon = activityIcon[type]
       return { type: type.split(' ')[0], fullType: type, avg, count: completed.length, color, icon: Icon }
     }).filter(Boolean) as { type: string; fullType: ActivityType; avg: number; count: number; color: string; icon: React.ElementType }[],
-  [jobOrders])
+  [globalFilteredJOs, calendarEvents])
 
   const maxTurnaround = Math.max(...turnaroundData.map((d) => d.avg), 1)
 
+  // ── Priority Breakdown — uses globalFilteredJOs ──
   const priorityData = useMemo(() => {
     const map: Record<string, number> = { High: 0, Medium: 0, Low: 0 }
-    jobOrders.forEach((j) => { map[j.priority]++ })
+    globalFilteredJOs.forEach((j) => { map[j.priority]++ })
     return [
       { name: 'High', value: map.High, color: '#ef4444' },
       { name: 'Medium', value: map.Medium, color: '#f59e0b' },
       { name: 'Low', value: map.Low, color: '#10b981' },
     ].filter((d) => d.value > 0)
-  }, [jobOrders])
+  }, [globalFilteredJOs])
 
   const axisColor = isDark ? '#475569' : '#cbd5e1'
   const tickColor = isDark ? '#64748b' : '#94a3b8'
 
   return (
     <div className="space-y-6 max-w-7xl">
+
+      {/* ── Global Filter Bar ── */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl px-5 py-3.5 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+          <Filter size={15} />
+          <span className="text-xs font-semibold">Global Filter</span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap flex-1">
+          <select
+            value={filterYear}
+            onChange={e => setFilterYear(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          >
+            <option value="all">All Years</option>
+            {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <select
+            value={filterMonth}
+            onChange={e => setFilterMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          >
+            <option value="all">All Months</option>
+            {MONTHS_SHORT.map((m, i) => <option key={m} value={i}>{m}</option>)}
+          </select>
+          {isFiltered && (
+            <button
+              onClick={() => { setFilterYear('all'); setFilterMonth('all') }}
+              className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+            >
+              <X size={12} />
+              Clear
+            </button>
+          )}
+        </div>
+        <div className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
+          isFiltered
+            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+            : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
+        }`}>
+          {filterLabel} · {globalFilteredJOs.length} JOs
+        </div>
+        <p className="text-[10px] text-slate-400 dark:text-slate-500 hidden sm:block">
+          Applies to all sections below (KPIs, activity, teams, resources). JO Trend has its own range.
+        </p>
+      </div>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -237,7 +338,26 @@ export function ReportsPage() {
       {/* Monthly trend + Status pie */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-          <SectionHeader icon={BarChart3} title="6-Month JO Trend" subtitle="Submitted, completed, and delayed by month" />
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <SectionHeader icon={BarChart3} title="JO Trend" subtitle="Submitted, completed, and delayed by month" />
+            {/* Independent From–To filter for the trend chart */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-slate-400 font-semibold">From</span>
+              <select value={trendFromMonth} onChange={e => setTrendFromMonth(Number(e.target.value))} className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none">
+                {MONTHS_SHORT.map((m, i) => <option key={m} value={i}>{m}</option>)}
+              </select>
+              <select value={trendFromYear} onChange={e => setTrendFromYear(Number(e.target.value))} className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none">
+                {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <span className="text-slate-400 font-semibold">To</span>
+              <select value={trendToMonth} onChange={e => setTrendToMonth(Number(e.target.value))} className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none">
+                {MONTHS_SHORT.map((m, i) => <option key={m} value={i}>{m}</option>)}
+              </select>
+              <select value={trendToYear} onChange={e => setTrendToYear(Number(e.target.value))} className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none">
+                {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={monthlyData} barGap={4} barSize={16}>
               <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#1e293b' : '#f1f5f9'} />
@@ -284,10 +404,10 @@ export function ReportsPage() {
         </div>
       </div>
 
-      {/* Activity type breakdown — visual cards */}
-      {activityData.length > 0 && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-          <SectionHeader icon={Activity} title="JOs by Activity Type" subtitle="Total vs completed per production type" />
+      {/* Activity type breakdown */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
+        <SectionHeader icon={Activity} title="JOs by Activity Type" subtitle="Total vs completed per production type" />
+        {activityData.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {ACTIVITY_TYPES.map(type => {
               const Icon = activityIcon[type]
@@ -313,13 +433,15 @@ export function ReportsPage() {
               )
             })}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="py-10 text-center text-slate-300 dark:text-slate-600 text-sm">No job orders match this filter</div>
+        )}
+      </div>
 
       {/* Average Turnaround Time */}
       {turnaroundData.length > 0 && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-          <SectionHeader icon={Clock} title="Avg Turnaround Time by Activity" subtitle="Days from creation to completion (completed JOs only)" />
+          <SectionHeader icon={Clock} title="Avg Turnaround Time by Activity" subtitle="Days from activity start (or deadline) to completed_at · completed JOs only" />
           <div className="space-y-3">
             {turnaroundData.map((d) => {
               const Icon = d.icon
@@ -349,7 +471,7 @@ export function ReportsPage() {
       {/* Team breakdown + Priority */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-          <SectionHeader icon={Users} title="JOs by Requesting Team" subtitle="Total submitted vs completed" />
+          <SectionHeader icon={Users} title="JOs by Requesting Team" subtitle="Predefined teams + Others · total vs completed" />
           {teamData.some((t) => t.total > 0) ? (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={teamData} barGap={4} barSize={20}>
@@ -397,35 +519,48 @@ export function ReportsPage() {
         </div>
       </div>
 
-      {/* Resource utilization */}
+      {/* Individual Resource Load */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-        <SectionHeader icon={Users} title="Individual Resource Load" subtitle="Active JO workload per team member" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {resourceData.map((r) => (
-            <div key={r.name} className="flex items-center gap-3">
-              <span className={`w-8 h-8 rounded-xl ${r.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>
-                {r.name}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{r.fullName}</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500">{r.role}</p>
+        <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
+          <SectionHeader icon={Users} title="Individual Resource Load" subtitle={`Active JO workload per team member · ${filterLabel}`} />
+          {isFiltered && (
+            <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+              Filtered: {filterLabel}
+            </span>
+          )}
+        </div>
+        {resourceData.some(r => r.util > 0) ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {resourceData.map((r) => (
+              <div key={r.name} className="flex items-center gap-3">
+                <span className={`w-8 h-8 rounded-xl ${r.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>
+                  {r.name}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{r.fullName}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500">{r.role}</p>
+                    </div>
+                    <span className={`text-sm font-black ml-2 ${r.util > 90 ? 'text-red-600 dark:text-red-400' : r.util >= 70 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                      {r.util}%
+                    </span>
                   </div>
-                  <span className={`text-sm font-black ml-2 ${r.util > 90 ? 'text-red-600 dark:text-red-400' : r.util >= 70 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                    {r.util}%
-                  </span>
-                </div>
-                <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all" style={{
-                    width: `${r.util}%`,
-                    background: r.util > 90 ? '#ef4444' : r.util >= 70 ? '#10b981' : '#7C3AED',
-                  }} />
+                  <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{
+                      width: `${r.util}%`,
+                      background: r.util > 90 ? '#ef4444' : r.util >= 70 ? '#10b981' : '#7C3AED',
+                    }} />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-10 text-center text-slate-300 dark:text-slate-600 text-sm">
+            No active workload in this timeframe
+          </div>
+        )}
       </div>
 
       {/* Execution index hero */}
@@ -436,7 +571,7 @@ export function ReportsPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Zap size={16} className="text-blue-300" />
-              <p className="text-blue-200 text-sm font-semibold">DAP Execution Index</p>
+              <p className="text-blue-200 text-sm font-semibold">DAP Execution Index · {filterLabel}</p>
             </div>
             <p className="text-7xl font-black leading-none">{summary.executionIndex}</p>
             <p className="text-blue-200 text-xs mt-2">60% on-time delivery · 40% completion rate</p>
@@ -463,4 +598,3 @@ export function ReportsPage() {
     </div>
   )
 }
-

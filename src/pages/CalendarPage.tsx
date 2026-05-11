@@ -6,6 +6,7 @@ import {
 } from 'date-fns'
 import { ChevronLeft, ChevronRight, Plus, MapPin, Users, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
+import { usePermissions } from '../hooks/usePermissions'
 import { activityCalendarColors } from '../utils/colors'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -38,21 +39,26 @@ function EventChip({ event }: { event: CalendarEvent }) {
 export function CalendarPage() {
   const { calendarEvents, jobOrders, addCalendarEvent } = useDataStore()
   const { currentUser, resources } = useAppStore()
+  const { can } = usePermissions()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [filterTeam, setFilterTeam] = useState<FilterTeam>('All')
+  const [filterMember, setFilterMember] = useState<string>('')
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [showNewBooking, setShowNewBooking] = useState(false)
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
 
   // Filter events
   const filteredEvents = useMemo(() => {
-    if (filterTeam === 'All') return calendarEvents
-    const teamResources = resources.filter((r) => r.team === filterTeam).map((r) => r.id)
-    return calendarEvents.filter((e) =>
-      e.assignedMemberIds.some((id) => teamResources.includes(id))
-    )
-  }, [calendarEvents, filterTeam])
+    let events = calendarEvents
+    if (filterMember) {
+      events = events.filter((e) => e.assignedMemberIds.includes(filterMember))
+    } else if (filterTeam !== 'All') {
+      const teamResources = resources.filter((r) => r.team === filterTeam).map((r) => r.id)
+      events = events.filter((e) => e.assignedMemberIds.some((id) => teamResources.includes(id)))
+    }
+    return events
+  }, [calendarEvents, filterTeam, filterMember, resources])
 
   function eventsOnDay(date: Date) {
     return filteredEvents.filter((e) => isSameDay(parseISO(e.startDate), date))
@@ -94,7 +100,7 @@ export function CalendarPage() {
   const currentYear = currentDate.getFullYear()
   const years = Array.from({ length: 10 }, (_, i) => currentYear - 4 + i)
 
-  const canCreate = currentUser?.role === 'Admin' || currentUser?.role === 'DAP Team'
+  const canCreate = can('calendar', 'create')
 
   // New booking form state
   const [newBooking, setNewBooking] = useState({
@@ -188,11 +194,26 @@ export function CalendarPage() {
           {/* Team filter */}
           <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
             {(['All', 'Photo', 'Video', 'Audio', 'Design'] as FilterTeam[]).map((t) => (
-              <button key={t} onClick={() => setFilterTeam(t)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${filterTeam === t ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+              <button key={t} onClick={() => { setFilterTeam(t); setFilterMember('') }}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${filterTeam === t && !filterMember ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
                 {t}
               </button>
             ))}
+          </div>
+
+          {/* Member filter */}
+          <div className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-xl px-2 py-1">
+            <Users size={12} className="text-indigo-500 dark:text-indigo-400 shrink-0" />
+            <select
+              value={filterMember}
+              onChange={(e) => { setFilterMember(e.target.value); if (e.target.value) setFilterTeam('All') }}
+              className="text-xs font-semibold bg-transparent text-indigo-700 dark:text-indigo-300 border-none outline-none cursor-pointer"
+            >
+              <option value="">All Members</option>
+              {resources.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
           </div>
 
           {/* View toggle */}

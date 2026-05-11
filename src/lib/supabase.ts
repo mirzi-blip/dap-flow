@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam, ManagedUser } from '../types'
+import type { BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam, ManagedUser, Approver, BookingDepartment } from '../types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
@@ -50,6 +50,10 @@ export function rowToJobOrder(row: Record<string, unknown>): JobOrder {
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     createdBy: (row.created_by as string) || '',
+    completedAt: (row.completed_at as string) || undefined,
+    completedBy: (row.completed_by as string) || undefined,
+    completionRemarks: (row.completion_remarks as string) || undefined,
+    completionFileUrl: (row.completion_file_url as string) || undefined,
   }
 }
 
@@ -72,6 +76,10 @@ export function jobOrderToRow(jo: JobOrder) {
     created_at: jo.createdAt,
     updated_at: jo.updatedAt,
     created_by: jo.createdBy,
+    completed_at: jo.completedAt || null,
+    completed_by: jo.completedBy || null,
+    completion_remarks: jo.completionRemarks || null,
+    completion_file_url: jo.completionFileUrl || null,
   }
 }
 
@@ -128,4 +136,58 @@ export function managedUserToRow(u: ManagedUser) {
     status: u.status,
     created_at: u.createdAt,
   }
+}
+
+export function rowToApprover(row: Record<string, unknown>): Approver {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    email: row.email as string,
+    position: (row.position as string) || '',
+    createdAt: (row.created_at as string) || new Date().toISOString(),
+  }
+}
+
+export function approverToRow(a: Approver) {
+  return {
+    id: a.id,
+    name: a.name,
+    email: a.email,
+    position: a.position || null,
+    created_at: a.createdAt,
+  }
+}
+
+export function rowToDepartment(row: Record<string, unknown>): BookingDepartment {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    isDefault: (row.is_default as boolean) ?? false,
+    createdAt: (row.created_at as string) || new Date().toISOString(),
+  }
+}
+
+export function departmentToRow(d: BookingDepartment) {
+  return {
+    id: d.id,
+    name: d.name,
+    is_default: d.isDefault,
+    created_at: d.createdAt,
+  }
+}
+
+// Upload a profile photo to Supabase Storage and return its public URL
+export async function uploadAvatar(userId: string, file: File): Promise<string | null> {
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
+  const path = `${userId}.${ext}`
+  const { error } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { cacheControl: '3600', upsert: true })
+  if (error) {
+    console.error('Avatar upload error:', error.message)
+    return null
+  }
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+  // Cache-bust so the browser always fetches the latest photo
+  return `${data.publicUrl}?t=${Date.now()}`
 }

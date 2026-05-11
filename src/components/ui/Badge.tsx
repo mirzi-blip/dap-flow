@@ -24,8 +24,10 @@ export function ActivityBadge({ type }: { type: ActivityType }) {
   )
 }
 
-export function StatusBadge({ status }: { status: JOStatus }) {
-  const c = statusColors[status]
+const FALLBACK_STATUS_STYLE = { bg: 'bg-slate-100', text: 'text-slate-500', ring: 'ring-slate-200', glow: '#94A3B8' }
+
+export function StatusBadge({ status }: { status: JOStatus | string }) {
+  const c = statusColors[status as JOStatus] ?? FALLBACK_STATUS_STYLE
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ${c.bg} ${c.text} ${c.ring}`}>
       {status}

@@ -34,7 +34,7 @@ export type Priority = 'High' | 'Medium' | 'Low'
 
 export type RequestingTeam = 'BMG' | 'MOD' | 'MTO' | 'CBE'
 
-export type UserRole = 'Admin' | 'DAP Team' | 'Brand Team' | 'Leadership'
+export type UserRole = 'Admin' | 'DAP Team' | 'Brand Team' | 'Leadership' | 'End User'
 
 export type DAPSubRole =
   | 'Photographer'
@@ -65,6 +65,7 @@ export interface AppUser {
   resourceId?: string
   team?: RequestingTeam
   avatar: string
+  passwordChangedAt?: string
 }
 
 export interface JobOrder {
@@ -85,6 +86,11 @@ export interface JobOrder {
   createdAt: string
   updatedAt: string
   createdBy: string
+  // Completion tracking
+  completedAt?: string
+  completedBy?: string
+  completionRemarks?: string
+  completionFileUrl?: string
 }
 
 export interface CalendarEvent {
@@ -139,6 +145,23 @@ export interface SyncQueueItem {
 }
 
 export type BookingRequestStatus = 'Pending Approval' | 'Pending Review' | 'Assigned' | 'Approved' | 'Rejected'
+
+export type ApproverPosition = 'Head' | 'Director' | 'Manager' | 'Assistant Manager' | 'Supervisor'
+
+export interface Approver {
+  id: string
+  name: string
+  email: string
+  position: string           // one of ApproverPosition or custom string
+  createdAt: string
+}
+
+export interface BookingDepartment {
+  id: string
+  name: string
+  isDefault: boolean         // default depts can't be deleted
+  createdAt: string
+}
 
 export interface BookingRequest {
   id: string

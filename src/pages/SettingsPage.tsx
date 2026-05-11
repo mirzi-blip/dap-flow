@@ -1,18 +1,24 @@
-﻿import { useState } from 'react'
+﻿import { useState, useRef } from 'react'
 import {
   UserPlus, Shield, ShieldOff, ShieldAlert, Pencil, RotateCcw,
   X, Check, ChevronDown, Users, Lock, AlertTriangle,
   User, KeyRound, Save, Settings2, Sliders, Plug2,
   Calendar, MessageSquare, HardDrive, Layers, RefreshCw,
-  CheckCircle2, XCircle, ExternalLink, Mail, Eye, EyeOff,
+  CheckCircle2, XCircle, ExternalLink, Mail, Eye, EyeOff, Camera, Trash2,
+  Search, Plus, UserCheck, Building2,
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
-import type { ManagedUser, UserRole, RequestingTeam, UserStatus, Resource, DAPSubRole, DAPTeam } from '../types'
+import { uploadAvatar } from '../lib/supabase'
+import { PERMISSION_MODULES, DEFAULT_PERMISSIONS, ALL_PERMISSIONS, perm } from '../data/permissions'
+import { usePermissions } from '../hooks/usePermissions'
+import type { ManagedUser, UserRole, RequestingTeam, UserStatus, Resource, DAPSubRole, DAPTeam, Approver, BookingDepartment, ApproverPosition } from '../types'
 
-const ROLES: UserRole[] = ['Admin', 'DAP Team', 'Brand Team', 'Leadership']
+const ROLES: UserRole[] = ['Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']
 const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
 
-type SettingsTab = 'profile' | 'users' | 'team' | 'capacity' | 'activity' | 'integrations'
+type SettingsTab = 'profile' | 'users' | 'team' | 'capacity' | 'activity' | 'integrations' | 'permissions' | 'approvers' | 'departments'
+
+const APPROVER_POSITIONS: ApproverPosition[] = ['Head', 'Director', 'Manager', 'Assistant Manager', 'Supervisor']
 
 const SUB_ROLES: DAPSubRole[] = ['Photographer', 'Videographer', 'Video Editor', 'Audio Editor', 'Graphic Designer']
 const DAP_TEAMS: DAPTeam[] = ['Photo', 'Video', 'Audio', 'Design']
@@ -39,6 +45,7 @@ const roleBadge: Record<UserRole, string> = {
   'DAP Team':   'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
   'Brand Team': 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300',
   'Leadership': 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300',
+  'End User':   'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300',
 }
 
 function genId() { return `user_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }
@@ -66,7 +73,8 @@ const ACTIVITY_TYPES = [
 ]
 
 export function SettingsPage() {
-  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, resources, updateResource, addResource } = useAppStore()
+  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, resources, updateResource, addResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, departments, addDepartment, removeDepartment } = useAppStore()
+  const { can } = usePermissions()
 
   const EMOJI_OPTIONS = [
     '😀','😊','😎','🤓','😄','🥸','🤩','😇','🧐','😏',
@@ -96,6 +104,57 @@ export function SettingsPage() {
   const [profileSaved, setProfileSaved] = useState(false)
   const [showProfileConfirm, setShowProfileConfirm] = useState(false)
   const [revealedPasswords, setRevealedPasswords] = useState<Set<string>>(new Set())
+  const [photoError, setPhotoError] = useState('')
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  // For the edit-user modal photo
+  const [formPhotoUploading, setFormPhotoUploading] = useState(false)
+  const formPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  const isPhoto = (av: string) => av.startsWith('data:') || av.startsWith('http')
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    setPhotoError('')
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoError('Photo must be under 2 MB.')
+      e.target.value = ''
+      return
+    }
+    setPhotoUploading(true)
+    // Try Supabase Storage first
+    const url = await uploadAvatar(currentUser!.id, file)
+    if (url) {
+      setProfileEmoji(url)
+    } else {
+      // Fallback: store as base64 directly in the DB avatar column
+      const reader = new FileReader()
+      reader.onload = () => setProfileEmoji(reader.result as string)
+      reader.readAsDataURL(file)
+    }
+    setShowProfileEmojiPicker(false)
+    setPhotoUploading(false)
+    e.target.value = ''
+  }
+
+  async function handleFormPhotoUpload(e: React.ChangeEvent<HTMLInputElement>, targetId: string) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { e.target.value = ''; return }
+    setFormPhotoUploading(true)
+    const url = await uploadAvatar(targetId, file)
+    if (url) {
+      setFormEmoji(url)
+    } else {
+      const reader = new FileReader()
+      reader.onload = () => setFormEmoji(reader.result as string)
+      reader.readAsDataURL(file)
+    }
+    setFormPhotoUploading(false)
+    e.target.value = ''
+  }
 
   // Team member editing state
   const [editingMember, setEditingMember] = useState<Resource | null>(null)
@@ -133,7 +192,6 @@ export function SettingsPage() {
     setTimeout(() => setMemberSaved(''), 2000)
   }
 
-  const isAdmin = currentUser?.role === 'Admin'
   const displayed = managedUsers.filter(u => filterStatus === 'all' || u.status === filterStatus)
 
   // Profile save
@@ -285,13 +343,112 @@ export function SettingsPage() {
     setIntegrations(prev => prev.map(i => i.id === id ? { ...i, connected: !i.connected } : i))
   }
 
+  // RBAC: which role is being edited in the Permissions tab
+  const EDITABLE_ROLES: UserRole[] = ['DAP Team', 'Brand Team', 'Leadership', 'End User']
+  const [permRole, setPermRole] = useState<UserRole>('DAP Team')
+  const [permSaved, setPermSaved] = useState(false)
+
+  // ── Approvers state ──────────────────────────────────────────────────────────
+  const [approverSearch, setApproverSearch] = useState('')
+  const [approverModal, setApproverModal] = useState<'add' | 'edit' | null>(null)
+  const [editingApprover, setEditingApprover] = useState<Approver | null>(null)
+  const [approverForm, setApproverForm] = useState({ name: '', email: '', position: 'Manager' as ApproverPosition })
+  const [approverFormError, setApproverFormError] = useState('')
+  const [approverDeleteConfirm, setApproverDeleteConfirm] = useState<Approver | null>(null)
+  const [approverSaved, setApproverSaved] = useState('')
+
+  function openAddApprover() {
+    setApproverForm({ name: '', email: '', position: 'Manager' })
+    setApproverFormError('')
+    setEditingApprover(null)
+    setApproverModal('add')
+  }
+
+  function openEditApprover(a: Approver) {
+    setApproverForm({ name: a.name, email: a.email, position: (a.position as ApproverPosition) || 'Manager' })
+    setApproverFormError('')
+    setEditingApprover(a)
+    setApproverModal('edit')
+  }
+
+  function handleSaveApprover() {
+    const name = approverForm.name.trim()
+    const email = approverForm.email.trim().toLowerCase()
+    if (!name) { setApproverFormError('Name is required'); return }
+    if (!email) { setApproverFormError('Email is required'); return }
+    const duplicate = approvers.find(a =>
+      a.email.toLowerCase() === email && (!editingApprover || a.id !== editingApprover.id)
+    )
+    if (duplicate) { setApproverFormError('An approver with this email already exists'); return }
+    if (approverModal === 'add') {
+      addApprover({ id: `apr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name, email, position: approverForm.position, createdAt: new Date().toISOString() })
+      setApproverSaved('added')
+    } else if (editingApprover) {
+      updateApprover({ ...editingApprover, name, email, position: approverForm.position })
+      setApproverSaved('updated')
+    }
+    setApproverModal(null)
+    setTimeout(() => setApproverSaved(''), 2500)
+  }
+
+  const filteredApprovers = approvers.filter(a =>
+    !approverSearch || a.name.toLowerCase().includes(approverSearch.toLowerCase()) || a.email.toLowerCase().includes(approverSearch.toLowerCase())
+  )
+
+  // ── Departments state ────────────────────────────────────────────────────────
+  const [deptInput, setDeptInput] = useState('')
+  const [deptError, setDeptError] = useState('')
+  const [deptSaved, setDeptSaved] = useState('')
+  const [deptDeleteConfirm, setDeptDeleteConfirm] = useState<BookingDepartment | null>(null)
+
+  function handleAddDepartment() {
+    const name = deptInput.trim()
+    if (!name) { setDeptError('Department name is required'); return }
+    if (departments.find(d => d.name.toLowerCase() === name.toLowerCase())) {
+      setDeptError('This department already exists')
+      return
+    }
+    addDepartment({ id: `dept_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name, isDefault: false, createdAt: new Date().toISOString() })
+    setDeptInput('')
+    setDeptError('')
+    setDeptSaved(name)
+    setTimeout(() => setDeptSaved(''), 2500)
+  }
+
+  function togglePerm(module: string, action: string) {
+    const key = perm(module, action)
+    const current = rolePermissions[permRole] ?? []
+    const next = current.includes(key)
+      ? current.filter(p => p !== key)
+      : [...current, key]
+    updateRolePermissions(permRole, next)
+  }
+
+  function toggleModuleAll(module: string) {
+    const modPerms = PERMISSION_MODULES.find(m => m.key === module)?.actions.map(a => perm(module, a.key)) ?? []
+    const current = rolePermissions[permRole] ?? []
+    const allChecked = modPerms.every(p => current.includes(p))
+    const next = allChecked
+      ? current.filter(p => !modPerms.includes(p))
+      : [...new Set([...current, ...modPerms])]
+    updateRolePermissions(permRole, next)
+  }
+
+  function handlePermSave() {
+    setPermSaved(true)
+    setTimeout(() => setPermSaved(false), 2000)
+  }
+
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
-    { id: 'profile',      label: 'My Profile',     icon: User },
-    { id: 'users',        label: 'User Management', icon: Users },
-    { id: 'team',         label: 'Team Members',    icon: Mail },
-    { id: 'capacity',     label: 'Capacity',        icon: Sliders },
-    { id: 'activity',     label: 'Activity Types',  icon: Settings2 },
-    { id: 'integrations', label: 'Integrations',    icon: Plug2 },
+    ...(can('settings', 'view_profile')        ? [{ id: 'profile'      as SettingsTab, label: 'My Profile',     icon: User       }] : []),
+    ...(can('settings', 'view_users')          ? [{ id: 'users'        as SettingsTab, label: 'User Management', icon: Users      }] : []),
+    ...(can('settings', 'manage_team')         ? [{ id: 'team'         as SettingsTab, label: 'Team Members',    icon: Mail       }] : []),
+    ...(can('settings', 'manage_team')         ? [{ id: 'capacity'     as SettingsTab, label: 'Capacity',        icon: Sliders    }] : []),
+    ...(can('settings', 'manage_team')         ? [{ id: 'activity'     as SettingsTab, label: 'Activity Types',  icon: Settings2  }] : []),
+    ...(can('settings', 'manage_team')         ? [{ id: 'approvers'    as SettingsTab, label: 'Approvers',       icon: UserCheck  }] : []),
+    ...(can('settings', 'manage_team')         ? [{ id: 'departments'  as SettingsTab, label: 'Departments',     icon: Building2  }] : []),
+    ...(can('settings', 'manage_integrations') ? [{ id: 'integrations' as SettingsTab, label: 'Integrations',    icon: Plug2      }] : []),
+    ...(can('settings', 'manage_permissions')  ? [{ id: 'permissions'  as SettingsTab, label: 'Permissions',     icon: Shield     }] : []),
   ]
 
   function toggleRevealPassword(id: string) {
@@ -335,7 +492,7 @@ export function SettingsPage() {
               <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">DAP Team Members</h3>
               <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Edit names and emails — members receive notifications when assigned to a Job Order.</p>
             </div>
-            {isAdmin && !addingMember && (
+            {can('settings', 'manage_team') && !addingMember && (
               <button onClick={openAddMember} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
                 <UserPlus size={13} /> Add Member
               </button>
@@ -430,7 +587,7 @@ export function SettingsPage() {
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{r.name}</p>
                         {memberSaved === r.id && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5"><Check size={10} /> Saved</span>}
-                        {isAdmin && (
+                        {can('settings', 'manage_team') && (
                           <button onClick={() => openEditMember(r)} className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 px-2 py-1 rounded-lg transition-colors shrink-0">
                             <Pencil size={11} /> Edit
                           </button>
@@ -454,8 +611,10 @@ export function SettingsPage() {
       {activeTab === 'profile' && (
         <div className="card p-6 max-w-lg">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-4xl shadow-md border border-slate-200 dark:border-slate-600">
-              {profileEmoji}
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-4xl shadow-md border border-slate-200 dark:border-slate-600 overflow-hidden shrink-0">
+              {isPhoto(profileEmoji)
+                ? <img src={profileEmoji} alt="Profile" className="w-full h-full object-cover" />
+                : profileEmoji}
             </div>
             <div>
               <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">{currentUser?.name}</h3>
@@ -465,19 +624,58 @@ export function SettingsPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5 uppercase tracking-wide">Avatar</label>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowProfileEmojiPicker(v => !v)}
-                  className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 flex items-center justify-center text-4xl transition-all"
-                >
-                  {profileEmoji}
-                </button>
-                <p className="text-xs text-slate-400 dark:text-slate-500">Click to choose your avatar</p>
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5 uppercase tracking-wide">Profile Picture</label>
+
+              {/* Preview + actions row */}
+              <div className="flex items-center gap-4">
+                {/* Avatar preview */}
+                <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-5xl overflow-hidden shrink-0 shadow-sm">
+                  {isPhoto(profileEmoji)
+                    ? <img src={profileEmoji} alt="Profile" className="w-full h-full object-cover" />
+                    : profileEmoji}
+                </div>
+
+                {/* Buttons */}
+                <div className="flex flex-col gap-2">
+                  {/* Upload photo */}
+                  <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={photoUploading}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white transition-colors"
+                  >
+                    <Camera size={13} /> {photoUploading ? 'Uploading…' : 'Upload Photo'}
+                  </button>
+
+                  {/* Emoji fallback */}
+                  <button
+                    type="button"
+                    onClick={() => { setShowProfileEmojiPicker(v => !v) }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  >
+                    😊 Use Emoji Instead
+                  </button>
+
+                  {/* Remove photo */}
+                  {isPhoto(profileEmoji) && (
+                    <button
+                      type="button"
+                      onClick={() => setProfileEmoji('😊')}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      <Trash2 size={12} /> Remove Photo
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {photoError && <p className="mt-2 text-xs text-red-500">{photoError}</p>}
+              <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">JPG, PNG or GIF · Max 2 MB</p>
+
+              {/* Emoji picker (shown when "Use Emoji" clicked) */}
               {showProfileEmojiPicker && (
-                <div className="mt-2 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg">
+                <div className="mt-3 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg">
                   <div className="grid grid-cols-8 gap-1">
                     {EMOJI_OPTIONS.map(e => (
                       <button key={e} type="button" onClick={() => { setProfileEmoji(e); setShowProfileEmojiPicker(false) }}
@@ -549,14 +747,14 @@ export function SettingsPage() {
               <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">User Management</h2>
               <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">Manage access, roles, and permissions</p>
             </div>
-            {isAdmin && (
+            {can('settings', 'manage_users') && (
               <button onClick={openAdd} className="btn-primary text-xs px-3 py-2">
                 <UserPlus size={14} /> Add User
               </button>
             )}
           </div>
 
-          {!isAdmin && (
+          {!can('settings', 'manage_users') && (
             <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
               <AlertTriangle size={14} className="shrink-0" /> Read-only. Only Admins can manage users.
             </div>
@@ -591,8 +789,10 @@ export function SettingsPage() {
                 const isSelf = u.id === currentUser?.id
                 return (
                   <div key={u.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl shrink-0 border border-slate-200 dark:border-slate-600">
-                      {u.avatar}
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl shrink-0 border border-slate-200 dark:border-slate-600 overflow-hidden">
+                      {isPhoto(u.avatar)
+                        ? <img src={u.avatar} alt={u.name} className="w-full h-full object-cover" />
+                        : u.avatar}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -600,7 +800,7 @@ export function SettingsPage() {
                         {isSelf && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 font-bold px-1.5 py-0.5 rounded-full">You</span>}
                       </div>
                       <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{u.email}</p>
-                      {isAdmin && (
+                      {can('settings', 'manage_users') && (
                         <div className="flex items-center gap-1 mt-0.5">
                           <p className="text-xs font-mono text-slate-400 dark:text-slate-500">
                             {revealedPasswords.has(u.id) ? u.password : '••••••••'}
@@ -615,7 +815,7 @@ export function SettingsPage() {
                     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ring-1 ${sm.className}`}>
                       <StatusIcon size={10} />{sm.label}
                     </span>
-                    {isAdmin && !isSelf && (
+                    {can('settings', 'manage_users') && !isSelf && (
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => openEdit(u)} title="Edit" className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
                           <Pencil size={13} />
@@ -709,6 +909,153 @@ export function SettingsPage() {
             </div>
           </div>
           <p className="text-xs text-slate-400 dark:text-slate-500 italic">Activity types are system-defined. Contact your administrator to modify them.</p>
+        </div>
+      )}
+
+      {/* ── APPROVERS ─────────────────────────────────────────── */}
+      {activeTab === 'approvers' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Approver Management</h2>
+              <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">Manage approvers available in the booking request form.</p>
+            </div>
+            <button onClick={openAddApprover} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
+              <Plus size={13} /> Add Approver
+            </button>
+          </div>
+
+          {approverSaved && (
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">
+              <Check size={13} /> Approver {approverSaved} successfully.
+            </div>
+          )}
+
+          {/* Search */}
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={approverSearch}
+              onChange={e => setApproverSearch(e.target.value)}
+              placeholder="Search approvers by name or email…"
+              className="form-input pl-9 text-sm"
+            />
+          </div>
+
+          {/* Approver list */}
+          <div className="card overflow-hidden">
+            {filteredApprovers.length === 0 ? (
+              <div className="py-14 text-center">
+                <UserCheck size={28} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+                <p className="text-sm text-slate-400 dark:text-slate-500">
+                  {approvers.length === 0 ? 'No approvers yet. Add one to get started.' : 'No approvers match your search.'}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-50 dark:divide-slate-700">
+                {filteredApprovers.map(a => (
+                  <div key={a.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                      <UserCheck size={15} className="text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{a.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{a.email}</p>
+                        {a.position && (
+                          <span className="text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full shrink-0">
+                            {a.position}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => openEditApprover(a)} title="Edit" className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => setApproverDeleteConfirm(a)} title="Delete" className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            Approvers added here appear as selectable options in the booking request form. Selecting an approver auto-fills their email.
+          </p>
+        </div>
+      )}
+
+      {/* ── DEPARTMENTS ───────────────────────────────────────── */}
+      {activeTab === 'departments' && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Department Management</h2>
+            <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">Manage the departments available in the booking request form. Default departments cannot be deleted.</p>
+          </div>
+
+          {/* Add new department */}
+          <div className="card p-4">
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Add Department</p>
+            <div className="flex gap-2">
+              <input
+                value={deptInput}
+                onChange={e => { setDeptInput(e.target.value); setDeptError('') }}
+                placeholder="e.g. Marketing, Finance, Operations…"
+                className="form-input flex-1 text-sm"
+                onKeyDown={e => e.key === 'Enter' && handleAddDepartment()}
+              />
+              <button
+                onClick={handleAddDepartment}
+                disabled={!deptInput.trim()}
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 text-white text-xs font-semibold rounded-xl transition-colors shrink-0"
+              >
+                <Plus size={13} /> Add
+              </button>
+            </div>
+            {deptError && <p className="mt-2 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={11} /> {deptError}</p>}
+            {deptSaved && (
+              <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                <Check size={12} /> "{deptSaved}" added successfully.
+              </p>
+            )}
+          </div>
+
+          {/* Department list */}
+          <div className="card overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-50 dark:border-slate-700 flex items-center gap-2">
+              <Building2 size={14} className="text-slate-400" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{departments.length} department{departments.length !== 1 ? 's' : ''}</p>
+            </div>
+            <div className="divide-y divide-slate-50 dark:divide-slate-700">
+              {departments.map(d => (
+                <div key={d.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${d.isDefault ? 'bg-blue-400' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                  <p className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
+                  {d.isDefault ? (
+                    <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full shrink-0">
+                      Default
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setDeptDeleteConfirm(d)}
+                      title="Remove department"
+                      className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors shrink-0"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            Departments shown in blue are system defaults (BMG, MOD, MTO, CBE, Sales, HR) and cannot be removed.
+          </p>
         </div>
       )}
 
@@ -817,6 +1164,138 @@ export function SettingsPage() {
         </div>
       )}
 
+      {/* ── PERMISSIONS ────────────────────────────────────────── */}
+      {activeTab === 'permissions' && can('settings', 'manage_permissions') && (
+        <div className="space-y-5 max-w-3xl">
+          <div>
+            <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Role Permissions</h2>
+            <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
+              Control which modules and actions each role can access. Admin always has full access.
+            </p>
+          </div>
+
+          {/* Role selector */}
+          <div className="flex gap-2 flex-wrap">
+            {/* Admin — always locked */}
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-sm font-semibold cursor-not-allowed select-none">
+              <Shield size={14} className="text-blue-400" />
+              Admin
+              <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full font-bold">FULL</span>
+            </div>
+            {EDITABLE_ROLES.map(role => (
+              <button
+                key={role}
+                onClick={() => setPermRole(role)}
+                className={`px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
+                  permRole === role
+                    ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-200 dark:shadow-blue-900'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                }`}
+              >
+                {role}
+              </button>
+            ))}
+          </div>
+
+          {/* Permission checklist for selected role */}
+          <div className="space-y-3">
+            {PERMISSION_MODULES.map(mod => {
+              const current = rolePermissions[permRole] ?? []
+              const modPerms = mod.actions.map(a => perm(mod.key, a.key))
+              const checkedCount = modPerms.filter(p => current.includes(p)).length
+              const allChecked = checkedCount === modPerms.length
+              const someChecked = checkedCount > 0 && !allChecked
+
+              return (
+                <div key={mod.key} className="card overflow-hidden">
+                  {/* Module header */}
+                  <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/60">
+                    <span className="text-lg">{mod.icon}</span>
+                    <p className="font-bold text-slate-800 dark:text-slate-200 text-sm flex-1">{mod.label}</p>
+                    {/* Select-all toggle */}
+                    <button
+                      onClick={() => toggleModuleAll(mod.key)}
+                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors ${
+                        allChecked
+                          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      {allChecked ? 'Deselect All' : someChecked ? `${checkedCount}/${modPerms.length} selected` : 'Select All'}
+                    </button>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="divide-y divide-slate-50 dark:divide-slate-700/60">
+                    {mod.actions.map(action => {
+                      const key = perm(mod.key, action.key)
+                      const checked = current.includes(key)
+                      return (
+                        <label
+                          key={action.key}
+                          className="flex items-center gap-4 px-5 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors group"
+                        >
+                          {/* Custom checkbox */}
+                          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                            checked
+                              ? 'bg-blue-600 border-blue-600'
+                              : 'border-slate-300 dark:border-slate-600 group-hover:border-blue-400'
+                          }`}>
+                            {checked && <Check size={12} className="text-white" strokeWidth={3} />}
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => togglePerm(mod.key, action.key)}
+                            className="sr-only"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-semibold ${checked ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}`}>
+                              {action.label}
+                            </p>
+                            {action.description && (
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{action.description}</p>
+                            )}
+                          </div>
+                          {checked && (
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full shrink-0">
+                              Allowed
+                            </span>
+                          )}
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              onClick={handlePermSave}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                permSaved
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+              }`}
+            >
+              {permSaved ? <><Check size={14} /> Saved!</> : <><Save size={14} /> Save Permissions</>}
+            </button>
+            <button
+              onClick={() => { resetRolePermissions(permRole); setPermSaved(false) }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+            >
+              <RotateCcw size={13} /> Reset to Default
+            </button>
+            <p className="text-xs text-slate-400 dark:text-slate-500 ml-auto">
+              Changes apply immediately for all active sessions.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Add / Edit Modal ─────────────────────────────────── */}
       {modalMode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -837,13 +1316,40 @@ export function SettingsPage() {
             </div>
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Avatar</label>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Profile Picture</label>
                 <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => setShowFormEmojiPicker(v => !v)}
-                    className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 flex items-center justify-center text-3xl transition-all">
-                    {formEmoji}
-                  </button>
-                  <p className="text-xs text-slate-400">Click to choose an avatar</p>
+                  {/* Preview */}
+                  <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-3xl shrink-0 overflow-hidden">
+                    {isPhoto(formEmoji)
+                      ? <img src={formEmoji} alt="avatar" className="w-full h-full object-cover" />
+                      : formEmoji}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {/* Upload photo */}
+                    <input
+                      ref={formPhotoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => handleFormPhotoUpload(e, editTarget?.id ?? `new_${Date.now()}`)}
+                    />
+                    <button type="button" onClick={() => formPhotoInputRef.current?.click()}
+                      disabled={formPhotoUploading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white transition-colors">
+                      <Camera size={12} /> {formPhotoUploading ? 'Uploading…' : 'Upload Photo'}
+                    </button>
+                    {/* Emoji fallback */}
+                    <button type="button" onClick={() => setShowFormEmojiPicker(v => !v)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                      😊 Use Emoji
+                    </button>
+                    {isPhoto(formEmoji) && (
+                      <button type="button" onClick={() => setFormEmoji('😊')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                        <Trash2 size={11} /> Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {showFormEmojiPicker && (
                   <div className="mt-2 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg">
@@ -934,6 +1440,127 @@ export function SettingsPage() {
               </button>
               <button onClick={commitProfileSave} className="flex-1 py-2 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors">
                 Confirm &amp; Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Approver Add / Edit Modal ─────────────────────────── */}
+      {approverModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setApproverModal(null)} />
+          <div className="modal-card w-full max-w-md p-6 z-10">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">
+                  {approverModal === 'add' ? 'Add Approver' : 'Edit Approver'}
+                </h3>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  {approverModal === 'add' ? 'Add someone who can approve booking requests' : 'Update approver details'}
+                </p>
+              </div>
+              <button onClick={() => setApproverModal(null)} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Full Name <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={approverForm.name}
+                    onChange={e => setApproverForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="e.g. Maria Santos"
+                    className="form-input pl-9"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Email Address <span className="text-red-500">*</span></label>
+                <input
+                  type="email"
+                  value={approverForm.email}
+                  onChange={e => setApproverForm(f => ({ ...f, email: e.target.value }))}
+                  placeholder="approver@company.com"
+                  className="form-input"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Position / Title</label>
+                <div className="relative">
+                  <select
+                    value={approverForm.position}
+                    onChange={e => setApproverForm(f => ({ ...f, position: e.target.value as ApproverPosition }))}
+                    className="form-input appearance-none pr-8"
+                  >
+                    {APPROVER_POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+              {approverFormError && (
+                <p className="text-xs text-red-600 dark:text-red-400 font-medium flex items-center gap-1.5">
+                  <AlertTriangle size={12} /> {approverFormError}
+                </p>
+              )}
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setApproverModal(null)} className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">
+                  Cancel
+                </button>
+                <button onClick={handleSaveApprover} className="flex-1 btn-primary justify-center">
+                  {approverModal === 'add' ? 'Add Approver' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Approver delete confirm ────────────────────────────── */}
+      {approverDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setApproverDeleteConfirm(null)} />
+          <div className="modal-card w-full max-w-sm p-6 z-10">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-red-100 dark:bg-red-900/30">
+              <Trash2 size={20} className="text-red-600 dark:text-red-400" />
+            </div>
+            <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">Remove Approver?</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+              <span className="font-semibold">{approverDeleteConfirm.name}</span> will be removed from the approver list. Existing booking requests are not affected.
+            </p>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setApproverDeleteConfirm(null)} className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">
+                Cancel
+              </button>
+              <button onClick={() => { removeApprover(approverDeleteConfirm.id); setApproverSaved('removed'); setApproverDeleteConfirm(null); setTimeout(() => setApproverSaved(''), 2500) }} className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-sm">
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Department delete confirm ──────────────────────────── */}
+      {deptDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setDeptDeleteConfirm(null)} />
+          <div className="modal-card w-full max-w-sm p-6 z-10">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-red-100 dark:bg-red-900/30">
+              <Building2 size={20} className="text-red-600 dark:text-red-400" />
+            </div>
+            <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">Remove Department?</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+              <span className="font-semibold">"{deptDeleteConfirm.name}"</span> will be removed from the booking form department list.
+            </p>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setDeptDeleteConfirm(null)} className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">
+                Cancel
+              </button>
+              <button onClick={() => { removeDepartment(deptDeleteConfirm.id); setDeptDeleteConfirm(null) }} className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-sm">
+                Remove
               </button>
             </div>
           </div>

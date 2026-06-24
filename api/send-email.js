@@ -319,6 +319,145 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // ── Output-for-review notification to approver ────────────────────────────
+  if (body.reviewNotification) {
+    const { approverEmail, approverName, approverRole, submittedBy, joNumber, projectName, activityType, comment, attachmentUrl, attachmentName, reviewId, slot } = body
+    if (!approverEmail) return res.status(200).json({ ok: true })
+    const attachmentRow = attachmentUrl
+      ? `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;width:140px">Output File</td><td style="padding:8px 12px"><a href="${attachmentUrl}" style="color:#1d4ed8;font-weight:700">${attachmentName || 'View Attachment'}</a></td></tr>`
+      : ''
+    const roleRow = approverRole
+      ? `<tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Your Role</td><td style="padding:8px 12px;font-weight:700;color:#4f46e5">${approverRole}</td></tr>`
+      : ''
+    const commentBlock = comment
+      ? `<div style="background:#f8fafc;border-left:3px solid #6366f1;padding:12px 16px;margin:20px 0;border-radius:0 8px 8px 0"><p style="margin:0;font-size:13px;color:#374151;font-style:italic">"${comment}"</p><p style="margin:6px 0 0;font-size:11px;color:#94a3b8">— ${submittedBy || 'Submitter'}</p></div>`
+      : ''
+    const appUrl = 'https://dap-flow-tau.vercel.app'
+    const actionSection = reviewId && slot
+      ? `<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:16px;margin:20px 0">
+          <p style="margin:0;font-weight:700;color:#854d0e;font-size:14px">📋 Action Required</p>
+          <p style="margin:8px 0 0;color:#713f12;font-size:13px">Use the buttons below to respond directly from your email, or open the DAP Flow app to review with additional context.</p>
+        </div>
+        <div style="display:flex;gap:12px;margin:16px 0">
+          <a href="${appUrl}/api/review-action?reviewId=${reviewId}&slot=${slot}&action=approve" style="flex:1;display:inline-block;background:linear-gradient(135deg,#059669,#10b981);color:#fff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 20px;border-radius:8px;text-align:center">✓ Approve</a>
+          <a href="${appUrl}/api/review-action?reviewId=${reviewId}&slot=${slot}&action=disapprove" style="flex:1;display:inline-block;background:#f1f5f9;color:#64748b;text-decoration:none;font-weight:700;font-size:15px;padding:14px 20px;border-radius:8px;text-align:center;border:1px solid #e2e8f0">↩ Request Revision</a>
+        </div>
+        <p style="color:#94a3b8;font-size:12px;margin:4px 0 16px">Clicking "Request Revision" will use a default comment. Log in to DAP Flow to provide specific feedback.</p>`
+      : `<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:16px;margin:20px 0">
+          <p style="margin:0;font-weight:700;color:#854d0e;font-size:14px">📋 Action Required</p>
+          <p style="margin:8px 0 0;color:#713f12;font-size:13px">Log in to DAP Flow, open the Job Order, and go to the <strong>Review Status</strong> tab to Approve or Request Revision.</p>
+        </div>`
+    const html = `<div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+      <div style="background:linear-gradient(135deg,#0f4c81,#2389d7);padding:20px 24px;border-radius:8px;margin-bottom:24px">
+        <p style="color:#bfdbfe;font-size:11px;font-weight:700;letter-spacing:0.1em;margin:0 0 4px">DIGITAL &amp; ARTS PRODUCTION (DAP)</p>
+        <h2 style="color:#fff;margin:0;font-size:20px">Output Submitted for Review 🔍</h2>
+      </div>
+      <p>Hi <strong>${approverName || 'Approver'}</strong>,</p>
+      <p style="color:#475569"><strong>${submittedBy}</strong> has submitted their output for your review. Please check the details below.</p>
+      <table style="margin:20px 0;border-collapse:collapse;width:100%;font-size:14px">
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;width:140px">JO Number</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1d4ed8">${joNumber}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Project</td><td style="padding:8px 12px;font-weight:600">${projectName}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Activity</td><td style="padding:8px 12px">${activityType}</td></tr>
+        ${roleRow}
+        ${attachmentRow}
+      </table>
+      ${commentBlock}
+      ${actionSection}
+      <a href="${appUrl}" style="display:inline-block;background:linear-gradient(135deg,#0f4c81,#2389d7);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;margin:8px 0">Open DAP Flow App →</a>
+      <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px">— Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management</p>
+    </div>`
+    try {
+      await transporter.sendMail({
+        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
+        replyTo: 'no-reply@dap-flow.noreply',
+        to: approverEmail,
+        subject: `[DAP] Output for Review: ${projectName} — ${joNumber}`,
+        html,
+      })
+      return res.status(200).json({ ok: true })
+    } catch (err) {
+      console.error('Review notification email error:', err?.message || err)
+      return res.status(500).json({ error: err?.message || 'Failed to send review notification email' })
+    }
+  }
+
+  // ── Review approved — notify assigned members ──────────────────────────────
+  if (body.reviewApprovedNotification) {
+    const { recipientEmails, joNumber, projectName, activityType, approverName, approverComment, outputFileUrl } = body
+    if (!recipientEmails || !recipientEmails.length) return res.status(200).json({ ok: true })
+    const html = `<div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+      <div style="background:linear-gradient(135deg,#065f46,#059669);padding:20px 24px;border-radius:8px;margin-bottom:24px">
+        <p style="color:#a7f3d0;font-size:11px;font-weight:700;letter-spacing:0.1em;margin:0 0 4px">DIGITAL &amp; ARTS PRODUCTION (DAP)</p>
+        <h2 style="color:#fff;margin:0;font-size:20px">Job Order Approved — Ready to Complete ✓</h2>
+      </div>
+      <p>Both approvers have reviewed and <strong style="color:#059669">approved</strong> the output for this Job Order.</p>
+      <table style="margin:20px 0;border-collapse:collapse;width:100%;font-size:14px">
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;width:140px">JO Number</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1d4ed8">${joNumber}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Project</td><td style="padding:8px 12px;font-weight:600">${projectName}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Activity</td><td style="padding:8px 12px">${activityType}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Approver</td><td style="padding:8px 12px">${approverName || '—'}</td></tr>
+        ${outputFileUrl ? `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Output</td><td style="padding:8px 12px"><a href="${outputFileUrl}" style="color:#1d4ed8;font-weight:700">View Output File</a></td></tr>` : ''}
+      </table>
+      ${approverComment ? `<div style="background:#ecfdf5;border-left:3px solid #10b981;padding:12px 16px;margin:20px 0;border-radius:0 8px 8px 0"><p style="margin:0;font-size:13px;color:#374151;font-style:italic">"${approverComment}"</p><p style="margin:6px 0 0;font-size:11px;color:#94a3b8">— ${approverName || 'Approver'}</p></div>` : ''}
+      <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px">— Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management</p>
+    </div>`
+    try {
+      for (const email of recipientEmails) {
+        await transporter.sendMail({
+          from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
+          replyTo: 'no-reply@dap-flow.noreply',
+          to: email,
+          subject: `[DAP] Output Approved — ${joNumber}`,
+          html,
+        })
+      }
+      return res.status(200).json({ ok: true })
+    } catch (err) {
+      console.error('Review approved email error:', err?.message || err)
+      return res.status(500).json({ error: err?.message || 'Failed to send approval notification' })
+    }
+  }
+
+  // ── Review disapproved — notify assigned members ───────────────────────────
+  if (body.reviewDisapprovedNotification) {
+    const { recipientEmails, joNumber, projectName, activityType, approverName, approverComment } = body
+    if (!recipientEmails || !recipientEmails.length) return res.status(200).json({ ok: true })
+    const html = `<div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+      <div style="background:linear-gradient(135deg,#991b1b,#dc2626);padding:20px 24px;border-radius:8px;margin-bottom:24px">
+        <p style="color:#fecaca;font-size:11px;font-weight:700;letter-spacing:0.1em;margin:0 0 4px">DIGITAL &amp; ARTS PRODUCTION (DAP)</p>
+        <h2 style="color:#fff;margin:0;font-size:20px">Revision Requested ↩</h2>
+      </div>
+      <p>An approver has reviewed the output and is requesting revisions for this Job Order.</p>
+      <table style="margin:20px 0;border-collapse:collapse;width:100%;font-size:14px">
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;width:140px">JO Number</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1d4ed8">${joNumber}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Project</td><td style="padding:8px 12px;font-weight:600">${projectName}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Activity</td><td style="padding:8px 12px">${activityType}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Reviewed By</td><td style="padding:8px 12px">${approverName || '—'}</td></tr>
+      </table>
+      ${approverComment ? `<div style="background:#fef2f2;border-left:3px solid #ef4444;padding:12px 16px;margin:20px 0;border-radius:0 8px 8px 0"><p style="margin:0;font-weight:600;font-size:12px;color:#991b1b">Revision Notes:</p><p style="margin:6px 0 0;font-size:13px;color:#374151;font-style:italic">"${approverComment}"</p><p style="margin:6px 0 0;font-size:11px;color:#94a3b8">— ${approverName || 'Approver'}</p></div>` : ''}
+      <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:16px;margin:20px 0">
+        <p style="margin:0;font-size:13px;color:#713f12">Please review the feedback above, make the necessary changes, and re-submit the output via DAP Flow.</p>
+      </div>
+      <a href="https://dap-flow-tau.vercel.app" style="display:inline-block;background:linear-gradient(135deg,#0f4c81,#2389d7);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;margin:8px 0">Open DAP Flow App →</a>
+      <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px">— Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management</p>
+    </div>`
+    try {
+      for (const email of recipientEmails) {
+        await transporter.sendMail({
+          from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
+          replyTo: 'no-reply@dap-flow.noreply',
+          to: email,
+          subject: `[DAP] Revision Requested — ${joNumber}`,
+          html,
+        })
+      }
+      return res.status(200).json({ ok: true })
+    } catch (err) {
+      console.error('Review disapproved email error:', err?.message || err)
+      return res.status(500).json({ error: err?.message || 'Failed to send disapproval notification' })
+    }
+  }
+
   // ── JO notification to requestor ────────────────────────────────────────────
   if (body.joNotification) {
     const { requestorEmail, preparedBy, joNumber, projectName, activityType, priority, deadline, status, refId } = body

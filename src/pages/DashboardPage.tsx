@@ -6,33 +6,40 @@ import {
 import {
   AlertTriangle, CheckCircle2, Clock, Zap, ArrowRight,
   Plus, ClipboardList, Camera, Video, Mic, Palette, Scissors, Headphones,
-  CalendarClock, TrendingUp, ArrowUpRight, Ban, RefreshCw,
-  ChevronLeft, ChevronRight,
+  CalendarClock, TrendingUp, ArrowUpRight, Ban, Users,
+  ChevronLeft, ChevronRight, CalendarDays, Image, Printer, ShieldCheck,
 } from 'lucide-react'
 import { useAppStore, useDataStore } from '../store/useAppStore'
-import { supabase, rowToJobOrder } from '../lib/supabase'
 import { activityCalendarColors, teamColors } from '../utils/colors'
 import type { JOStatus, ActivityType } from '../types'
+import { ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS, TEAM_TOTAL_CAPACITY, LOAD_OVERLOAD } from '../types'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
 const statusBadge: Record<JOStatus, string> = {
   'Pending':     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   'Approved':    'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
   'Scheduled':   'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
-  'For Review':  'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
-  'Completed':   'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
-  'Delayed':     'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400',
-  'Cancelled':   'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
+  'For Review':     'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
+  'Needs Revision': 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
+  'Completed':      'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
+  'Delayed':        'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400',
+  'Cancelled':      'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
 }
 
 const activityIcon: Record<ActivityType, React.ElementType> = {
   'Photo Shoot':           Camera,
   'Video Shoot':           Video,
   'Static Artwork Design': Palette,
+  'Digital Design':        Palette,
   'Video Editing':         Scissors,
+  'Graphics':              Image,
+  'Printing':              Printer,
+  'ASC':                   ShieldCheck,
   'Audio Recording':       Mic,
   'Audio Editing':         Headphones,
+  'Audio Services':        Mic,
 }
 
 export function DashboardPage() {
@@ -41,20 +48,60 @@ export function DashboardPage() {
   const isDark = theme === 'dark'
 
   const now = new Date()
-  const [refreshing, setRefreshing] = useState(false)
 
-  // ── Single source of truth: raw store data, same as JO tab ──────────────
-  // No date-range filter here — Production Analytics has its own navigation.
-  // Using jobOrders directly ensures Dashboard total === JO tab total always.
-  const totalJOs      = jobOrders.length
-  const activeJOs     = jobOrders.filter(j => !['Completed','Cancelled','Delayed'].includes(j.status)).length
-  const pendingJOs    = jobOrders.filter(j => j.status === 'Pending').length
-  const approvedJOs   = jobOrders.filter(j => j.status === 'Approved').length
-  const scheduledJOs  = jobOrders.filter(j => j.status === 'Scheduled').length
-  const forReviewJOs  = jobOrders.filter(j => j.status === 'For Review').length
-  const completedJOs  = jobOrders.filter(j => j.status === 'Completed').length
-  const delayedJOs    = jobOrders.filter(j => j.status === 'Delayed').length
-  const cancelledJOs  = jobOrders.filter(j => j.status === 'Cancelled').length
+  // ── Year / Month range filter ────────────────────────────────────────────
+  const [fromYear,  setFromYear]  = useState<number>(now.getFullYear())
+  const [fromMonth, setFromMonth] = useState<number>(0)          // Jan = 0
+  const [toYear,    setToYear]    = useState<number>(now.getFullYear())
+  const [toMonth,   setToMonth]   = useState<number>(now.getMonth())  // current month
+
+  // Years that have at least one JO (+ current year always included)
+  const availableYears = useMemo(() => {
+    const years = new Set<number>([now.getFullYear()])
+    jobOrders.forEach(j => years.add(new Date(j.createdAt).getFullYear()))
+    return Array.from(years).sort((a, b) => a - b)   // ascending for range sense
+  }, [jobOrders, now])
+
+  // Convert year+month to a comparable integer: YYYYMM
+  const fromKey = fromYear * 100 + fromMonth
+  const toKey   = toYear   * 100 + toMonth
+
+  // If user accidentally sets from > to, treat as single month
+  const effectiveFromKey = Math.min(fromKey, toKey)
+  const effectiveToKey   = Math.max(fromKey, toKey)
+
+  const isFiltered = !(fromYear === now.getFullYear() && fromMonth === 0 &&
+                       toYear   === now.getFullYear() && toMonth   === now.getMonth())
+
+  // Range label for the summary bar
+  const rangeLabel = (() => {
+    const fk = effectiveFromKey
+    const tk = effectiveToKey
+    const fy = Math.floor(fk / 100), fm = fk % 100
+    const ty = Math.floor(tk / 100), tm = tk % 100
+    if (fk === tk) return `${MONTHS_FULL[fm]} ${fy}`
+    return `${MONTHS[fm]} ${fy} – ${MONTHS[tm]} ${ty}`
+  })()
+
+  // Filtered job orders within the from–to range
+  const filteredJOs = useMemo(() => {
+    return jobOrders.filter(j => {
+      const d = new Date(j.createdAt)
+      const key = d.getFullYear() * 100 + d.getMonth()
+      return key >= effectiveFromKey && key <= effectiveToKey
+    })
+  }, [jobOrders, effectiveFromKey, effectiveToKey])
+
+  // ── KPI counts — scoped to the selected year/month ──────────────────────
+  const totalJOs      = filteredJOs.length
+  const activeJOs     = filteredJOs.filter(j => !['Completed','Cancelled','Delayed'].includes(j.status)).length
+  const pendingJOs    = filteredJOs.filter(j => j.status === 'Pending').length
+  const approvedJOs   = filteredJOs.filter(j => j.status === 'Approved').length
+  const scheduledJOs  = filteredJOs.filter(j => j.status === 'Scheduled').length
+  const forReviewJOs  = filteredJOs.filter(j => j.status === 'For Review').length
+  const completedJOs  = filteredJOs.filter(j => j.status === 'Completed').length
+  const delayedJOs    = filteredJOs.filter(j => j.status === 'Delayed').length
+  const cancelledJOs  = filteredJOs.filter(j => j.status === 'Cancelled').length
 
   // Status breakdown config
   const STATUS_BREAKDOWN = [
@@ -67,28 +114,69 @@ export function DashboardPage() {
     { label: 'Cancelled',   count: cancelledJOs,  color: '#94A3B8' },
   ]
 
-  // Team workload heatmap — uses all active JOs (same source as JO tab)
+  // Team workload heatmap — uses 6.6 hr/day × 5 = 33 hr/week formula
   const teamWorkload = useMemo(() => {
     const teams = ['Photo', 'Video', 'Audio', 'Design'] as const
     return teams.map(team => {
       const members = resources.filter(r => r.team === team)
-      const totalActive = jobOrders.filter(j =>
+      const totalActive = filteredJOs.filter(j =>
         !['Completed','Cancelled','Delayed'].includes(j.status) &&
         members.some(m => j.assignedMemberIds.includes(m.id))
       ).length
       const avgUtil = members.length
         ? Math.round(members.reduce((acc, r) => {
-            const active = jobOrders.filter(jo =>
+            const activeJOs = filteredJOs.filter(jo =>
               jo.assignedMemberIds.includes(r.id) &&
               !['Completed','Delayed','Cancelled'].includes(jo.status)
-            ).length
-            return acc + Math.min(100, Math.round((active / 5) * 100))
+            )
+            const estimatedHrs = activeJOs.reduce((s, jo) =>
+              s + (ACTIVITY_HOURS[jo.activityType] ?? 4), 0)
+            return acc + Math.min(100, Math.round((estimatedHrs / WEEKLY_CAPACITY_HRS) * 100))
           }, 0) / members.length)
         : 0
       const color = teamColors[team]
       return { team, util: avgUtil, totalActive, members: members.length, color }
     })
-  }, [jobOrders, resources])
+  }, [filteredJOs, resources])
+
+  // Individual resource load data for capacity monitoring section
+  const resourceLoadData = useMemo(() => {
+    return resources.map(r => {
+      const activeJOs = filteredJOs.filter(jo =>
+        jo.assignedMemberIds.includes(r.id) &&
+        !['Completed','Cancelled'].includes(jo.status)
+      )
+      const estimatedHrs = activeJOs.reduce((s, jo) =>
+        s + (ACTIVITY_HOURS[jo.activityType] ?? 4), 0)
+      const loadPct = Math.min(100, Math.round((estimatedHrs / WEEKLY_CAPACITY_HRS) * 100))
+      return {
+        id: r.id, name: r.name, team: r.team, role: r.role, initials: r.initials,
+        activeJOs: activeJOs.length, estimatedHrs, loadPct,
+        status: loadPct >= LOAD_OVERLOAD ? 'overload' : loadPct >= 50 ? 'optimal' : 'underload',
+      }
+    }).sort((a, b) => b.loadPct - a.loadPct)
+  }, [filteredJOs, resources])
+
+  // Team capacity totals
+  const teamCapacityTotals = useMemo(() => {
+    const teams = ['Photo', 'Video', 'Audio', 'Design'] as const
+    return teams.map(team => {
+      const members = resources.filter(r => r.team === team)
+      const usedHrs = members.reduce((sum, r) => {
+        const activeJOs = filteredJOs.filter(jo =>
+          jo.assignedMemberIds.includes(r.id) &&
+          !['Completed','Cancelled'].includes(jo.status)
+        )
+        return sum + activeJOs.reduce((s, jo) => s + (ACTIVITY_HOURS[jo.activityType] ?? 4), 0)
+      }, 0)
+      const totalCapacity = members.length * WEEKLY_CAPACITY_HRS
+      const pct = totalCapacity > 0 ? Math.min(100, Math.round((usedHrs / totalCapacity) * 100)) : 0
+      return { team, usedHrs, totalCapacity, pct, members: members.length, color: teamColors[team] }
+    })
+  }, [filteredJOs, resources])
+
+  const totalUsedHrs = resourceLoadData.reduce((s, r) => s + r.estimatedHrs, 0)
+  const overloadedResources = resourceLoadData.filter(r => r.status === 'overload')
 
   // Today's schedule snapshot (per wireframe ROW 3)
   const todaySchedule = useMemo(() => {
@@ -99,7 +187,7 @@ export function DashboardPage() {
       .slice(0, 6)
   }, [calendarEvents])
 
-  // Production Analytics state
+  // Production Analytics state — defaults follow the global year/month filter
   const [analyticsView, setAnalyticsView] = useState<'year' | 'month'>('year')
   const [analyticsYear, setAnalyticsYear] = useState(now.getFullYear())
   const [analyticsMonth, setAnalyticsMonth] = useState(now.getMonth())
@@ -108,11 +196,11 @@ export function DashboardPage() {
     if (analyticsView === 'year') {
       // 12 monthly bars for selected year
       return Array.from({ length: 12 }, (_, m) => {
-        const count = jobOrders.filter(j => {
+        const count = filteredJOs.filter(j => {
           const d = new Date(j.createdAt)
           return d.getFullYear() === analyticsYear && d.getMonth() === m
         }).length
-        const completed = jobOrders.filter(j => {
+        const completed = filteredJOs.filter(j => {
           const d = new Date(j.completedAt ?? j.createdAt)
           return d.getFullYear() === analyticsYear && d.getMonth() === m && j.status === 'Completed'
         }).length
@@ -123,11 +211,11 @@ export function DashboardPage() {
       const daysInMonth = new Date(analyticsYear, analyticsMonth + 1, 0).getDate()
       return Array.from({ length: daysInMonth }, (_, d) => {
         const day = d + 1
-        const count = jobOrders.filter(j => {
+        const count = filteredJOs.filter(j => {
           const date = new Date(j.createdAt)
           return date.getFullYear() === analyticsYear && date.getMonth() === analyticsMonth && date.getDate() === day
         }).length
-        const completed = jobOrders.filter(j => {
+        const completed = filteredJOs.filter(j => {
           const date = new Date(j.completedAt ?? j.createdAt)
           return date.getFullYear() === analyticsYear && date.getMonth() === analyticsMonth && date.getDate() === day && j.status === 'Completed'
         }).length
@@ -135,7 +223,7 @@ export function DashboardPage() {
         return { label: `${day}`, count, completed, current: isToday }
       })
     }
-  }, [jobOrders, analyticsView, analyticsYear, analyticsMonth, now])
+  }, [filteredJOs, analyticsView, analyticsYear, analyticsMonth, now])
 
   function prevAnalytics() {
     if (analyticsView === 'year') {
@@ -157,29 +245,29 @@ export function DashboardPage() {
     ? `${analyticsYear}`
     : `${MONTHS[analyticsMonth]} ${analyticsYear}`
 
-  // Alerts — scan all active JOs, no date gate
-  const overbookedTeams = teamWorkload.filter(t => t.util > 90)
-  const nearDeadline = jobOrders.filter(j => {
+  // Alerts — scan filtered active JOs (≥75% = overload)
+  const overbookedTeams = teamWorkload.filter(t => t.util >= LOAD_OVERLOAD)
+  const nearDeadline = filteredJOs.filter(j => {
     if (['Completed','Cancelled'].includes(j.status)) return false
     const d = Math.ceil((new Date(j.deadline).getTime() - Date.now()) / 86400_000)
     return d >= 0 && d <= 5
   }).length
 
-  // Recent JOs — most recently created, sorted descending
+  // Recent JOs — most recently created, sorted descending (filtered)
   const recentJOs = useMemo(() =>
-    [...jobOrders]
+    [...filteredJOs]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 6),
-  [jobOrders])
+  [filteredJOs])
 
-  // Activity mix donut — all non-cancelled JOs
+  // Activity mix donut — filtered non-cancelled JOs
   const activityMix = useMemo(() => {
     const map: Record<string, number> = {}
-    jobOrders.filter(j => j.status !== 'Cancelled').forEach(j => {
+    filteredJOs.filter(j => j.status !== 'Cancelled').forEach(j => {
       map[j.activityType] = (map[j.activityType] || 0) + 1
     })
     return Object.entries(map).map(([name, value]) => ({ name, value }))
-  }, [jobOrders])
+  }, [filteredJOs])
 
   const PIE_COLORS = ['#7C3AED','#EC4899','#F97316','#10B981','#3B82F6','#F59E0B']
 
@@ -190,44 +278,70 @@ export function DashboardPage() {
     color: isDark ? '#f1f5f9' : '#0f172a',
   }
 
-  async function handleRefresh() {
-    setRefreshing(true)
-    try {
-      const { data } = await supabase.from('job_orders').select('*').order('created_at', { ascending: false })
-      if (data) useDataStore.getState().setJobOrders(data.map(rowToJobOrder))
-    } finally {
-      setRefreshing(false)
-    }
-  }
 
   return (
     <div className="space-y-4 lg:space-y-5 max-w-[1400px]">
 
-      {/* Refresh bar — syncs from Supabase on demand */}
-      <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 rounded-2xl px-5 py-3 shadow-sm border border-slate-100 dark:border-slate-700">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-            <span className="text-blue-600 dark:text-blue-400 font-black text-base">{totalJOs}</span> total job orders
-          </p>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-            {activeJOs} active · {completedJOs} completed · {delayedJOs} delayed · {cancelledJOs} cancelled
-          </p>
-        </div>
-        <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white transition-colors">
-          <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-          {refreshing ? 'Refreshing…' : 'Refresh Data'}
-        </button>
-      </div>
-
-      {/* Page heading + actions */}
+      {/* ── Top bar: heading + Year/Month filter + actions ─────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl lg:text-2xl font-black text-slate-900 dark:text-slate-100">Today's Operations Overview</h2>
+          <h2 className="text-xl lg:text-2xl font-black text-slate-900 dark:text-slate-100">Operations Overview</h2>
           <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+
+          {/* ── Date range filter ── */}
+          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 shadow-sm">
+            <CalendarDays size={13} className="text-blue-500 shrink-0" />
+            {/* FROM */}
+            <select
+              value={fromMonth}
+              onChange={e => setFromMonth(Number(e.target.value))}
+              className="bg-transparent border-none outline-none text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
+            >
+              {MONTHS_FULL.map((m, i) => <option key={i} value={i}>{m}</option>)}
+            </select>
+            <select
+              value={fromYear}
+              onChange={e => setFromYear(Number(e.target.value))}
+              className="bg-transparent border-none outline-none text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
+            >
+              {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+
+            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 px-1">→</span>
+
+            {/* TO */}
+            <select
+              value={toMonth}
+              onChange={e => setToMonth(Number(e.target.value))}
+              className="bg-transparent border-none outline-none text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
+            >
+              {MONTHS_FULL.map((m, i) => <option key={i} value={i}>{m}</option>)}
+            </select>
+            <select
+              value={toYear}
+              onChange={e => setToYear(Number(e.target.value))}
+              className="bg-transparent border-none outline-none text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
+            >
+              {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+
+            {/* Reset */}
+            {isFiltered && (
+              <button
+                onClick={() => {
+                  setFromYear(now.getFullYear()); setFromMonth(0)
+                  setToYear(now.getFullYear());   setToMonth(now.getMonth())
+                }}
+                className="ml-1 w-5 h-5 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors text-xs font-bold"
+                title="Reset range"
+              >✕</button>
+            )}
+          </div>
+
           <button onClick={() => setView('calendar')} className="btn-secondary text-xs px-3 py-2">
             View Schedule
           </button>
@@ -236,6 +350,7 @@ export function DashboardPage() {
           </button>
         </div>
       </div>
+
 
       {/* ── ROW 1: KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -365,7 +480,7 @@ export function DashboardPage() {
         </div>
         <div className="space-y-3">
           {teamWorkload.map(t => {
-            const overloaded = t.util > 90
+            const overloaded = t.util >= LOAD_OVERLOAD
             return (
               <div key={t.team} className="flex items-center gap-4">
                 {/* Team label */}
@@ -393,11 +508,13 @@ export function DashboardPage() {
                   )}
                 </div>
                 {/* Status */}
-                <div className="w-28 shrink-0 flex items-center gap-1.5">
+                <div className="w-36 shrink-0 flex items-center gap-1.5">
                   {overloaded ? (
                     <span className="flex items-center gap-1 text-[10px] text-red-600 dark:text-red-400 font-semibold">
-                      <AlertTriangle size={10} /> Overloaded
+                      <AlertTriangle size={10} /> Overloaded ≥{LOAD_OVERLOAD}%
                     </span>
+                  ) : t.util >= 50 ? (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">✓ Optimal</span>
                   ) : (
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">{t.totalActive} active JOs</span>
                   )}
@@ -406,6 +523,113 @@ export function DashboardPage() {
             )
           })}
         </div>
+        {/* Capacity legend */}
+        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex-wrap text-[10px]">
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600" />Underload (&lt;50%)</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />Optimal (50–74%)</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500" />Overload (≥{LOAD_OVERLOAD}%)</span>
+          <span className="ml-auto text-slate-400 dark:text-slate-500">Formula: (Est. hrs / {WEEKLY_CAPACITY_HRS} weekly hrs) × 100</span>
+        </div>
+      </div>
+
+      {/* ── CAPACITY MONITORING ──────────────────────────────────── */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
+              <Users size={14} className="text-violet-500" />
+              Capacity &amp; Resource Load
+            </h3>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              6.6 hrs/day · 33 hrs/week per person · {TEAM_TOTAL_CAPACITY} hrs total team · ≥{LOAD_OVERLOAD}% = Overload
+            </p>
+          </div>
+          <button onClick={() => setView('workload')} className="btn-ghost">
+            Full view <ArrowRight size={12} />
+          </button>
+        </div>
+
+        {/* Team capacity rows */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          {teamCapacityTotals.map(t => (
+            <div key={t.team} className={`rounded-xl p-3 border ${t.pct >= LOAD_OVERLOAD ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-slate-50 dark:bg-slate-700/40 border-slate-100 dark:border-slate-700'}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color.hex }} />
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{t.team}</p>
+                </div>
+                <span className={`text-[10px] font-black ${t.pct >= LOAD_OVERLOAD ? 'text-red-600 dark:text-red-400' : t.pct >= 50 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                  {t.pct}%
+                </span>
+              </div>
+              <div className="h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden mb-2">
+                <div className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${t.pct}%`, background: t.pct >= LOAD_OVERLOAD ? '#EF4444' : t.color.hex }} />
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                {Math.round(t.usedHrs)}h used · {Math.max(0, Math.round(t.totalCapacity - t.usedHrs))}h free
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Total capacity bar */}
+        <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-300">Overall Team Capacity</p>
+            <p className="text-xs font-black text-slate-700 dark:text-slate-200">
+              {Math.round(totalUsedHrs)}h used · {Math.max(0, TEAM_TOTAL_CAPACITY - Math.round(totalUsedHrs))}h remaining
+            </p>
+          </div>
+          <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${Math.min(100, (totalUsedHrs / TEAM_TOTAL_CAPACITY) * 100)}%`,
+                background: totalUsedHrs / TEAM_TOTAL_CAPACITY >= LOAD_OVERLOAD / 100
+                  ? 'linear-gradient(90deg,#EF4444,#DC2626)'
+                  : 'linear-gradient(90deg,#7C3AED,#6366F1)',
+              }} />
+          </div>
+          {/* 75% threshold marker */}
+          <div className="relative mt-1 h-2">
+            <div className="absolute top-0 flex flex-col items-center" style={{ left: `${LOAD_OVERLOAD}%` }}>
+              <div className="w-px h-2 bg-red-400" />
+            </div>
+            <p className="absolute text-[9px] text-red-500 font-bold" style={{ left: `${LOAD_OVERLOAD - 2}%`, top: 2 }}>
+              {LOAD_OVERLOAD}%
+            </p>
+          </div>
+        </div>
+
+        {/* Individual resource load — top overloaded or all if few */}
+        {overloadedResources.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+              <AlertTriangle size={11} /> {overloadedResources.length} Overloaded Resource{overloadedResources.length !== 1 ? 's' : ''}
+            </p>
+            <div className="space-y-1.5">
+              {overloadedResources.slice(0, 5).map(r => (
+                <div key={r.id} className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-lg bg-red-100 dark:bg-red-900/40 flex items-center justify-center text-[9px] font-black text-red-700 dark:text-red-300 shrink-0">
+                    {r.initials}
+                  </div>
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-300 w-32 truncate shrink-0">{r.name.split(', ').reverse().join(' ')}</p>
+                  <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-red-500 transition-all" style={{ width: `${r.loadPct}%` }} />
+                  </div>
+                  <span className="text-[10px] font-black text-red-600 dark:text-red-400 w-10 text-right shrink-0">{r.loadPct}%</span>
+                  <span className="text-[10px] text-slate-400 shrink-0">{r.activeJOs} JOs</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {overloadedResources.length === 0 && (
+          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+            <CheckCircle2 size={15} />
+            <span className="text-xs">All resources within capacity — no overloads detected</span>
+          </div>
+        )}
       </div>
 
       {/* ── ROW 3: Today's Schedule Snapshot + Production Analytics ── */}

@@ -1,11 +1,12 @@
 ﻿import { useState, useMemo } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react'
 import {
   startOfWeek, addDays, addWeeks, format, isSameDay, parseISO, isToday,
 } from 'date-fns'
 import { useDataStore, useAppStore } from '../store/useAppStore'
 import { teamColors, activityCalendarColors } from '../utils/colors'
 import type { DAPTeam, JobOrder } from '../types'
+import { ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS, DAILY_CAPACITY_HRS, LOAD_OVERLOAD } from '../types'
 
 const TEAMS: DAPTeam[] = ['Photo', 'Video', 'Audio', 'Design']
 
@@ -22,16 +23,21 @@ export function WorkloadPage() {
   function getMemberStats(resourceId: string) {
     const now = new Date()
     const in4Weeks = new Date(now.getTime() + 28 * 24 * 60 * 60 * 1000)
-    const assigned = jobOrders.filter(j => j.assignedMemberIds.includes(resourceId))
-    const active = assigned.filter(j => !['Completed', 'Delayed', 'Cancelled'].includes(j.status))
+    const assigned  = jobOrders.filter(j => j.assignedMemberIds.includes(resourceId))
+    const active    = assigned.filter(j => !['Completed', 'Delayed', 'Cancelled'].includes(j.status))
     const completed = assigned.filter(j => j.status === 'Completed')
     const next4Weeks = assigned.filter(j => {
       if (['Completed', 'Cancelled'].includes(j.status)) return false
       const d = new Date(j.deadline)
       return d >= now && d <= in4Weeks
     }).length
-    const overloaded = next4Weeks >= 5
-    return { assigned: assigned.length, active, completed: completed.length, next4Weeks, overloaded }
+
+    // Hours-based load calculation: (total active est. hours / weekly capacity) × 100
+    const estimatedHrs = active.reduce((s, jo) => s + (ACTIVITY_HOURS[jo.activityType] ?? 4), 0)
+    const loadPct      = Math.min(100, Math.round((estimatedHrs / WEEKLY_CAPACITY_HRS) * 100))
+    const overloaded   = loadPct >= LOAD_OVERLOAD
+
+    return { assigned: assigned.length, active, completed: completed.length, next4Weeks, overloaded, estimatedHrs, loadPct }
   }
 
   const teamSummary = useMemo(() =>
@@ -42,7 +48,10 @@ export function WorkloadPage() {
         !['Completed', 'Delayed', 'Cancelled'].includes(j.status) &&
         members.some(m => j.assignedMemberIds.includes(m.id))
       ).length
-      return { team, members: members.length, totalActive, totalNext4Weeks }
+      const avgLoad = members.length
+        ? Math.round(members.reduce((acc, r) => acc + getMemberStats(r.id).loadPct, 0) / members.length)
+        : 0
+      return { team, members: members.length, totalActive, totalNext4Weeks, avgLoad }
     }),
     [jobOrders, resources]
   )
@@ -81,21 +90,38 @@ export function WorkloadPage() {
   return (
     <div className="space-y-5 max-w-[1400px]">
 
+      {/* Capacity constants legend */}
+      <div className="flex items-center gap-4 text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-2.5 shadow-sm flex-wrap">
+        <span className="font-bold text-slate-700 dark:text-slate-300">Capacity Model:</span>
+        <span>📅 {DAILY_CAPACITY_HRS} hrs/day</span>
+        <span>📆 {WEEKLY_CAPACITY_HRS} hrs/week per person</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"/>Optimal: 50–{LOAD_OVERLOAD - 1}%</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"/>Overload: ≥{LOAD_OVERLOAD}%</span>
+        <span className="ml-auto italic">Formula: (Est. assigned hrs ÷ {WEEKLY_CAPACITY_HRS}) × 100</span>
+      </div>
+
       {/* Summary stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {teamSummary.map(t => {
           const color = teamColors[t.team]
+          const isOverloaded = t.avgLoad >= LOAD_OVERLOAD
           return (
-            <div key={t.team} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: color.hex }} />
-                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{t.team} Team</p>
+            <div key={t.team} className={`bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border ${isOverloaded ? 'border-red-200 dark:border-red-800' : 'border-slate-100 dark:border-slate-700'}`}>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: color.hex }} />
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{t.team} Team</p>
+                </div>
+                {isOverloaded && <AlertTriangle size={12} className="text-red-500 shrink-0" />}
               </div>
-              <p className="text-3xl font-black text-slate-900 dark:text-slate-100">
-                {t.totalNext4Weeks}
+              <p className={`text-3xl font-black ${isOverloaded ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                {t.avgLoad}%
               </p>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">projects next 4 wks</p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">avg load</p>
+              <div className="mt-2 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${t.avgLoad}%`, background: isOverloaded ? '#EF4444' : color.hex }} />
+              </div>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">
                 {t.members} members · {t.totalActive} active JOs
               </p>
             </div>
@@ -146,24 +172,37 @@ export function WorkloadPage() {
                     </div>
                     <div className="text-right">
                       <p className={`text-2xl font-black ${
-                        stats.overloaded ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'
+                        stats.overloaded ? 'text-red-600 dark:text-red-400' : stats.loadPct >= 50 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'
                       }`}>
-                        {stats.next4Weeks} <span className="text-sm font-semibold text-slate-400 dark:text-slate-500">projects</span>
+                        {stats.loadPct}<span className="text-sm font-semibold">%</span>
                       </p>
-                      {stats.overloaded && (
-                        <p className="text-[10px] text-red-500 dark:text-red-400 font-semibold flex items-center gap-0.5 justify-end">
-                          <AlertTriangle size={9} /> Overloaded
-                        </p>
-                      )}
+                      <p className={`text-[10px] font-bold flex items-center gap-0.5 justify-end ${
+                        stats.overloaded ? 'text-red-500 dark:text-red-400' : stats.loadPct >= 50 ? 'text-emerald-600' : 'text-slate-400'
+                      }`}>
+                        {stats.overloaded
+                          ? <><AlertTriangle size={9} /> Overload</>
+                          : stats.loadPct >= 50
+                            ? <><CheckCircle2 size={9} /> Optimal</>
+                            : 'Underload'}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 mt-2.5 text-[11px] text-slate-500 dark:text-slate-400">
+                  {/* Load bar */}
+                  <div className="mt-2 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${stats.loadPct}%`, background: stats.overloaded ? '#EF4444' : stats.loadPct >= 50 ? '#10B981' : '#94A3B8' }} />
+                  </div>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                    ~{Math.round(stats.estimatedHrs)}h est. / {WEEKLY_CAPACITY_HRS}h capacity
+                  </p>
+
+                  <div className="flex items-center gap-4 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                     <span className="font-semibold text-slate-700 dark:text-slate-300">{stats.active.length}</span> active JOs
                     <span>·</span>
                     <span className="font-semibold text-emerald-600 dark:text-emerald-400">{stats.completed}</span> completed
                     <span>·</span>
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">{r.maxWeeklyHours}h</span>/week
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">{r.maxWeeklyHours}h</span>/week max
                   </div>
 
                   {stats.active.length > 0 && (
@@ -184,7 +223,7 @@ export function WorkloadPage() {
                   {stats.overloaded && (
                     <div className="mt-3 flex items-center gap-2 bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2 border border-red-100 dark:border-red-800">
                       <AlertTriangle size={12} className="text-red-500 dark:text-red-400 flex-shrink-0" />
-                      <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">5+ projects in next 4 weeks — consider reassigning tasks</p>
+                      <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">Load ≥{LOAD_OVERLOAD}% — {Math.round(stats.estimatedHrs)}h est. assigned this week. Consider redistributing.</p>
                     </div>
                   )}
                 </div>

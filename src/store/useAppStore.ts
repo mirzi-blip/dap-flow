@@ -53,6 +53,8 @@ interface AppState {
   addApprover: (a: Approver) => void
   updateApprover: (a: Approver) => void
   removeApprover: (id: string) => void
+  deactivateApprover: (id: string) => void
+  reactivateApprover: (id: string) => void
   initApprovers: () => Promise<void>
 
   // Booking Departments
@@ -227,6 +229,14 @@ export const useAppStore = create<AppState>()(
         set(s => ({ approvers: s.approvers.filter(a => a.id !== id) }))
         supabase.from('approvers').delete().eq('id', id).then(({ error }) => { if (error) console.error('Approver sync error:', error) })
       },
+      deactivateApprover(id) {
+        set(s => ({ approvers: s.approvers.map(a => a.id === id ? { ...a, isActive: false } : a) }))
+        supabase.from('approvers').update({ is_active: false }).eq('id', id).then(({ error }) => { if (error) console.error('Approver sync error:', error) })
+      },
+      reactivateApprover(id) {
+        set(s => ({ approvers: s.approvers.map(a => a.id === id ? { ...a, isActive: true } : a) }))
+        supabase.from('approvers').update({ is_active: true }).eq('id', id).then(({ error }) => { if (error) console.error('Approver sync error:', error) })
+      },
       async initApprovers() {
         try {
           const { data, error } = await supabase.from('approvers').select('*').order('name', { ascending: true })
@@ -316,6 +326,8 @@ export const useAppStore = create<AppState>()(
         }
         // Backfill approvers/departments for users who upgraded from a version without them
         if (!state?.approvers) state!.approvers = []
+        // Backfill isActive for approvers that pre-date the field
+        if (state?.approvers) state!.approvers = state!.approvers.map(a => ({ ...a, isActive: a.isActive ?? true }))
         if (!state?.departments || state.departments.length === 0) state!.departments = DEFAULT_DEPARTMENTS
       },
     }

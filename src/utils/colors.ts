@@ -5,27 +5,42 @@ export const activityColors: Record<ActivityType, { bg: string; text: string; bo
   'Photo Shoot':           { bg: 'bg-blue-50',    text: 'text-blue-700',   border: 'border-blue-200',   dot: 'bg-blue-500' },
   'Video Shoot':           { bg: 'bg-red-50',     text: 'text-red-700',    border: 'border-red-200',    dot: 'bg-red-500' },
   'Static Artwork Design': { bg: 'bg-emerald-50', text: 'text-emerald-700',border: 'border-emerald-200',dot: 'bg-emerald-500' },
+  'Digital Design':        { bg: 'bg-violet-50',  text: 'text-violet-700', border: 'border-violet-200', dot: 'bg-violet-500' },
   'Video Editing':         { bg: 'bg-orange-50',  text: 'text-orange-700', border: 'border-orange-200', dot: 'bg-orange-500' },
-  'Audio Recording':       { bg: 'bg-blue-50',  text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500' },
+  'Graphics':              { bg: 'bg-amber-50',   text: 'text-amber-700',  border: 'border-amber-200',  dot: 'bg-amber-500' },
+  'Printing':              { bg: 'bg-teal-50',    text: 'text-teal-700',   border: 'border-teal-200',   dot: 'bg-teal-500' },
+  'ASC':                   { bg: 'bg-indigo-50',  text: 'text-indigo-700', border: 'border-indigo-200', dot: 'bg-indigo-500' },
+  'Audio Recording':       { bg: 'bg-sky-50',     text: 'text-sky-700',    border: 'border-sky-200',    dot: 'bg-sky-500' },
   'Audio Editing':         { bg: 'bg-pink-50',    text: 'text-pink-700',   border: 'border-pink-200',   dot: 'bg-pink-500' },
+  'Audio Services':        { bg: 'bg-sky-50',     text: 'text-sky-700',    border: 'border-sky-200',    dot: 'bg-sky-500' },
 }
 
 export const activityCalendarColors: Record<ActivityType, string> = {
   'Photo Shoot':           '#3B82F6',
   'Video Shoot':           '#EF4444',
   'Static Artwork Design': '#10B981',
+  'Digital Design':        '#7C3AED',
   'Video Editing':         '#F97316',
-  'Audio Recording':       '#8B5CF6',
+  'Graphics':              '#F59E0B',
+  'Printing':              '#14B8A6',
+  'ASC':                   '#6366F1',
+  'Audio Recording':       '#0EA5E9',
   'Audio Editing':         '#EC4899',
+  'Audio Services':        '#0EA5E9',
 }
 
 export const activityGradients: Record<ActivityType, string> = {
   'Photo Shoot':           'from-blue-500 to-blue-600',
   'Video Shoot':           'from-red-500 to-rose-600',
   'Static Artwork Design': 'from-emerald-500 to-teal-600',
+  'Digital Design':        'from-violet-500 to-purple-600',
   'Video Editing':         'from-orange-500 to-amber-600',
-  'Audio Recording':       'from-blue-500 to-purple-600',
-  'Audio Editing':         'from-pink-500 to-blue-500',
+  'Graphics':              'from-amber-400 to-orange-500',
+  'Printing':              'from-teal-500 to-cyan-600',
+  'ASC':                   'from-indigo-500 to-violet-600',
+  'Audio Recording':       'from-sky-500 to-blue-600',
+  'Audio Editing':         'from-pink-500 to-rose-500',
+  'Audio Services':        'from-sky-500 to-blue-600',
 }
 
 export const statusColors: Record<JOStatus, { bg: string; text: string; ring: string; glow: string }> = {
@@ -33,8 +48,9 @@ export const statusColors: Record<JOStatus, { bg: string; text: string; ring: st
   Approved:     { bg: 'bg-sky-50',     text: 'text-sky-700',    ring: 'ring-sky-200',    glow: '#0EA5E9' },
   Scheduled:    { bg: 'bg-indigo-50',  text: 'text-indigo-700', ring: 'ring-indigo-200', glow: '#6366F1' },
 
-  'For Review': { bg: 'bg-orange-50',  text: 'text-orange-700', ring: 'ring-orange-200', glow: '#F97316' },
-  Completed:    { bg: 'bg-emerald-50', text: 'text-emerald-700',ring: 'ring-emerald-200',glow: '#10B981' },
+  'For Review':     { bg: 'bg-orange-50',  text: 'text-orange-700', ring: 'ring-orange-200', glow: '#F97316' },
+  'Needs Revision': { bg: 'bg-rose-50',    text: 'text-rose-700',   ring: 'ring-rose-200',   glow: '#E11D48' },
+  Completed:        { bg: 'bg-emerald-50', text: 'text-emerald-700',ring: 'ring-emerald-200',glow: '#10B981' },
   Delayed:      { bg: 'bg-red-50',     text: 'text-red-700',    ring: 'ring-red-200',    glow: '#EF4444' },
   Cancelled:    { bg: 'bg-slate-100',  text: 'text-slate-500',  ring: 'ring-slate-200',  glow: '#94A3B8' },
 }

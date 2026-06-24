@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from 'react'
+﻿import { useState, useRef, useEffect } from 'react'
 import {
   UserPlus, Shield, ShieldOff, ShieldAlert, Pencil, RotateCcw,
   X, Check, ChevronDown, Users, Lock, AlertTriangle,
@@ -11,14 +11,13 @@ import { useAppStore } from '../store/useAppStore'
 import { uploadAvatar } from '../lib/supabase'
 import { PERMISSION_MODULES, DEFAULT_PERMISSIONS, ALL_PERMISSIONS, perm } from '../data/permissions'
 import { usePermissions } from '../hooks/usePermissions'
-import type { ManagedUser, UserRole, RequestingTeam, UserStatus, Resource, DAPSubRole, DAPTeam, Approver, BookingDepartment, ApproverPosition } from '../types'
+import type { ManagedUser, UserRole, RequestingTeam, UserStatus, Resource, DAPSubRole, DAPTeam, Approver, BookingDepartment } from '../types'
 
 const ROLES: UserRole[] = ['Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']
 const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
 
-type SettingsTab = 'profile' | 'users' | 'team' | 'capacity' | 'activity' | 'integrations' | 'permissions' | 'approvers' | 'departments'
+type SettingsTab = 'profile' | 'users' | 'team' | 'capacity' | 'activity' | 'integrations' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments'
 
-const APPROVER_POSITIONS: ApproverPosition[] = ['Head', 'Director', 'Manager', 'Assistant Manager', 'Supervisor']
 
 const SUB_ROLES: DAPSubRole[] = ['Photographer', 'Videographer', 'Video Editor', 'Audio Editor', 'Graphic Designer']
 const DAP_TEAMS: DAPTeam[] = ['Photo', 'Video', 'Audio', 'Design']
@@ -73,7 +72,7 @@ const ACTIVITY_TYPES = [
 ]
 
 export function SettingsPage() {
-  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, resources, updateResource, addResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, departments, addDepartment, removeDepartment } = useAppStore()
+  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, resources, updateResource, addResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, deactivateApprover, reactivateApprover, initApprovers, departments, addDepartment, removeDepartment } = useAppStore()
   const { can } = usePermissions()
 
   const EMOJI_OPTIONS = [
@@ -84,6 +83,12 @@ export function SettingsPage() {
   ]
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
+
+  // Sync approvers from Supabase whenever an approvers tab is opened
+  useEffect(() => {
+    if (activeTab === 'approvers' || activeTab === 'dap-approvers') initApprovers()
+  }, [activeTab])
+
   const [modalMode, setModalMode] = useState<ModalMode>(null)
   const [editTarget, setEditTarget] = useState<ManagedUser | null>(null)
   const [confirm, setConfirm] = useState<ConfirmAction>(null)
@@ -350,22 +355,28 @@ export function SettingsPage() {
 
   // ── Approvers state ──────────────────────────────────────────────────────────
   const [approverSearch, setApproverSearch] = useState('')
+  const [approverStatusFilter, setApproverStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [approverModal, setApproverModal] = useState<'add' | 'edit' | null>(null)
   const [editingApprover, setEditingApprover] = useState<Approver | null>(null)
-  const [approverForm, setApproverForm] = useState({ name: '', email: '', position: 'Manager' as ApproverPosition })
+  const [approverForm, setApproverForm] = useState({ name: '', email: '', position: '' })
   const [approverFormError, setApproverFormError] = useState('')
   const [approverDeleteConfirm, setApproverDeleteConfirm] = useState<Approver | null>(null)
   const [approverSaved, setApproverSaved] = useState('')
 
+  const currentApproverType = activeTab === 'dap-approvers' ? 'dap' : 'booking'
+  const typeApprovers = approvers.filter(a => (a.approverType ?? 'booking') === currentApproverType)
+  const activeCount   = typeApprovers.filter(a => a.isActive !== false).length
+  const inactiveCount = typeApprovers.filter(a => a.isActive === false).length
+
   function openAddApprover() {
-    setApproverForm({ name: '', email: '', position: 'Manager' })
+    setApproverForm({ name: '', email: '', position: '' })
     setApproverFormError('')
     setEditingApprover(null)
     setApproverModal('add')
   }
 
   function openEditApprover(a: Approver) {
-    setApproverForm({ name: a.name, email: a.email, position: (a.position as ApproverPosition) || 'Manager' })
+    setApproverForm({ name: a.name, email: a.email, position: a.position || '' })
     setApproverFormError('')
     setEditingApprover(a)
     setApproverModal('edit')
@@ -374,26 +385,34 @@ export function SettingsPage() {
   function handleSaveApprover() {
     const name = approverForm.name.trim()
     const email = approverForm.email.trim().toLowerCase()
+    const position = approverForm.position.trim()
     if (!name) { setApproverFormError('Name is required'); return }
-    if (!email) { setApproverFormError('Email is required'); return }
-    const duplicate = approvers.find(a =>
-      a.email.toLowerCase() === email && (!editingApprover || a.id !== editingApprover.id)
-    )
-    if (duplicate) { setApproverFormError('An approver with this email already exists'); return }
+    if (email) {
+      const duplicate = approvers.find(a =>
+        a.email.toLowerCase() === email && (!editingApprover || a.id !== editingApprover.id)
+      )
+      if (duplicate) { setApproverFormError('An approver with this email already exists'); return }
+    }
     if (approverModal === 'add') {
-      addApprover({ id: `apr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name, email, position: approverForm.position, createdAt: new Date().toISOString() })
+      addApprover({ id: `apr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name, email, position, isActive: true, approverType: currentApproverType, createdAt: new Date().toISOString() })
       setApproverSaved('added')
     } else if (editingApprover) {
-      updateApprover({ ...editingApprover, name, email, position: approverForm.position })
+      updateApprover({ ...editingApprover, name, email, position })
       setApproverSaved('updated')
     }
     setApproverModal(null)
     setTimeout(() => setApproverSaved(''), 2500)
   }
 
-  const filteredApprovers = approvers.filter(a =>
-    !approverSearch || a.name.toLowerCase().includes(approverSearch.toLowerCase()) || a.email.toLowerCase().includes(approverSearch.toLowerCase())
-  )
+  const filteredApprovers = typeApprovers.filter(a => {
+    if (approverStatusFilter === 'active'   && a.isActive === false) return false
+    if (approverStatusFilter === 'inactive' && a.isActive !== false) return false
+    if (!approverSearch) return true
+    const q = approverSearch.toLowerCase()
+    return a.name.toLowerCase().includes(q) ||
+           a.email.toLowerCase().includes(q) ||
+           a.position.toLowerCase().includes(q)
+  })
 
   // ── Departments state ────────────────────────────────────────────────────────
   const [deptInput, setDeptInput] = useState('')
@@ -445,8 +464,9 @@ export function SettingsPage() {
     ...(can('settings', 'manage_team')         ? [{ id: 'team'         as SettingsTab, label: 'Team Members',    icon: Mail       }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'capacity'     as SettingsTab, label: 'Capacity',        icon: Sliders    }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'activity'     as SettingsTab, label: 'Activity Types',  icon: Settings2  }] : []),
-    ...(can('settings', 'manage_team')         ? [{ id: 'approvers'    as SettingsTab, label: 'Approvers',       icon: UserCheck  }] : []),
-    ...(can('settings', 'manage_team')         ? [{ id: 'departments'  as SettingsTab, label: 'Departments',     icon: Building2  }] : []),
+    ...(can('settings', 'manage_team')         ? [{ id: 'approvers'      as SettingsTab, label: 'Approvers',          icon: UserCheck  }] : []),
+    ...(can('settings', 'manage_team')         ? [{ id: 'dap-approvers' as SettingsTab, label: 'DAP Team Approvers', icon: Shield     }] : []),
+    ...(can('settings', 'manage_team')         ? [{ id: 'departments'   as SettingsTab, label: 'Departments',        icon: Building2  }] : []),
     ...(can('settings', 'manage_integrations') ? [{ id: 'integrations' as SettingsTab, label: 'Integrations',    icon: Plug2      }] : []),
     ...(can('settings', 'manage_permissions')  ? [{ id: 'permissions'  as SettingsTab, label: 'Permissions',     icon: Shield     }] : []),
   ]
@@ -915,14 +935,40 @@ export function SettingsPage() {
       {/* ── APPROVERS ─────────────────────────────────────────── */}
       {activeTab === 'approvers' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          {/* Header */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Approver Management</h2>
-              <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">Manage approvers available in the booking request form.</p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
+                Master list · <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{activeCount} active</span>
+                {inactiveCount > 0 && <span className="text-slate-400"> · {inactiveCount} inactive</span>}
+                {' '}· auto-synced to the Booking App
+              </p>
             </div>
-            <button onClick={openAddApprover} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
-              <Plus size={13} /> Add Approver
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const header = 'id,name,position,email,is_active'
+                  const rows = approvers.map(a =>
+                    [a.id, `"${a.name.replace(/"/g, '""')}"`, `"${(a.position || '').replace(/"/g, '""')}"`, a.email || '', a.isActive !== false ? 'true' : 'false'].join(',')
+                  )
+                  const csv = [header, ...rows].join('\n')
+                  const blob = new Blob([csv], { type: 'text/csv' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `approvers_${new Date().toISOString().split('T')[0]}.csv`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors"
+              >
+                <Mail size={13} /> Export CSV
+              </button>
+              <button onClick={openAddApprover} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
+                <Plus size={13} /> Add Approver
+              </button>
+            </div>
           </div>
 
           {approverSaved && (
@@ -931,15 +977,29 @@ export function SettingsPage() {
             </div>
           )}
 
-          {/* Search */}
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={approverSearch}
-              onChange={e => setApproverSearch(e.target.value)}
-              placeholder="Search approvers by name or email…"
-              className="form-input pl-9 text-sm"
-            />
+          {/* Search + status filter */}
+          <div className="flex gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={approverSearch}
+                onChange={e => setApproverSearch(e.target.value)}
+                placeholder="Search by name, email, or designation…"
+                className="form-input pl-9 text-sm w-full"
+              />
+            </div>
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
+              {(['all', 'active', 'inactive'] as const).map(f => (
+                <button key={f} onClick={() => setApproverStatusFilter(f)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                    approverStatusFilter === f
+                      ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+                  }`}>
+                  {f === 'all' ? `All (${approvers.length})` : f === 'active' ? `Active (${activeCount})` : `Inactive (${inactiveCount})`}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Approver list */}
@@ -953,38 +1013,177 @@ export function SettingsPage() {
               </div>
             ) : (
               <div className="divide-y divide-slate-50 dark:divide-slate-700">
-                {filteredApprovers.map(a => (
-                  <div key={a.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
-                      <UserCheck size={15} className="text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{a.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{a.email}</p>
-                        {a.position && (
-                          <span className="text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full shrink-0">
-                            {a.position}
-                          </span>
+                {filteredApprovers.map(a => {
+                  const isInactive = a.isActive === false
+                  const initials = a.name.replace(/[,]/g, ' ').split(/\s+/).filter(Boolean).map((w: string) => w[0]).slice(0, 2).join('')
+                  return (
+                    <div key={a.id} className={`flex items-center gap-4 px-5 py-4 transition-colors ${isInactive ? 'bg-slate-50/60 dark:bg-slate-800/40 opacity-60' : 'hover:bg-slate-50 dark:hover:bg-slate-700/40'}`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-black ${isInactive ? 'bg-slate-200 dark:bg-slate-700 text-slate-400' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'}`}>
+                        {initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={`text-sm font-semibold ${isInactive ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>{a.name}</p>
+                          {isInactive
+                            ? <span className="text-[9px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-500 px-2 py-0.5 rounded-full">INACTIVE</span>
+                            : <span className="text-[9px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full">ACTIVE</span>
+                          }
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {a.email && <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{a.email}</p>}
+                          {a.position && (
+                            <span className="text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full shrink-0">
+                              {a.position}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => openEditApprover(a)} title="Edit"
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
+                          <Pencil size={13} />
+                        </button>
+                        {isInactive ? (
+                          <button onClick={() => reactivateApprover(a.id)} title="Reactivate"
+                            className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors text-[10px] font-bold px-2">
+                            Activate
+                          </button>
+                        ) : (
+                          <button onClick={() => deactivateApprover(a.id)} title="Deactivate"
+                            className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors text-[10px] font-bold px-2">
+                            Deactivate
+                          </button>
                         )}
+                        <button onClick={() => setApproverDeleteConfirm(a)} title="Delete"
+                          className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => openEditApprover(a)} title="Edit" className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
-                        <Pencil size={13} />
-                      </button>
-                      <button onClick={() => setApproverDeleteConfirm(a)} title="Delete" className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
 
           <p className="text-xs text-slate-400 dark:text-slate-500 italic">
-            Approvers added here appear as selectable options in the booking request form. Selecting an approver auto-fills their email.
+            Only <strong>active</strong> approvers appear in the Booking App. Deactivate to hide without deleting.
+          </p>
+        </div>
+      )}
+
+      {/* ── DAP TEAM APPROVERS ────────────────────────────────── */}
+      {activeTab === 'dap-approvers' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">DAP Team Approvers</h2>
+              <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
+                Approvers from the DAP Team · <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{activeCount} active</span>
+                {inactiveCount > 0 && <span className="text-slate-400"> · {inactiveCount} inactive</span>}
+                {' '}· used in the Output Review workflow
+              </p>
+            </div>
+            <button onClick={openAddApprover} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
+              <Plus size={13} /> Add DAP Approver
+            </button>
+          </div>
+
+          {approverSaved && (
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">
+              <Check size={13} /> Approver {approverSaved} successfully.
+            </div>
+          )}
+
+          <div className="flex gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={approverSearch}
+                onChange={e => setApproverSearch(e.target.value)}
+                placeholder="Search by name, email, or designation…"
+                className="form-input pl-9 text-sm w-full"
+              />
+            </div>
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
+              {(['all', 'active', 'inactive'] as const).map(f => (
+                <button key={f} onClick={() => setApproverStatusFilter(f)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                    approverStatusFilter === f
+                      ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+                  }`}>
+                  {f === 'all' ? `All (${typeApprovers.length})` : f === 'active' ? `Active (${activeCount})` : `Inactive (${inactiveCount})`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="card overflow-hidden">
+            {filteredApprovers.length === 0 ? (
+              <div className="py-14 text-center">
+                <Shield size={28} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+                <p className="text-sm text-slate-400 dark:text-slate-500">
+                  {typeApprovers.length === 0 ? 'No DAP Team Approvers yet. Add one to get started.' : 'No approvers match your search.'}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-50 dark:divide-slate-700">
+                {filteredApprovers.map(a => {
+                  const isInactive = a.isActive === false
+                  const initials = a.name.replace(/[,]/g, ' ').split(/\s+/).filter(Boolean).map((w: string) => w[0]).slice(0, 2).join('')
+                  return (
+                    <div key={a.id} className={`flex items-center gap-4 px-5 py-4 transition-colors ${isInactive ? 'bg-slate-50/60 dark:bg-slate-800/40 opacity-60' : 'hover:bg-slate-50 dark:hover:bg-slate-700/40'}`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-black ${isInactive ? 'bg-slate-200 dark:bg-slate-700 text-slate-400' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'}`}>
+                        {initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={`text-sm font-semibold ${isInactive ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>{a.name}</p>
+                          {isInactive
+                            ? <span className="text-[9px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-500 px-2 py-0.5 rounded-full">INACTIVE</span>
+                            : <span className="text-[9px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full">ACTIVE</span>
+                          }
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {a.email && <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{a.email}</p>}
+                          {a.position && (
+                            <span className="text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full shrink-0">
+                              {a.position}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => openEditApprover(a)} title="Edit"
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
+                          <Pencil size={13} />
+                        </button>
+                        {isInactive ? (
+                          <button onClick={() => reactivateApprover(a.id)} title="Reactivate"
+                            className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors text-[10px] font-bold px-2">
+                            Activate
+                          </button>
+                        ) : (
+                          <button onClick={() => deactivateApprover(a.id)} title="Deactivate"
+                            className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors text-[10px] font-bold px-2">
+                            Deactivate
+                          </button>
+                        )}
+                        <button onClick={() => setApproverDeleteConfirm(a)} title="Delete"
+                          className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            Only <strong>active</strong> DAP Team Approvers appear in the Output Review workflow.
           </p>
         </div>
       )}
@@ -1490,16 +1689,13 @@ export function SettingsPage() {
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Position / Title</label>
-                <div className="relative">
-                  <select
-                    value={approverForm.position}
-                    onChange={e => setApproverForm(f => ({ ...f, position: e.target.value as ApproverPosition }))}
-                    className="form-input appearance-none pr-8"
-                  >
-                    {APPROVER_POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                  <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
+                <input
+                  type="text"
+                  value={approverForm.position}
+                  onChange={e => setApproverForm(f => ({ ...f, position: e.target.value }))}
+                  placeholder="e.g. AUDIT SUPERVISOR"
+                  className="form-input"
+                />
               </div>
               {approverFormError && (
                 <p className="text-xs text-red-600 dark:text-red-400 font-medium flex items-center gap-1.5">

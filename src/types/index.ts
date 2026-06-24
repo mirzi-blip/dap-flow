@@ -17,15 +17,78 @@ export type ActivityType =
   | 'Photo Shoot'
   | 'Video Shoot'
   | 'Static Artwork Design'
+  | 'Digital Design'
+  | 'Graphics'
+  | 'Printing'
+  | 'ASC'
   | 'Video Editing'
   | 'Audio Recording'
   | 'Audio Editing'
+  | 'Audio Services'
+
+/** Minor = partial crew, Major = full crew */
+export type ShootType = 'Minor' | 'Major'
+
+/** Project scope/scale for resource planning */
+export type ProjectScale = 'Small Scale' | 'Medium Scale' | 'Large Scale' | 'Campaign Level'
+
+/** Crew level derived from activity + shoot type */
+export type CrewRequirement = 'Full Crew' | 'Partial Crew' | 'Minimal Crew'
+
+/** Compute crew requirement from activity and shoot type */
+export function getCrewRequirement(
+  activityType: ActivityType | '',
+  shootType?: ShootType | '',
+): CrewRequirement {
+  if (activityType === 'Photo Shoot' || activityType === 'Video Shoot') {
+    return shootType === 'Major' ? 'Full Crew' : 'Partial Crew'
+  }
+  if (activityType === 'Audio Recording' || activityType === 'Audio Services') return 'Partial Crew'
+  return 'Minimal Crew'
+}
+
+/** Estimated production hours per activity type (for capacity calc) */
+export const ACTIVITY_HOURS: Record<ActivityType, number> = {
+  'Photo Shoot':           8,
+  'Video Shoot':           8,
+  'Static Artwork Design': 4,
+  'Digital Design':        4,
+  'Graphics':              4,
+  'Printing':              2,
+  'ASC':                   3,
+  'Video Editing':         6,
+  'Audio Recording':       4,
+  'Audio Editing':         3,
+  'Audio Services':        4,
+}
+
+/** Capacity constants */
+export const DAILY_CAPACITY_HRS  = 6.6
+export const WEEKLY_CAPACITY_HRS = DAILY_CAPACITY_HRS * 5   // 33 hrs
+export const TEAM_TOTAL_CAPACITY  = 150                       // hrs total team
+
+/** Load thresholds */
+export const LOAD_OPTIMAL  = 75   // %
+export const LOAD_OVERLOAD = 75   // % — warn at / above this
+
+/** Design specification details for Static / Digital artwork requests */
+export interface DesignSpecs {
+  paperSize:       string
+  orientation:     string
+  colorMode:       string
+  dimensions:      string
+  material:        string
+  additionalNotes: string
+  attachmentUrls?: string[]
+  fileLinks?:      string[]
+}
 
 export type JOStatus =
   | 'Pending'
   | 'Approved'
   | 'Scheduled'
   | 'For Review'
+  | 'Needs Revision'
   | 'Completed'
   | 'Delayed'
   | 'Cancelled'
@@ -153,7 +216,32 @@ export interface Approver {
   name: string
   email: string
   position: string           // one of ApproverPosition or custom string
+  isActive: boolean          // false = deactivated, hidden from booking form
+  approverType?: 'booking' | 'dap'
   createdAt: string
+}
+
+export interface JOReview {
+  id: string
+  joId: string
+  joNumber: string
+  projectName: string
+  outputFileUrl: string
+  outputFileName?: string
+  submittedBy: string
+  submittedAt: string
+  reqApproverName: string
+  reqApproverEmail: string
+  reqApproverStatus: 'pending' | 'approved' | 'disapproved'
+  reqApproverComment?: string
+  reqApproverActionAt?: string
+  dapApproverName: string
+  dapApproverEmail: string
+  dapApproverStatus: 'pending' | 'approved' | 'disapproved'
+  dapApproverComment?: string
+  dapApproverActionAt?: string
+  overallStatus: 'pending' | 'approved' | 'needs_revision'
+  updatedAt: string
 }
 
 export interface BookingDepartment {
@@ -166,8 +254,12 @@ export interface BookingDepartment {
 export interface BookingRequest {
   id: string
   activityType: ActivityType
+  shootType?: ShootType          // for Photo/Video Shoot only
+  projectScale?: ProjectScale    // project scope indicator
+  designSpecs?: DesignSpecs      // for Static Artwork / Digital Design
   department: string
   departmentLocal: string
+  requestorName:  string
   requestorEmail: string
   preparedBy: string
   approverName: string

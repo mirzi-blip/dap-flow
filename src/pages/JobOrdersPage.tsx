@@ -13,7 +13,7 @@ import { Modal } from '../components/ui/Modal'
 import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus } from '../utils/helpers'
 import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus } from '../types'
 import { db } from '../db/database'
-import { supabase, requestToRow, jobOrderToRow } from '../lib/supabase'
+import { supabase, requestToRow, jobOrderToRow, saveJOComment } from '../lib/supabase'
 
 type PageTab = 'list' | 'requests'
 
@@ -96,7 +96,8 @@ export function JobOrdersPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   // Confirmation modals state
-  const [confirmAction, setConfirmAction] = useState<{ type: 'schedule' | 'cancel' | 'forReview'; jo: JobOrder } | null>(null)
+  const [confirmAction, setConfirmAction] = useState<{ type: 'schedule' | 'cancel' | 'forReview' | 'general'; jo: JobOrder; newStatus?: JOStatus } | null>(null)
+  const [confirmComment, setConfirmComment] = useState('')
   const [deadlineChangeConfirm, setDeadlineChangeConfirm] = useState<string | null>(null)
 
   // Rejection modal state
@@ -212,12 +213,13 @@ export function JobOrdersPage() {
     setFormError('')
   }
 
-  async function handleStatusChange(jo: JobOrder, newStatus: JOStatus) {
+  async function handleStatusChange(jo: JobOrder, newStatus: JOStatus, comment = '') {
     const updated: JobOrder = { ...jo, status: newStatus, updatedAt: new Date().toISOString() }
     await db.jobOrders.put(updated)
     updateJobOrder(updated)
     supabase.from('job_orders').update({ status: newStatus, updated_at: updated.updatedAt }).eq('id', jo.id).then(({ error }) => { if (error) console.error('JO sync error:', error) })
 
+    const now = new Date().toISOString()
     const log = {
       id: generateId(),
       joId: jo.id,
@@ -225,11 +227,22 @@ export function JobOrdersPage() {
       fromStatus: jo.status,
       toStatus: newStatus,
       changedBy: currentUser?.name ?? 'Unknown',
-      changedAt: new Date().toISOString(),
-      notes: '',
+      changedAt: now,
+      notes: comment,
     }
     await db.statusLogs.add(log)
     addStatusLog(log)
+
+    if (comment) {
+      saveJOComment({
+        joId: jo.id,
+        authorName: currentUser?.name ?? 'Unknown',
+        authorEmail: currentUser?.email ?? '',
+        body: comment,
+        fromStatus: jo.status,
+        toStatus: newStatus,
+      }).catch(console.error)
+    }
 
     const notif = {
       id: generateId(),
@@ -310,8 +323,9 @@ export function JobOrdersPage() {
     }
   }
 
-  // Intercept status changes that need confirmation
+  // Intercept status changes — all require a comment
   function handleStatusChangeWithConfirm(jo: JobOrder, newStatus: JOStatus) {
+    setConfirmComment('')
     if (newStatus === 'Scheduled') {
       setConfirmAction({ type: 'schedule', jo })
     } else if (newStatus === 'Cancelled') {
@@ -319,17 +333,20 @@ export function JobOrdersPage() {
     } else if (newStatus === 'For Review') {
       setConfirmAction({ type: 'forReview', jo })
     } else {
-      handleStatusChange(jo, newStatus)
+      setConfirmAction({ type: 'general', jo, newStatus })
     }
   }
 
   async function handleConfirmAction() {
-    if (!confirmAction) return
+    if (!confirmAction || !confirmComment.trim()) return
     const { type, jo } = confirmAction
+    const comment = confirmComment.trim()
     setConfirmAction(null)
-    if (type === 'schedule') await handleStatusChange(jo, 'Scheduled')
-    else if (type === 'cancel') await handleStatusChange(jo, 'Cancelled')
-    else if (type === 'forReview') await handleStatusChange(jo, 'For Review')
+    setConfirmComment('')
+    if (type === 'schedule') await handleStatusChange(jo, 'Scheduled', comment)
+    else if (type === 'cancel') await handleStatusChange(jo, 'Cancelled', comment)
+    else if (type === 'forReview') await handleStatusChange(jo, 'For Review', comment)
+    else if (type === 'general' && confirmAction.newStatus) await handleStatusChange(jo, confirmAction.newStatus, comment)
   }
 
   function openCompletionModal(jo: JobOrder) {
@@ -1351,7 +1368,7 @@ export function JobOrdersPage() {
       {/* ── Confirmation Modals ─────────────────────────────────── */}
       {confirmAction && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmAction(null)} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setConfirmAction(null); setConfirmComment('') }} />
           <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-start gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
@@ -1369,24 +1386,42 @@ export function JobOrdersPage() {
                   {confirmAction.type === 'schedule' && 'Schedule Job Order?'}
                   {confirmAction.type === 'cancel' && 'Cancel Job Order?'}
                   {confirmAction.type === 'forReview' && 'Move to For Review?'}
+                  {confirmAction.type === 'general' && `Move to ${confirmAction.newStatus}?`}
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                  {confirmAction.type === 'schedule' && `Are you sure you want to schedule this JO? (${confirmAction.jo.joNumber})`}
-                  {confirmAction.type === 'cancel' && `Are you sure you want to cancel ${confirmAction.jo.joNumber}? This cannot be undone.`}
-                  {confirmAction.type === 'forReview' && 'Please confirm you have aligned this with the requestor before proceeding.'}
+                  {confirmAction.type === 'schedule' && `Scheduling ${confirmAction.jo.joNumber}.`}
+                  {confirmAction.type === 'cancel' && `Cancelling ${confirmAction.jo.joNumber}. This cannot be undone.`}
+                  {confirmAction.type === 'forReview' && `Moving ${confirmAction.jo.joNumber} to For Review.`}
+                  {confirmAction.type === 'general' && `Moving ${confirmAction.jo.joNumber} to ${confirmAction.newStatus}.`}
                 </p>
               </div>
             </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                Comment <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={confirmComment}
+                onChange={e => setConfirmComment(e.target.value)}
+                placeholder="Add a note about this status change…"
+                rows={3}
+                autoFocus
+                className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder-slate-400"
+              />
+            </div>
+
             <div className="flex gap-2 pt-1">
               <button
-                onClick={() => setConfirmAction(null)}
+                onClick={() => { setConfirmAction(null); setConfirmComment('') }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
               >
                 Go Back
               </button>
               <button
                 onClick={handleConfirmAction}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${
+                disabled={!confirmComment.trim()}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   confirmAction.type === 'cancel'
                     ? 'bg-red-600 hover:bg-red-700'
                     : 'bg-blue-600 hover:bg-blue-700'
@@ -1395,6 +1430,7 @@ export function JobOrdersPage() {
                 {confirmAction.type === 'schedule' && 'Yes, Schedule'}
                 {confirmAction.type === 'cancel' && 'Yes, Cancel'}
                 {confirmAction.type === 'forReview' && 'Yes, Proceed'}
+                {confirmAction.type === 'general' && 'Confirm'}
               </button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam, ManagedUser, Approver, BookingDepartment, ShootType, ProjectScale, DesignSpecs, JOReview } from '../types'
+import type { BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam, ManagedUser, Approver, BookingDepartment, ShootType, ProjectScale, DesignSpecs, JOReview, Resource, DAPSubRole, DAPTeam } from '../types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
@@ -380,6 +380,32 @@ export async function updateJOReviewRecord(
   if (updates.overallStatus !== undefined) row.overall_status = updates.overallStatus
   const { error } = await supabase.from('jo_reviews').update(row).eq('id', id)
   if (error) console.error('Update review error:', error.message)
+}
+
+export function rowToResource(row: Record<string, unknown>): Resource {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    role: row.role as DAPSubRole,
+    team: row.team as DAPTeam,
+    email: (row.email as string) || '',
+    initials: (row.initials as string) || '',
+    color: (row.color as string) || 'bg-blue-500',
+    maxWeeklyHours: (row.max_weekly_hours as number) || 40,
+  }
+}
+
+export function resourceToRow(r: Resource) {
+  return {
+    id: r.id,
+    name: r.name,
+    role: r.role,
+    team: r.team,
+    email: r.email || null,
+    initials: r.initials,
+    color: r.color,
+    max_weekly_hours: r.maxWeeklyHours ?? 40,
+  }
 }
 
 // Upload a profile photo to Supabase Storage and return its public URL

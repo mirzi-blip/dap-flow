@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { AppUser, JobOrder, CalendarEvent, Notification, StatusLog, Resource, ManagedUser, BookingRequest, Approver, BookingDepartment } from '../types'
 import { USERS, RESOURCES } from '../data/seed'
-import { supabase, rowToManagedUser, managedUserToRow, rowToApprover, approverToRow, rowToDepartment, departmentToRow } from '../lib/supabase'
+import { supabase, rowToManagedUser, managedUserToRow, rowToApprover, approverToRow, rowToDepartment, departmentToRow, rowToResource, resourceToRow } from '../lib/supabase'
 import { DEFAULT_PERMISSIONS, type RolePermissions, type PermissionKey } from '../data/permissions'
 import type { UserRole } from '../types'
 
@@ -43,8 +43,10 @@ interface AppState {
   terminateUser: (id: string) => void
   limitUser: (id: string) => void
   reinstateUser: (id: string) => void
+  initResources: () => Promise<void>
   updateResource: (r: Resource) => void
   addResource: (r: Resource) => void
+  removeResource: (id: string) => void
   requestAlert: BookingRequest | null
   setRequestAlert: (req: BookingRequest | null) => void
 
@@ -207,11 +209,29 @@ export const useAppStore = create<AppState>()(
         set(s => ({ managedUsers: s.managedUsers.map(m => m.id === id ? { ...m, status: 'active' } : m) }))
         supabase.from('app_users').update({ status: 'active' }).eq('id', id).then(({ error }) => { if (error) console.error('User sync error:', error) })
       },
+      async initResources() {
+        const { data, error } = await supabase.from('resources').select('*').order('name', { ascending: true })
+        if (!error && data && data.length > 0) {
+          set({ resources: data.map(rowToResource) })
+        } else if (!error && data && data.length === 0) {
+          // Seed Supabase from current local state on first run
+          const current = get().resources
+          if (current.length > 0) {
+            await supabase.from('resources').insert(current.map(resourceToRow))
+          }
+        }
+      },
       updateResource(r) {
         set(s => ({ resources: s.resources.map(x => x.id === r.id ? r : x) }))
+        supabase.from('resources').update(resourceToRow(r)).eq('id', r.id).then(({ error }) => { if (error) console.error('Resource sync error:', error) })
       },
       addResource(r) {
         set(s => ({ resources: [...s.resources, r] }))
+        supabase.from('resources').insert(resourceToRow(r)).then(({ error }) => { if (error) console.error('Resource sync error:', error) })
+      },
+      removeResource(id: string) {
+        set(s => ({ resources: s.resources.filter(r => r.id !== id) }))
+        supabase.from('resources').delete().eq('id', id).then(({ error }) => { if (error) console.error('Resource delete error:', error) })
       },
       setRequestAlert(req) { set({ requestAlert: req }) },
       setShowPasswordExpiry(v) { set({ showPasswordExpiry: v }) },

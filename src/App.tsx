@@ -34,6 +34,7 @@ export default function App() {
   useEffect(() => {
     useAppStore.getState().initUsers()
     useAppStore.getState().initResources()
+    useAppStore.getState().initFormOptions()
   }, [])
 
   // Sync theme class to <html> so Tailwind dark: variants work

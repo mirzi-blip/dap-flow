@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam, ManagedUser, Approver, BookingDepartment, ShootType, ProjectScale, DesignSpecs, JOReview, Resource, DAPSubRole, DAPTeam } from '../types'
+import type { BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam, ManagedUser, Approver, BookingDepartment, ShootType, ProjectScale, DesignSpecs, JOReview, Resource, DAPSubRole, DAPTeam, FormOption } from '../types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
@@ -405,6 +405,34 @@ export function resourceToRow(r: Resource) {
     initials: r.initials,
     color: r.color,
     max_weekly_hours: r.maxWeeklyHours ?? 40,
+  }
+}
+
+export function rowToFormOption(row: Record<string, unknown>): FormOption {
+  return {
+    id: row.id as string,
+    service: row.service as string,
+    fieldKey: row.field_key as string,
+    fieldLabel: row.field_label as string,
+    optionValue: row.option_value as string,
+    optionLabel: row.option_label as string,
+    isActive: row.is_active !== false,
+    sortOrder: (row.sort_order as number) ?? 0,
+    createdAt: (row.created_at as string) || new Date().toISOString(),
+  }
+}
+
+export function formOptionToRow(o: FormOption) {
+  return {
+    id: o.id,
+    service: o.service,
+    field_key: o.fieldKey,
+    field_label: o.fieldLabel,
+    option_value: o.optionValue,
+    option_label: o.optionLabel,
+    is_active: o.isActive,
+    sort_order: o.sortOrder,
+    created_at: o.createdAt,
   }
 }
 

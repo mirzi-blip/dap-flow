@@ -251,6 +251,18 @@ export interface BookingDepartment {
   createdAt: string
 }
 
+export interface FormOption {
+  id: string
+  service: string      // '__services__', '__shoot__', 'Static Artwork Design', etc.
+  fieldKey: string     // 'activityType', 'shootType', 'dsw_paperSize', etc.
+  fieldLabel: string   // human-readable label for the field
+  optionValue: string  // stored value in BookingRequest
+  optionLabel: string  // displayed text in the dropdown
+  isActive: boolean
+  sortOrder: number
+  createdAt: string
+}
+
 export interface BookingRequest {
   id: string
   activityType: ActivityType

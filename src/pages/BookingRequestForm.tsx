@@ -26,15 +26,10 @@ const SHOOT_ACTIVITIES: ActivityType[]      = ['Photo Shoot', 'Video Shoot']
 const DESIGN_ACTIVITIES: ActivityType[]     = ['Static Artwork Design', 'Digital Design', 'Graphics', 'Printing', 'ASC', 'Video Editing', 'Audio Services']
 const DATE_ONLY_ACTIVITIES: ActivityType[]  = ['Static Artwork Design', 'Digital Design', 'Graphics', 'Printing', 'ASC', 'Audio Services', 'Audio Recording', 'Audio Editing', 'Video Editing']
 
-// ── Dropdown options ──────────────────────────────────────────────────────────
-const PAPER_SIZES = ['A4', 'A3', 'A2', 'A1', 'A0', 'Letter (8.5"×11")', 'Legal (8.5"×14")', 'Tabloid (11"×17")', '4R (4"×6")', '5R (5"×7")', 'Custom']
-const MATERIAL_TYPES = ['Tarpaulin', 'Glossy Paper', 'Matte Paper', 'Canvas', 'Vinyl', 'Sintra Board', 'Foam Board', 'Sticker Paper', 'Fabric', 'Custom']
-const ORIENTATIONS = ['Portrait', 'Landscape', 'Square']
-const AD_TYPES = ['TVC (TV Commercial)', 'Radio Ad', 'Print Ad', 'Out-of-Home (OOH)', 'Online Ad / Digital', 'Social Media Content', 'Other']
-const VIDEO_RESOLUTIONS = ['720p (HD)', '1080p (Full HD)', '1440p (2K)', '2160p (4K)', 'Custom']
-const VIDEO_ORIENTATIONS = ['Landscape (16:9)', 'Portrait (9:16)', 'Square (1:1)']
-const OUTPUT_FORMATS = ['MP4', 'MOV', 'AVI', 'MKV', 'WebM']
-const VIDEO_STYLES = ['Promotional', 'Documentary', 'Cinematic', 'Social Media Reel', 'Tutorial / How-To', 'Event Coverage', 'Music Video', 'Other']
+// ── Dropdown options (static fallbacks used before formOptions load) ───────────
+const PAPER_SIZES_FB    = ['A4', 'A3', 'A2', 'A1', 'A0', 'Letter (8.5"×11")', 'Legal (8.5"×14")', 'Tabloid (11"×17")', '4R (4"×6")', '5R (5"×7")', 'Custom']
+const MATERIAL_TYPES_FB = ['Tarpaulin', 'Glossy Paper', 'Matte Paper', 'Canvas', 'Vinyl', 'Sintra Board', 'Foam Board', 'Sticker Paper', 'Fabric', 'Custom']
+const ORIENTATIONS_FB   = ['Portrait', 'Landscape', 'Square']
 
 const DEFAULT_DEPTS = ['BMG', 'MOD', 'MTO', 'CBE', 'Sales', 'HR']
 const MAX_CONCURRENT = 3
@@ -846,6 +841,17 @@ interface DesignSpecsFormProps {
 }
 
 function DesignSpecsForm({ values, onChange, activityType, attachments, onAttachmentsChange, fileLinks, onFileLinksChange }: DesignSpecsFormProps) {
+  const { formOptions } = useAppStore()
+
+  // Helper: active labels for a (service, fieldKey) pair with static fallback
+  const fieldOpts = (service: string, fieldKey: string, fallback: string[] = []): string[] => {
+    const dynamic = formOptions
+      .filter(o => o.service === service && o.fieldKey === fieldKey && o.isActive)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(o => o.optionLabel)
+    return dynamic.length > 0 ? dynamic : fallback
+  }
+
   const isStatic   = activityType === 'Static Artwork Design'
   const isDigital  = activityType === 'Digital Design'
   const isGraphics = activityType === 'Graphics'
@@ -932,21 +938,21 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Size <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select size…</option>
-                    {PAPER_SIZES.map(s => <option key={s}>{s}</option>)}
+                    {fieldOpts('Static Artwork Design', 'dsw_paperSize', PAPER_SIZES_FB).map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
-                    {ORIENTATIONS.map(o => <option key={o}>{o}</option>)}
+                    {fieldOpts('Static Artwork Design', 'dsw_orientation', ORIENTATIONS_FB).map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
                     <option value="">Select material…</option>
-                    {MATERIAL_TYPES.map(m => <option key={m}>{m}</option>)}
+                    {fieldOpts('Static Artwork Design', 'dsw_material', MATERIAL_TYPES_FB).map(m => <option key={m}>{m}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
@@ -969,9 +975,7 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Asset Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select type…</option>
-                    <option>Social Media Graphic</option><option>Motion Graphic / GIF</option>
-                    <option>Digital Banner</option><option>Website Creative</option>
-                    <option>Email Header</option><option>Other</option>
+                    {fieldOpts('Digital Design', 'dsw_orientation', ['Social Media Graphic', 'Motion Graphic / GIF', 'Digital Banner', 'Website Creative', 'Email Header', 'Other']).map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
@@ -998,14 +1002,14 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
-                    {ORIENTATIONS.map(o => <option key={o}>{o}</option>)}
+                    {fieldOpts('Graphics', 'dsw_orientation', ORIENTATIONS_FB).map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
                     <option value="">Select material…</option>
-                    {MATERIAL_TYPES.map(m => <option key={m}>{m}</option>)}
+                    {fieldOpts('Graphics', 'dsw_material', MATERIAL_TYPES_FB).map(m => <option key={m}>{m}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
@@ -1024,29 +1028,28 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Paper Size <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select size…</option>
-                    {PAPER_SIZES.map(s => <option key={s}>{s}</option>)}
+                    {fieldOpts('Printing', 'dsw_paperSize', PAPER_SIZES_FB).map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Color <span className="text-red-500">*</span></label>
                   <select value={values.dsw_colorMode} onChange={e => onChange('dsw_colorMode', e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
-                    <option>Colored</option>
-                    <option>B&W</option>
+                    {fieldOpts('Printing', 'dsw_colorMode', ['Colored', 'B&W']).map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
-                    {ORIENTATIONS.map(o => <option key={o}>{o}</option>)}
+                    {fieldOpts('Printing', 'dsw_orientation', ORIENTATIONS_FB).map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
                     <option value="">Select material…</option>
-                    {MATERIAL_TYPES.map(m => <option key={m}>{m}</option>)}
+                    {fieldOpts('Printing', 'dsw_material', MATERIAL_TYPES_FB).map(m => <option key={m}>{m}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
@@ -1065,7 +1068,7 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Ad Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select advertisement type…</option>
-                    {AD_TYPES.map(t => <option key={t}>{t}</option>)}
+                    {fieldOpts('ASC', 'dsw_paperSize', ['TVC (TV Commercial)', 'Radio Ad', 'Print Ad', 'Out-of-Home (OOH)', 'Online Ad / Digital', 'Social Media Content', 'Other']).map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
@@ -1102,21 +1105,21 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Resolution <span className="text-red-500">*</span></label>
                   <select value={values.dsw_dimensions} onChange={e => onChange('dsw_dimensions', e.target.value)} className={selectCls}>
                     <option value="">Select resolution…</option>
-                    {VIDEO_RESOLUTIONS.map(r => <option key={r}>{r}</option>)}
+                    {fieldOpts('Video Editing', 'dsw_dimensions', ['720p (HD)', '1080p (Full HD)', '1440p (2K)', '2160p (4K)', 'Custom']).map(r => <option key={r}>{r}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select orientation…</option>
-                    {VIDEO_ORIENTATIONS.map(o => <option key={o}>{o}</option>)}
+                    {fieldOpts('Video Editing', 'dsw_orientation', ['Landscape (16:9)', 'Portrait (9:16)', 'Square (1:1)']).map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Output Format <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select format…</option>
-                    {OUTPUT_FORMATS.map(f => <option key={f}>{f}</option>)}
+                    {fieldOpts('Video Editing', 'dsw_paperSize', ['MP4', 'MOV', 'AVI', 'MKV', 'WebM']).map(f => <option key={f}>{f}</option>)}
                   </select>
                 </div>
                 <div>
@@ -1129,7 +1132,7 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Style / Tone</label>
                   <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
                     <option value="">Select style…</option>
-                    {VIDEO_STYLES.map(s => <option key={s}>{s}</option>)}
+                    {fieldOpts('Video Editing', 'dsw_material', ['Promotional', 'Documentary', 'Cinematic', 'Social Media Reel', 'Tutorial / How-To', 'Event Coverage', 'Music Video', 'Other']).map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
@@ -1269,7 +1272,23 @@ export function BookingRequestForm() {
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [attachedLinks, setAttachedLinks] = useState<string[]>([])
   const [departments, setDepartments] = useState<string[]>([...DEFAULT_DEPTS])
-  const { approvers, initApprovers } = useAppStore()
+  const { approvers, initApprovers, formOptions } = useAppStore()
+
+  // Helper: get active option labels for a service + field combo, with static fallback
+  const opts = (service: string, fieldKey: string, fallback: string[] = []): string[] => {
+    const dynamic = formOptions
+      .filter(o => o.service === service && o.fieldKey === fieldKey && o.isActive)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(o => o.optionLabel)
+    return dynamic.length > 0 ? dynamic : fallback
+  }
+
+  const serviceTypes = formOptions
+    .filter(o => o.service === '__services__' && o.fieldKey === 'activityType' && o.isActive)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(o => o.optionValue as ActivityType)
+
+  const displayActivityTypes: ActivityType[] = serviceTypes.length > 0 ? serviceTypes : ACTIVITY_TYPES
 
   useEffect(() => {
     async function loadData() {
@@ -1686,7 +1705,7 @@ export function BookingRequestForm() {
         <div className="flex-1 px-6 sm:px-10 pb-10">
           <div className="max-w-2xl mx-auto">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-              {ACTIVITY_TYPES.map(type => (
+              {displayActivityTypes.map(type => (
                 <button key={type} type="button"
                   onClick={() => {
                     if (SHOOT_ACTIVITIES.includes(type)) {

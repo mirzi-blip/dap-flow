@@ -5,18 +5,18 @@ import {
   User, KeyRound, Save, Settings2, Sliders, Plug2,
   Calendar, MessageSquare, HardDrive, Layers, RefreshCw,
   CheckCircle2, XCircle, ExternalLink, Mail, Eye, EyeOff, Camera, Trash2,
-  Search, Plus, UserCheck, Building2,
+  Search, Plus, UserCheck, Building2, ChevronUp, GripVertical, ToggleLeft, ToggleRight, FileSliders,
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { uploadAvatar } from '../lib/supabase'
 import { PERMISSION_MODULES, DEFAULT_PERMISSIONS, ALL_PERMISSIONS, perm } from '../data/permissions'
 import { usePermissions } from '../hooks/usePermissions'
-import type { ManagedUser, UserRole, RequestingTeam, UserStatus, Resource, DAPSubRole, DAPTeam, Approver, BookingDepartment } from '../types'
+import type { ManagedUser, UserRole, RequestingTeam, UserStatus, Resource, DAPSubRole, DAPTeam, Approver, BookingDepartment, FormOption } from '../types'
 
 const ROLES: UserRole[] = ['Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']
 const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
 
-type SettingsTab = 'profile' | 'users' | 'team' | 'capacity' | 'activity' | 'integrations' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments'
+type SettingsTab = 'profile' | 'users' | 'team' | 'capacity' | 'activity' | 'integrations' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments' | 'booking-form'
 
 
 const SUB_ROLES: DAPSubRole[] = ['Photographer', 'Videographer', 'Video Editor', 'Audio Editor', 'Graphic Designer']
@@ -71,8 +71,278 @@ const ACTIVITY_TYPES = [
   { name: 'Audio Editing',         color: '#EC4899', icon: '🎧' },
 ]
 
+// ── Booking Form Configuration Tab ───────────────────────────────────────────
+
+const CONFIGURABLE_SERVICES = [
+  { id: '__services__', label: 'Services', subtitle: 'Which services appear on the booking form' },
+  { id: 'Static Artwork Design', label: 'Static Artwork Design', subtitle: 'Size, Material, Orientation' },
+  { id: 'Printing', label: 'Printing', subtitle: 'Paper Size, Color, Orientation, Material' },
+  { id: 'Graphics', label: 'Graphics', subtitle: 'Material, Orientation' },
+  { id: 'Digital Design', label: 'Digital Design', subtitle: 'Asset Type' },
+  { id: 'ASC', label: 'ASC', subtitle: 'Ad Type' },
+  { id: 'Video Editing', label: 'Video Editing', subtitle: 'Resolution, Orientation, Output Format, Style' },
+]
+
+interface BookingFormConfigTabProps {
+  formOptions: FormOption[]
+  addFormOption: (o: FormOption) => void
+  updateFormOption: (o: FormOption) => void
+  removeFormOption: (id: string) => void
+}
+
+function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, removeFormOption }: BookingFormConfigTabProps) {
+  const [selectedService, setSelectedService] = useState(CONFIGURABLE_SERVICES[0].id)
+  const [expandedField, setExpandedField] = useState<string | null>(null)
+  const [addingTo, setAddingTo] = useState<string | null>(null)   // fieldKey being added to
+  const [newLabel, setNewLabel] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editLabel, setEditLabel] = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+
+  const serviceOpts = formOptions.filter(o => o.service === selectedService).sort((a, b) => a.sortOrder - b.sortOrder)
+
+  // Group by fieldKey, preserving first-seen order
+  const fieldKeys = Array.from(new Set(serviceOpts.map(o => o.fieldKey)))
+  const fieldGroups = fieldKeys.map(fk => ({
+    fieldKey: fk,
+    fieldLabel: serviceOpts.find(o => o.fieldKey === fk)?.fieldLabel ?? fk,
+    options: serviceOpts.filter(o => o.fieldKey === fk),
+  }))
+
+  function handleAddOption(fieldKey: string, fieldLabel: string) {
+    const label = newLabel.trim()
+    if (!label) return
+    const existing = formOptions.filter(o => o.service === selectedService && o.fieldKey === fieldKey)
+    const maxOrder = existing.reduce((m, o) => Math.max(m, o.sortOrder), -1)
+    addFormOption({
+      id: `fopt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      service: selectedService,
+      fieldKey,
+      fieldLabel,
+      optionValue: label,
+      optionLabel: label,
+      isActive: true,
+      sortOrder: maxOrder + 1,
+      createdAt: new Date().toISOString(),
+    })
+    setNewLabel('')
+    setAddingTo(null)
+  }
+
+  function handleSaveEdit(id: string) {
+    const label = editLabel.trim()
+    if (!label) return
+    const opt = formOptions.find(o => o.id === id)
+    if (!opt) return
+    updateFormOption({ ...opt, optionValue: label, optionLabel: label })
+    setEditingId(null)
+  }
+
+  function moveUp(opts: FormOption[], idx: number) {
+    if (idx === 0) return
+    const prev = opts[idx - 1]
+    const cur  = opts[idx]
+    updateFormOption({ ...cur, sortOrder: prev.sortOrder })
+    updateFormOption({ ...prev, sortOrder: cur.sortOrder })
+  }
+
+  function moveDown(opts: FormOption[], idx: number) {
+    if (idx === opts.length - 1) return
+    const next = opts[idx + 1]
+    const cur  = opts[idx]
+    updateFormOption({ ...cur, sortOrder: next.sortOrder })
+    updateFormOption({ ...next, sortOrder: cur.sortOrder })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Booking Form Configuration</h2>
+        <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
+          Manage the dropdown options that appear in the Booking Form. Changes take effect immediately — no redeployment needed.
+        </p>
+      </div>
+
+      <div className="flex gap-4 flex-col sm:flex-row">
+        {/* ── Service sidebar ── */}
+        <div className="sm:w-52 shrink-0 space-y-1">
+          {CONFIGURABLE_SERVICES.map(svc => (
+            <button
+              key={svc.id}
+              onClick={() => { setSelectedService(svc.id); setExpandedField(null); setAddingTo(null) }}
+              className={`w-full text-left px-3 py-2.5 rounded-xl transition-all ${
+                selectedService === svc.id
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}
+            >
+              <p className={`text-sm font-bold leading-tight ${selectedService === svc.id ? 'text-white' : ''}`}>{svc.label}</p>
+              <p className={`text-[10px] mt-0.5 leading-tight ${selectedService === svc.id ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>{svc.subtitle}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* ── Field groups ── */}
+        <div className="flex-1 space-y-3 min-w-0">
+          {fieldGroups.length === 0 && (
+            <div className="card p-8 text-center">
+              <p className="text-slate-400 dark:text-slate-500 text-sm">No options configured for this service yet.</p>
+            </div>
+          )}
+
+          {fieldGroups.map(({ fieldKey, fieldLabel, options }) => {
+            const isOpen = expandedField === fieldKey
+            const activeCount = options.filter(o => o.isActive).length
+
+            return (
+              <div key={fieldKey} className="card overflow-hidden">
+                {/* Field header */}
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                  onClick={() => setExpandedField(isOpen ? null : fieldKey)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">{fieldLabel}</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                      {activeCount} active · {options.length - activeCount} hidden · field key: <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">{fieldKey}</code>
+                    </p>
+                  </div>
+                  {isOpen ? <ChevronUp size={15} className="text-slate-400 shrink-0" /> : <ChevronDown size={15} className="text-slate-400 shrink-0" />}
+                </button>
+
+                {isOpen && (
+                  <div className="border-t border-slate-100 dark:border-slate-700">
+                    {/* Option rows */}
+                    <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                      {options.map((opt, idx) => (
+                        <div key={opt.id} className={`flex items-center gap-2 px-4 py-2.5 ${!opt.isActive ? 'opacity-50' : ''}`}>
+                          <GripVertical size={13} className="text-slate-300 dark:text-slate-600 shrink-0" />
+
+                          {editingId === opt.id ? (
+                            <input
+                              autoFocus
+                              value={editLabel}
+                              onChange={e => setEditLabel(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(opt.id); if (e.key === 'Escape') setEditingId(null) }}
+                              className="flex-1 text-sm border border-blue-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:text-slate-100 dark:border-blue-500"
+                            />
+                          ) : (
+                            <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{opt.optionLabel}</span>
+                          )}
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            {/* Up/Down */}
+                            <button type="button" onClick={() => moveUp(options, idx)} disabled={idx === 0}
+                              className="p-1 rounded text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                              <ChevronUp size={13} />
+                            </button>
+                            <button type="button" onClick={() => moveDown(options, idx)} disabled={idx === options.length - 1}
+                              className="p-1 rounded text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                              <ChevronDown size={13} />
+                            </button>
+
+                            {/* Edit */}
+                            {editingId === opt.id ? (
+                              <>
+                                <button type="button" onClick={() => handleSaveEdit(opt.id)}
+                                  className="p-1 rounded text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                                  <Check size={13} />
+                                </button>
+                                <button type="button" onClick={() => setEditingId(null)}
+                                  className="p-1 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                  <X size={13} />
+                                </button>
+                              </>
+                            ) : (
+                              <button type="button" onClick={() => { setEditingId(opt.id); setEditLabel(opt.optionLabel) }}
+                                className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                                <Pencil size={12} />
+                              </button>
+                            )}
+
+                            {/* Toggle active */}
+                            <button type="button" onClick={() => updateFormOption({ ...opt, isActive: !opt.isActive })}
+                              className={`p-1 rounded transition-colors ${opt.isActive ? 'text-blue-500 hover:text-slate-400' : 'text-slate-300 hover:text-blue-500'}`}
+                              title={opt.isActive ? 'Hide from form' : 'Show in form'}>
+                              {opt.isActive ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}
+                            </button>
+
+                            {/* Delete */}
+                            <button type="button" onClick={() => setDeleteConfirm(opt.id)}
+                              className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add option row */}
+                    <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/20">
+                      {addingTo === fieldKey ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            autoFocus
+                            value={newLabel}
+                            onChange={e => setNewLabel(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') handleAddOption(fieldKey, fieldLabel); if (e.key === 'Escape') { setAddingTo(null); setNewLabel('') } }}
+                            placeholder="Option label…"
+                            className="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:text-slate-100"
+                          />
+                          <button type="button" onClick={() => handleAddOption(fieldKey, fieldLabel)}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors">
+                            Add
+                          </button>
+                          <button type="button" onClick={() => { setAddingTo(null); setNewLabel('') }}
+                            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl transition-colors">
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => { setAddingTo(fieldKey); setNewLabel('') }}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
+                          <Plus size={13} /> Add option
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Delete confirm */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)} />
+          <div className="modal-card w-full max-w-sm p-6 z-10">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-red-100 dark:bg-red-900/30">
+              <Trash2 size={20} className="text-red-600 dark:text-red-400" />
+            </div>
+            <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">Delete Option?</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+              This option will be permanently removed. Existing records that used this value are not affected.
+            </p>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">
+                Cancel
+              </button>
+              <button onClick={() => { removeFormOption(deleteConfirm); setDeleteConfirm(null) }} className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-sm">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function SettingsPage() {
-  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, resources, updateResource, addResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, deactivateApprover, reactivateApprover, initApprovers, departments, addDepartment, removeDepartment } = useAppStore()
+  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, resources, updateResource, addResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, deactivateApprover, reactivateApprover, initApprovers, departments, addDepartment, removeDepartment, formOptions, addFormOption, updateFormOption, removeFormOption } = useAppStore()
   const { can } = usePermissions()
 
   const EMOJI_OPTIONS = [
@@ -466,9 +736,10 @@ export function SettingsPage() {
     ...(can('settings', 'manage_team')         ? [{ id: 'activity'     as SettingsTab, label: 'Activity Types',  icon: Settings2  }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'approvers'      as SettingsTab, label: 'Approvers',          icon: UserCheck  }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'dap-approvers' as SettingsTab, label: 'DAP Team Approvers', icon: Shield     }] : []),
-    ...(can('settings', 'manage_team')         ? [{ id: 'departments'   as SettingsTab, label: 'Departments',        icon: Building2  }] : []),
-    ...(can('settings', 'manage_integrations') ? [{ id: 'integrations' as SettingsTab, label: 'Integrations',    icon: Plug2      }] : []),
-    ...(can('settings', 'manage_permissions')  ? [{ id: 'permissions'  as SettingsTab, label: 'Permissions',     icon: Shield     }] : []),
+    ...(can('settings', 'manage_team')         ? [{ id: 'departments'   as SettingsTab, label: 'Departments',        icon: Building2    }] : []),
+    ...(can('settings', 'manage_team')         ? [{ id: 'booking-form'  as SettingsTab, label: 'Booking Form',       icon: FileSliders  }] : []),
+    ...(can('settings', 'manage_integrations') ? [{ id: 'integrations' as SettingsTab, label: 'Integrations',    icon: Plug2        }] : []),
+    ...(can('settings', 'manage_permissions')  ? [{ id: 'permissions'  as SettingsTab, label: 'Permissions',     icon: Shield       }] : []),
   ]
 
   function toggleRevealPassword(id: string) {
@@ -1256,6 +1527,16 @@ export function SettingsPage() {
             Departments shown in blue are system defaults (BMG, MOD, MTO, CBE, Sales, HR) and cannot be removed.
           </p>
         </div>
+      )}
+
+      {/* ── BOOKING FORM ──────────────────────────────────────── */}
+      {activeTab === 'booking-form' && (
+        <BookingFormConfigTab
+          formOptions={formOptions}
+          addFormOption={addFormOption}
+          updateFormOption={updateFormOption}
+          removeFormOption={removeFormOption}
+        />
       )}
 
       {/* ── INTEGRATIONS ──────────────────────────────────────── */}

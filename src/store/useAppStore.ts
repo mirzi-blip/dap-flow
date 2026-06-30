@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AppUser, JobOrder, CalendarEvent, Notification, StatusLog, Resource, ManagedUser, BookingRequest, Approver, BookingDepartment } from '../types'
+import type { AppUser, JobOrder, CalendarEvent, Notification, StatusLog, Resource, ManagedUser, BookingRequest, Approver, BookingDepartment, FormOption } from '../types'
 import { USERS, RESOURCES } from '../data/seed'
-import { supabase, rowToManagedUser, managedUserToRow, rowToApprover, approverToRow, rowToDepartment, departmentToRow, rowToResource, resourceToRow } from '../lib/supabase'
+import { DEFAULT_FORM_OPTIONS } from '../data/defaultFormOptions'
+import { supabase, rowToManagedUser, managedUserToRow, rowToApprover, approverToRow, rowToDepartment, departmentToRow, rowToResource, resourceToRow, rowToFormOption, formOptionToRow } from '../lib/supabase'
 import { DEFAULT_PERMISSIONS, type RolePermissions, type PermissionKey } from '../data/permissions'
 import type { UserRole } from '../types'
 
@@ -66,6 +67,13 @@ interface AppState {
   removeDepartment: (id: string) => void
   initDepartments: () => Promise<void>
 
+  // Booking Form Options
+  formOptions: FormOption[]
+  initFormOptions: () => Promise<void>
+  addFormOption: (o: FormOption) => void
+  updateFormOption: (o: FormOption) => void
+  removeFormOption: (id: string) => void
+
   // RBAC
   rolePermissions: RolePermissions
   updateRolePermissions: (role: UserRole, perms: PermissionKey[]) => void
@@ -102,6 +110,7 @@ export const useAppStore = create<AppState>()(
       rolePermissions: DEFAULT_PERMISSIONS,
       approvers: [],
       departments: DEFAULT_DEPARTMENTS,
+      formOptions: [],
 
       async login(email, password) {
         // Try Supabase first — uses server-side RPC so password is never exposed in transit
@@ -288,6 +297,44 @@ export const useAppStore = create<AppState>()(
         } catch { /* offline — keep local */ }
       },
 
+      // ── Booking Form Options ───────────────────────────────────────────────────
+      async initFormOptions() {
+        try {
+          const { data, error } = await supabase.from('booking_form_options').select('*').order('sort_order', { ascending: true })
+          if (!error && data && data.length > 0) {
+            set({ formOptions: data.map(rowToFormOption) })
+          } else if (!error && data && data.length === 0) {
+            // Seed Supabase with defaults on first run
+            const now = new Date().toISOString()
+            const rows = DEFAULT_FORM_OPTIONS.map((o, i) => ({
+              id: `fopt_${Date.now()}_${i}`,
+              service: o.service,
+              field_key: o.fieldKey,
+              field_label: o.fieldLabel,
+              option_value: o.optionValue,
+              option_label: o.optionLabel,
+              is_active: true,
+              sort_order: o.sortOrder,
+              created_at: now,
+            }))
+            const { data: inserted } = await supabase.from('booking_form_options').insert(rows).select()
+            if (inserted) set({ formOptions: inserted.map(rowToFormOption) })
+          }
+        } catch { /* offline — keep local */ }
+      },
+      addFormOption(o) {
+        set(s => ({ formOptions: [...s.formOptions, o] }))
+        supabase.from('booking_form_options').insert(formOptionToRow(o)).then(({ error }) => { if (error) console.error('FormOption insert error:', error) })
+      },
+      updateFormOption(o) {
+        set(s => ({ formOptions: s.formOptions.map(x => x.id === o.id ? o : x) }))
+        supabase.from('booking_form_options').update(formOptionToRow(o)).eq('id', o.id).then(({ error }) => { if (error) console.error('FormOption update error:', error) })
+      },
+      removeFormOption(id) {
+        set(s => ({ formOptions: s.formOptions.filter(x => x.id !== id) }))
+        supabase.from('booking_form_options').delete().eq('id', id).then(({ error }) => { if (error) console.error('FormOption delete error:', error) })
+      },
+
       updateRolePermissions(role, perms) {
         set(s => ({ rolePermissions: { ...s.rolePermissions, [role]: perms } }))
       },
@@ -310,6 +357,7 @@ export const useAppStore = create<AppState>()(
         rolePermissions: s.rolePermissions,
         approvers: s.approvers,
         departments: s.departments,
+        formOptions: s.formOptions,
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.theme) {

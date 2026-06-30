@@ -737,7 +737,7 @@ export function SettingsPage() {
     ...(can('settings', 'manage_team')         ? [{ id: 'approvers'      as SettingsTab, label: 'Approvers',          icon: UserCheck  }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'dap-approvers' as SettingsTab, label: 'DAP Team Approvers', icon: Shield     }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'departments'   as SettingsTab, label: 'Departments',        icon: Building2    }] : []),
-    ...(can('settings', 'manage_team')         ? [{ id: 'booking-form'  as SettingsTab, label: 'Booking Form',       icon: FileSliders  }] : []),
+    ...(currentUser?.role === 'Admin'           ? [{ id: 'booking-form'  as SettingsTab, label: 'Booking Form',       icon: FileSliders  }] : []),
     ...(can('settings', 'manage_integrations') ? [{ id: 'integrations' as SettingsTab, label: 'Integrations',    icon: Plug2        }] : []),
     ...(can('settings', 'manage_permissions')  ? [{ id: 'permissions'  as SettingsTab, label: 'Permissions',     icon: Shield       }] : []),
   ]
@@ -1530,7 +1530,7 @@ export function SettingsPage() {
       )}
 
       {/* ── BOOKING FORM ──────────────────────────────────────── */}
-      {activeTab === 'booking-form' && (
+      {activeTab === 'booking-form' && currentUser?.role === 'Admin' && (
         <BookingFormConfigTab
           formOptions={formOptions}
           addFormOption={addFormOption}

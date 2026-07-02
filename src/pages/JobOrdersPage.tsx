@@ -559,13 +559,33 @@ export function JobOrdersPage() {
       }
     }
 
+    // Notify continuing members if key details changed
+    const detailsChanged =
+      selectedJO.deadline !== editForm.deadline ||
+      selectedJO.priority !== editForm.priority ||
+      selectedJO.projectName !== editForm.projectName ||
+      selectedJO.deliverables !== editForm.deliverables ||
+      selectedJO.notes !== editForm.notes
+
+    if (detailsChanged) {
+      const continuingIds = editForm.assignedMemberIds.filter(id => oldIds.has(id))
+      for (const memberId of continuingIds) {
+        const member = resources.find(r => r.id === memberId)
+        if (member?.email) {
+          fetch(EMAIL_BASE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ memberNotification: true, mode: 'status_update', memberEmail: member.email, memberName: member.name, ...joPayload }),
+          }).catch(console.error)
+        }
+      }
+    }
+
     // If the assignment or any key field changed, notify the requestor
     const keyChanged =
       added.length > 0 ||
       removed.length > 0 ||
-      selectedJO.deadline !== editForm.deadline ||
-      selectedJO.priority !== editForm.priority ||
-      selectedJO.projectName !== editForm.projectName
+      detailsChanged
 
     if (keyChanged) {
       const relatedReq = bookingRequests.find(r => r.joId === selectedJO.id)

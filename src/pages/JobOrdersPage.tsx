@@ -1105,6 +1105,16 @@ export function JobOrdersPage() {
                     <div className="col-span-2">
                       <InfoBox label="Venue / Location" value={reviewRequest.venue || '—'} />
                     </div>
+                    {reviewRequest.designSpecs?.platform && (
+                      <div className="col-span-2">
+                        <InfoBox label="Platform" value={reviewRequest.designSpecs.platform} />
+                      </div>
+                    )}
+                    {reviewRequest.designSpecs?.shootTypeDetail && (
+                      <div className="col-span-2">
+                        <InfoBox label="Type of Shoot" value={reviewRequest.designSpecs.shootTypeDetail} />
+                      </div>
+                    )}
                     <div className="col-span-2 bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
                       <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">Additional Notes</p>
                       <p className="text-sm text-slate-700 dark:text-slate-300">{reviewRequest.notes || '—'}</p>
@@ -1666,6 +1676,14 @@ export function JobOrdersPage() {
                           <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.approverName || '—'}</span>
                           <span className="text-slate-400 dark:text-slate-500">Venue</span>
                           <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.venue || '—'}</span>
+                          {srcReq.designSpecs?.platform && (<>
+                            <span className="text-slate-400 dark:text-slate-500">Platform</span>
+                            <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.designSpecs.platform}</span>
+                          </>)}
+                          {srcReq.designSpecs?.shootTypeDetail && (<>
+                            <span className="text-slate-400 dark:text-slate-500">Type of Shoot</span>
+                            <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.designSpecs.shootTypeDetail}</span>
+                          </>)}
                         </div>
                       </div>
                     )

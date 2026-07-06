@@ -112,6 +112,9 @@ export const DEFAULT_FORM_OPTIONS: RawOption[] = [
   S('ASC', 'dsw_paperSize', 'Ad Type', 'Other',                 'Other',                 6),
 
   // ── Video Editing ────────────────────────────────────────────────────────────
+  S('Video Editing', 'dsw_platform',    'Platform',      'Broadcast',          'Broadcast',          0),
+  S('Video Editing', 'dsw_platform',    'Platform',      'TVCX',               'TVCX',               1),
+  S('Video Editing', 'dsw_platform',    'Platform',      'Social Media',       'Social Media',       2),
   S('Video Editing', 'dsw_dimensions',  'Resolution',    '720p (HD)',           '720p (HD)',           0),
   S('Video Editing', 'dsw_dimensions',  'Resolution',    '1080p (Full HD)',     '1080p (Full HD)',     1),
   S('Video Editing', 'dsw_dimensions',  'Resolution',    '1440p (2K)',          '1440p (2K)',          2),
@@ -133,4 +136,8 @@ export const DEFAULT_FORM_OPTIONS: RawOption[] = [
   S('Video Editing', 'dsw_material',    'Style / Tone',  'Event Coverage',     'Event Coverage',     5),
   S('Video Editing', 'dsw_material',    'Style / Tone',  'Music Video',        'Music Video',        6),
   S('Video Editing', 'dsw_material',    'Style / Tone',  'Other',              'Other',              7),
+
+  // ── Video Shoot ──────────────────────────────────────────────────────────────
+  S('Video Shoot', 'dsw_shootTypeDetail', 'Type of Shoot', 'Stream',                   'Stream',                   0),
+  S('Video Shoot', 'dsw_shootTypeDetail', 'Type of Shoot', 'BTS (Behind the Scenes)', 'BTS (Behind the Scenes)', 1),
 ]

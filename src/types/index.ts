@@ -73,14 +73,16 @@ export const LOAD_OVERLOAD = 75   // % — warn at / above this
 
 /** Design specification details for Static / Digital artwork requests */
 export interface DesignSpecs {
-  paperSize:       string
-  orientation:     string
-  colorMode:       string
-  dimensions:      string
-  material:        string
-  additionalNotes: string
-  attachmentUrls?: string[]
-  fileLinks?:      string[]
+  paperSize:        string
+  orientation:      string
+  colorMode:        string
+  dimensions:       string
+  material:         string
+  additionalNotes:  string
+  platform?:        string   // Video Editing — output platform
+  shootTypeDetail?: string   // Video Shoot — stream/BTS
+  attachmentUrls?:  string[]
+  fileLinks?:       string[]
 }
 
 export type JOStatus =

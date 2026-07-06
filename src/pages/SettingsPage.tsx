@@ -80,7 +80,8 @@ const CONFIGURABLE_SERVICES = [
   { id: 'Graphics', label: 'Graphics', subtitle: 'Material, Orientation' },
   { id: 'Digital Design', label: 'Digital Design', subtitle: 'Asset Type' },
   { id: 'ASC', label: 'ASC', subtitle: 'Ad Type' },
-  { id: 'Video Editing', label: 'Video Editing', subtitle: 'Resolution, Orientation, Output Format, Style' },
+  { id: 'Video Editing', label: 'Video Editing', subtitle: 'Platform, Resolution, Orientation, Output Format, Style' },
+  { id: 'Video Shoot',   label: 'Video Shoot',   subtitle: 'Type of Shoot' },
 ]
 
 interface BookingFormConfigTabProps {

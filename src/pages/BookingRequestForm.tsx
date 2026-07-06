@@ -63,13 +63,15 @@ interface FormState {
   endTime:             string
   venue:               string
   notes:               string
-  // Design specs (Static / Digital)
-  dsw_paperSize:       string
-  dsw_orientation:     string
-  dsw_colorMode:       string
-  dsw_dimensions:      string
-  dsw_material:        string
-  dsw_additionalNotes: string
+  // Design specs (Static / Digital / Video)
+  dsw_paperSize:        string
+  dsw_orientation:      string
+  dsw_colorMode:        string
+  dsw_dimensions:       string
+  dsw_material:         string
+  dsw_additionalNotes:  string
+  dsw_platform:         string   // Video Editing — output platform
+  dsw_shootTypeDetail:  string   // Video Shoot — stream/BTS
 }
 
 const EMPTY: FormState = {
@@ -81,6 +83,7 @@ const EMPTY: FormState = {
   venue: '', notes: '',
   dsw_paperSize: '', dsw_orientation: '', dsw_colorMode: '',
   dsw_dimensions: '', dsw_material: '', dsw_additionalNotes: '',
+  dsw_platform: '', dsw_shootTypeDetail: '',
 }
 
 // ── Icons / descriptions ──────────────────────────────────────────────────────
@@ -831,6 +834,7 @@ interface DesignSpecsFormProps {
   values: {
     dsw_paperSize: string; dsw_orientation: string; dsw_colorMode: string
     dsw_dimensions: string; dsw_material: string; dsw_additionalNotes: string
+    dsw_platform: string; dsw_shootTypeDetail: string
   }
   onChange: (key: string, val: string) => void
   activityType: ActivityType | ''
@@ -1101,6 +1105,13 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {/* Video Editing */}
             {isVideoEditing && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Platform <span className="text-red-500">*</span></label>
+                  <select value={values.dsw_platform} onChange={e => onChange('dsw_platform', e.target.value)} className={selectCls}>
+                    <option value="">Select platform…</option>
+                    {fieldOpts('Video Editing', 'dsw_platform', ['Broadcast', 'TVCX', 'Social Media']).map(p => <option key={p}>{p}</option>)}
+                  </select>
+                </div>
                 <div>
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Resolution <span className="text-red-500">*</span></label>
                   <select value={values.dsw_dimensions} onChange={e => onChange('dsw_dimensions', e.target.value)} className={selectCls}>
@@ -1352,7 +1363,7 @@ export function BookingRequestForm() {
       case 'ASC':
         return f.dsw_paperSize !== '' && f.dsw_additionalNotes.trim() !== ''
       case 'Video Editing':
-        return f.dsw_dimensions !== '' && f.dsw_orientation !== '' && f.dsw_paperSize !== '' && f.dsw_colorMode.trim() !== '' && f.dsw_additionalNotes.trim() !== ''
+        return f.dsw_platform !== '' && f.dsw_dimensions !== '' && f.dsw_orientation !== '' && f.dsw_paperSize !== '' && f.dsw_colorMode.trim() !== '' && f.dsw_additionalNotes.trim() !== ''
       case 'Audio Services':
         return f.dsw_additionalNotes.trim() !== ''
       default:
@@ -1372,6 +1383,7 @@ export function BookingRequestForm() {
     form.approverEmail.trim()     !== '' &&
     form.projectName.trim()       !== '' &&
     (isShootService ? form.venue.trim() !== '' : true) &&
+    (form.activityType === 'Video Shoot' ? form.dsw_shootTypeDetail !== '' : true) &&
     (!isDesignActivity ? form.notes.trim() !== '' : true) &&
     (!isDesignActivity || designSpecsValid())
 
@@ -1459,10 +1471,13 @@ export function BookingRequestForm() {
             dimensions:      form.dsw_dimensions,
             material:        form.dsw_material,
             additionalNotes: form.dsw_additionalNotes,
+            ...(form.activityType === 'Video Editing' && form.dsw_platform ? { platform: form.dsw_platform } : {}),
             ...(attachmentUrls.length > 0 ? { attachmentUrls } : {}),
             ...(attachedLinks.length > 0  ? { fileLinks: attachedLinks } : {}),
           }
-        : undefined
+        : form.activityType === 'Video Shoot' && form.dsw_shootTypeDetail
+          ? { paperSize: '', orientation: '', colorMode: '', dimensions: '', material: '', additionalNotes: '', shootTypeDetail: form.dsw_shootTypeDetail }
+          : undefined
 
       const req: BookingRequest = {
         id,
@@ -1511,6 +1526,8 @@ export function BookingRequestForm() {
           neededDate:    form.neededDate,            endDate:    form.endDate,
           venue:         form.venue.trim(),          refId:      id.slice(0, 8).toUpperCase(),
           fullId: id,
+          ...(form.activityType === 'Video Editing' && form.dsw_platform ? { platform: form.dsw_platform } : {}),
+          ...(form.activityType === 'Video Shoot' && form.dsw_shootTypeDetail ? { shootTypeDetail: form.dsw_shootTypeDetail } : {}),
         }),
       }).catch(console.error)
 
@@ -2078,6 +2095,11 @@ export function BookingRequestForm() {
                   className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
                   placeholder="Name or title of your project / activity"
                   value={form.projectName} onChange={field('projectName')} autoFocus required />
+                {form.activityType === 'Video Editing' && (
+                  <p className="mt-1.5 text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                    <span className="font-semibold">Note:</span> If this is a same-day edit, please indicate it in the Project Name (e.g., &ldquo;Same-Day Edit – Product Launch&rdquo;).
+                  </p>
+                )}
               </div>
 
             </div>
@@ -2205,6 +2227,21 @@ export function BookingRequestForm() {
                   className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
                   placeholder="Where will the activity be held?"
                   value={form.venue} onChange={field('venue')} required />
+              </div>
+            )}
+
+            {/* Type of Shoot — only for Video Shoot */}
+            {form.activityType === 'Video Shoot' && (
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                  Type of Shoot <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                  value={form.dsw_shootTypeDetail} onChange={field('dsw_shootTypeDetail')} required>
+                  <option value="">Select type of shoot…</option>
+                  {opts('Video Shoot', 'dsw_shootTypeDetail', ['Stream', 'BTS (Behind the Scenes)']).map(t => <option key={t}>{t}</option>)}
+                </select>
               </div>
             )}
 

@@ -144,7 +144,7 @@ function buildHtml(config, preparedBy, refId, activityType, neededDate, status) 
     </div>`
 }
 
-function buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId) {
+function buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail) {
   const appUrl = 'https://dap-flow-tau.vercel.app'
   const approveUrl = `${appUrl}/api/approve?id=${fullId}&action=approve`
   const rejectUrl  = `${appUrl}/api/approve?id=${fullId}&action=reject`
@@ -167,6 +167,8 @@ function buildApprovalHtml(approverName, preparedBy, activityType, projectName, 
         <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">End Date</td><td style="padding:8px 12px">${endDate || neededDate}</td></tr>
         <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Venue</td><td style="padding:8px 12px">${venue}</td></tr>
         <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Prepared By</td><td style="padding:8px 12px">${preparedBy}</td></tr>
+        ${platform ? `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Platform</td><td style="padding:8px 12px">${platform}</td></tr>` : ''}
+        ${shootTypeDetail ? `<tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Type of Shoot</td><td style="padding:8px 12px">${shootTypeDetail}</td></tr>` : ''}
       </table>
 
       <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:16px;margin:20px 0">
@@ -202,7 +204,7 @@ module.exports = async function handler(req, res) {
 
   // ── Approval request email to manager ──────────────────────────────────────
   if (body.approvalRequest) {
-    const { approverEmail, approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId } = body
+    const { approverEmail, approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail } = body
     if (!approverEmail) return res.status(200).json({ ok: true })
     try {
       await transporter.sendMail({
@@ -210,7 +212,7 @@ module.exports = async function handler(req, res) {
         replyTo: 'no-reply@dap-flow.noreply',
         to: approverEmail,
         subject: `[DAP] Approval Required: ${activityType} from ${preparedBy} — #${refId}`,
-        html: buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId),
+        html: buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail),
       })
       return res.status(200).json({ ok: true })
     } catch (err) {

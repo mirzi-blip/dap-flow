@@ -31,6 +31,12 @@ const PAPER_SIZES_FB    = ['A4', 'A3', 'A2', 'A1', 'A0', 'Letter (8.5"×11")', '
 const MATERIAL_TYPES_FB = ['Tarpaulin', 'Glossy Paper', 'Matte Paper', 'Canvas', 'Vinyl', 'Sintra Board', 'Foam Board', 'Sticker Paper', 'Fabric', 'Custom']
 const ORIENTATIONS_FB   = ['Portrait', 'Landscape', 'Square']
 
+const GRAPHICS_MATERIALS_FB: Record<string, string[]> = {
+  'Large Format Printing': ['HDPE Tarpaulin', 'LDPE Tarpaulin', 'Multi Layer Tarpaulin', 'Cross Laminated Tarpaulin', 'PVC Coated Tarpaulin', 'Cotton Canvas Tarpaulin', 'Vinyl stickers', 'Sintra (PVC board)'],
+  'Offset Lithography':    ['Bond Paper', 'Onion Skin', 'Carbonless Paper', 'Bookpaper', 'C1S coated', 'Matte coated', 'C2S coated', 'Foldcote', 'Claycoated Board', 'Carrier Board'],
+  'Sublimation Printing':  ['Polyester Fabric', 'Polyester T-shirt', 'Sports Jersey Fabric', 'Satin Fabric', 'Microfiber Fabric', 'Canvas (Polyester)', 'Ceramic Mug (Sublimation Coated)', 'Metal Sheet (Sublimation Coated)', 'Aluminum Plate (Sublimation Coated)', 'MDF Wood (Sublimation Coated)', 'Acrylic (Sublimation Coated)', 'Glass (Sublimation Coated)', 'Mouse Pad', 'Puzzle Board', 'Lanyard'],
+}
+
 const DEFAULT_DEPTS = ['BMG', 'MOD', 'MTO', 'CBE', 'Sales', 'HR']
 const MAX_CONCURRENT = 3
 
@@ -1064,7 +1070,7 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                     disabled={!values.dsw_colorMode}
                     className={`${selectCls} disabled:opacity-50 disabled:cursor-not-allowed`}>
                     <option value="">{values.dsw_colorMode ? 'Select material…' : 'Select a project category first…'}</option>
-                    {values.dsw_colorMode && fieldOpts(`Graphics-${values.dsw_colorMode}`, 'dsw_material', []).map(m => <option key={m}>{m}</option>)}
+                    {values.dsw_colorMode && fieldOpts(`Graphics-${values.dsw_colorMode}`, 'dsw_material', GRAPHICS_MATERIALS_FB[values.dsw_colorMode] ?? []).map(m => <option key={m}>{m}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">

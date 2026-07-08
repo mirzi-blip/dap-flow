@@ -829,6 +829,33 @@ function ApproverDropdown({ approvers, selectedId, selectedName, approverEmail, 
   )
 }
 
+// ── Graphics: project category → printing process mapping ────────────────────
+const GRAPHICS_PROJECT_TO_PROCESS: Record<string, string> = {
+  'Banners': 'Large Format Printing', 'Flag Type': 'Large Format Printing',
+  'Billboards': 'Large Format Printing', 'Vehicle wraps': 'Large Format Printing',
+  'Wall murals': 'Large Format Printing', 'Window graphics': 'Large Format Printing',
+  'Boundary Signages': 'Large Format Printing', 'Lighted Signage': 'Large Format Printing',
+  'Wallsigns': 'Large Format Printing', 'Signages': 'Large Format Printing',
+  'Backdrops': 'Large Format Printing', 'Roll-up banners': 'Large Format Printing',
+  'Floor graphics': 'Large Format Printing', 'Event displays': 'Large Format Printing',
+  'Trade show booths': 'Large Format Printing',
+  'Brochures': 'Offset Lithography', 'Flyers': 'Offset Lithography',
+  'Leaflets': 'Offset Lithography', 'Catalogs': 'Offset Lithography',
+  'Magazines': 'Offset Lithography', 'Books': 'Offset Lithography',
+  'Calendars': 'Offset Lithography', 'Packaging boxes': 'Offset Lithography',
+  'Paper bags': 'Offset Lithography', 'Corporate stationery': 'Offset Lithography',
+  'Envelopes': 'Offset Lithography', 'Notebooks': 'Offset Lithography',
+  'Bundling Sticker': 'Offset Lithography', 'Wobbler': 'Offset Lithography',
+  'Shelftalker': 'Offset Lithography', 'Product Sticker': 'Offset Lithography',
+  'PR Box': 'Offset Lithography', 'Price Tag': 'Offset Lithography',
+  'Neck tag': 'Offset Lithography',
+  'Customized T-shirts and sportswear': 'Sublimation Printing',
+  'Coffee mugs and drinkware': 'Sublimation Printing',
+  'Lanyards': 'Sublimation Printing', 'Cap and Arm Sleeves': 'Sublimation Printing',
+  'Umbrella': 'Sublimation Printing', 'Folded Round Fan': 'Sublimation Printing',
+  'Eco Bag': 'Sublimation Printing', 'Loot Bag': 'Sublimation Printing',
+}
+
 // ── Design Specs Form ─────────────────────────────────────────────────────────
 interface DesignSpecsFormProps {
   values: {
@@ -998,22 +1025,64 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {/* Graphics */}
             {isGraphics && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Row 1: Project Category (left) | Dimensions (right) */}
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Output Dimensions <span className="text-red-500">*</span></label>
-                  <input type="text" value={values.dsw_dimensions} onChange={e => onChange('dsw_dimensions', e.target.value)} placeholder="e.g. 20×30 inches, A2, 1920×1080 px" className={inputCls} />
+                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Project Category <span className="text-red-500">*</span></label>
+                  <select
+                    value={values.dsw_paperSize}
+                    onChange={e => {
+                      const project = e.target.value
+                      const process = GRAPHICS_PROJECT_TO_PROCESS[project] || ''
+                      onChange('dsw_paperSize', project)
+                      onChange('dsw_colorMode', process)
+                      onChange('dsw_material', '')
+                    }}
+                    className={selectCls}>
+                    <option value="">Select project category…</option>
+                    {(() => {
+                      const all = fieldOpts('Graphics', 'dsw_paperSize', Object.keys(GRAPHICS_PROJECT_TO_PROCESS))
+                      const lfp = all.filter(p => GRAPHICS_PROJECT_TO_PROCESS[p] === 'Large Format Printing')
+                      const ol  = all.filter(p => GRAPHICS_PROJECT_TO_PROCESS[p] === 'Offset Lithography')
+                      const sp  = all.filter(p => GRAPHICS_PROJECT_TO_PROCESS[p] === 'Sublimation Printing')
+                      return (<>
+                        {lfp.length > 0 && <optgroup label="Large Format Printing">{lfp.map(p => <option key={p}>{p}</option>)}</optgroup>}
+                        {ol.length  > 0 && <optgroup label="Offset Lithography">{ol.map(p => <option key={p}>{p}</option>)}</optgroup>}
+                        {sp.length  > 0 && <optgroup label="Sublimation Printing">{sp.map(p => <option key={p}>{p}</option>)}</optgroup>}
+                      </>)
+                    })()}
+                  </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Output Dimensions <span className="text-red-500">*</span></label>
+                  <input type="text" value={values.dsw_dimensions} onChange={e => onChange('dsw_dimensions', e.target.value)} placeholder="e.g. 20×30 in, A2, 1920×1080 px" className={inputCls} />
+                </div>
+                {/* Row 2: Printing Process (auto, left) | Orientation (right) */}
+                <div>
+                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Printing Process <span className="text-red-500">*</span></label>
+                  <div className={`${selectCls} flex items-center gap-2 ${values.dsw_colorMode ? 'bg-violet-50' : 'bg-white'}`} style={{ cursor: 'default' }}>
+                    {values.dsw_colorMode
+                      ? <><span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" /><span className="text-violet-700 font-semibold">{values.dsw_colorMode}</span><span className="ml-auto text-[10px] text-violet-400">auto-selected</span></>
+                      : <span className="text-slate-400">Select a project category first…</span>
+                    }
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Orientation</label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
                     {fieldOpts('Graphics', 'dsw_orientation', ORIENTATIONS_FB).map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>
+                {/* Row 3: Material Type (filtered by process, full width) */}
                 <div className="sm:col-span-2">
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
-                  <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
-                    <option value="">Select material…</option>
-                    {fieldOpts('Graphics', 'dsw_material', MATERIAL_TYPES_FB).map(m => <option key={m}>{m}</option>)}
+                  <select
+                    value={values.dsw_material}
+                    onChange={e => onChange('dsw_material', e.target.value)}
+                    disabled={!values.dsw_colorMode}
+                    className={`${selectCls} disabled:opacity-50 disabled:cursor-not-allowed`}>
+                    <option value="">{values.dsw_colorMode ? 'Select material…' : 'Select a project category first…'}</option>
+                    {values.dsw_colorMode && fieldOpts(`Graphics-${values.dsw_colorMode}`, 'dsw_material', []).map(m => <option key={m}>{m}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
@@ -1357,7 +1426,7 @@ export function BookingRequestForm() {
       case 'Digital Design':
         return f.dsw_paperSize.trim() !== '' && f.dsw_orientation !== '' && f.dsw_dimensions.trim() !== '' && f.dsw_additionalNotes.trim() !== ''
       case 'Graphics':
-        return f.dsw_dimensions.trim() !== '' && f.dsw_orientation !== '' && f.dsw_material !== '' && f.dsw_additionalNotes.trim() !== ''
+        return f.dsw_paperSize !== '' && f.dsw_colorMode !== '' && f.dsw_dimensions.trim() !== '' && f.dsw_material !== '' && f.dsw_additionalNotes.trim() !== ''
       case 'Printing':
         return f.dsw_paperSize !== '' && f.dsw_colorMode !== '' && f.dsw_orientation !== '' && f.dsw_material !== '' && f.dsw_additionalNotes.trim() !== ''
       case 'ASC':

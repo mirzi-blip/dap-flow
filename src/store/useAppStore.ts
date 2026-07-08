@@ -301,9 +301,7 @@ export const useAppStore = create<AppState>()(
       async initFormOptions() {
         try {
           const { data, error } = await supabase.from('booking_form_options').select('*').order('sort_order', { ascending: true })
-          if (!error && data && data.length > 0) {
-            set({ formOptions: data.map(rowToFormOption) })
-          } else if (!error && data && data.length === 0) {
+          if (!error && data && data.length === 0) {
             // Seed Supabase with defaults on first run
             const now = new Date().toISOString()
             const rows = DEFAULT_FORM_OPTIONS.map((o, i) => ({
@@ -319,6 +317,27 @@ export const useAppStore = create<AppState>()(
             }))
             const { data: inserted } = await supabase.from('booking_form_options').insert(rows).select()
             if (inserted) set({ formOptions: inserted.map(rowToFormOption) })
+          } else if (!error && data) {
+            // Table has data — load it, then insert any default entries missing from the DB
+            set({ formOptions: data.map(rowToFormOption) })
+            const existingKeys = new Set(data.map(r => `${r.service}||${r.field_key}||${r.option_value}`))
+            const missing = DEFAULT_FORM_OPTIONS.filter(o => !existingKeys.has(`${o.service}||${o.fieldKey}||${o.optionValue}`))
+            if (missing.length > 0) {
+              const now = new Date().toISOString()
+              const rows = missing.map((o, i) => ({
+                id: `fopt_${Date.now()}_${i}`,
+                service: o.service,
+                field_key: o.fieldKey,
+                field_label: o.fieldLabel,
+                option_value: o.optionValue,
+                option_label: o.optionLabel,
+                is_active: true,
+                sort_order: o.sortOrder,
+                created_at: now,
+              }))
+              const { data: inserted } = await supabase.from('booking_form_options').insert(rows).select()
+              if (inserted) set(s => ({ formOptions: [...s.formOptions, ...inserted.map(rowToFormOption)] }))
+            }
           }
         } catch { /* offline — keep local */ }
       },

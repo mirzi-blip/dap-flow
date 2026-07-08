@@ -1039,24 +1039,14 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                     }}
                     className={selectCls}>
                     <option value="">Select project category…</option>
-                    {(() => {
-                      const all = fieldOpts('Graphics', 'dsw_paperSize', Object.keys(GRAPHICS_PROJECT_TO_PROCESS))
-                      const lfp = all.filter(p => GRAPHICS_PROJECT_TO_PROCESS[p] === 'Large Format Printing')
-                      const ol  = all.filter(p => GRAPHICS_PROJECT_TO_PROCESS[p] === 'Offset Lithography')
-                      const sp  = all.filter(p => GRAPHICS_PROJECT_TO_PROCESS[p] === 'Sublimation Printing')
-                      return (<>
-                        {lfp.length > 0 && <optgroup label="Large Format Printing">{lfp.map(p => <option key={p}>{p}</option>)}</optgroup>}
-                        {ol.length  > 0 && <optgroup label="Offset Lithography">{ol.map(p => <option key={p}>{p}</option>)}</optgroup>}
-                        {sp.length  > 0 && <optgroup label="Sublimation Printing">{sp.map(p => <option key={p}>{p}</option>)}</optgroup>}
-                      </>)
-                    })()}
+                    {fieldOpts('Graphics', 'dsw_paperSize', Object.keys(GRAPHICS_PROJECT_TO_PROCESS)).map(p => <option key={p}>{p}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Output Dimensions <span className="text-red-500">*</span></label>
                   <input type="text" value={values.dsw_dimensions} onChange={e => onChange('dsw_dimensions', e.target.value)} placeholder="e.g. 20×30 in, A2, 1920×1080 px" className={inputCls} />
                 </div>
-                {/* Row 2: Printing Process (auto, left) | Orientation (right) */}
+                {/* Row 2: Printing Process (auto, left) | Material Type (right) */}
                 <div>
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Printing Process <span className="text-red-500">*</span></label>
                   <div className={`${selectCls} flex items-center gap-2 ${values.dsw_colorMode ? 'bg-violet-50' : 'bg-white'}`} style={{ cursor: 'default' }}>
@@ -1067,14 +1057,6 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Orientation</label>
-                  <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
-                    <option value="">Select…</option>
-                    {fieldOpts('Graphics', 'dsw_orientation', ORIENTATIONS_FB).map(o => <option key={o}>{o}</option>)}
-                  </select>
-                </div>
-                {/* Row 3: Material Type (filtered by process, full width) */}
-                <div className="sm:col-span-2">
                   <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
                   <select
                     value={values.dsw_material}

@@ -109,7 +109,7 @@ const CONFIGURABLE_SERVICES = [
   { id: '__services__', label: 'Services', subtitle: 'Which services appear on the booking form' },
   { id: 'Static Artwork Design', label: 'Static Artwork Design', subtitle: 'Size, Material, Orientation' },
   { id: 'Printing', label: 'Printing', subtitle: 'Paper Size, Color, Orientation, Material' },
-  { id: 'Graphics', label: 'Graphics', subtitle: 'Project Category, Printing Process, Orientation' },
+  { id: 'Graphics', label: 'Graphics', subtitle: 'Project Category, Printing Process' },
   { id: 'Graphics-Large Format Printing', label: 'Graphics — Large Format', subtitle: 'Material types' },
   { id: 'Graphics-Offset Lithography',    label: 'Graphics — Offset Litho', subtitle: 'Material types' },
   { id: 'Graphics-Sublimation Printing',  label: 'Graphics — Sublimation',  subtitle: 'Material types' },
@@ -137,8 +137,9 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
 
   const serviceOpts = formOptions.filter(o => o.service === selectedService).sort((a, b) => a.sortOrder - b.sortOrder)
 
-  // Group by fieldKey, preserving first-seen order
+  // Group by fieldKey, preserving first-seen order; hide orientation for Graphics (removed from form)
   const fieldKeys = Array.from(new Set(serviceOpts.map(o => o.fieldKey)))
+    .filter(fk => !(selectedService === 'Graphics' && fk === 'dsw_orientation'))
   const fieldGroups = fieldKeys.map(fk => ({
     fieldKey: fk,
     fieldLabel: serviceOpts.find(o => o.fieldKey === fk)?.fieldLabel ?? fk,

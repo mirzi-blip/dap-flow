@@ -889,6 +889,12 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
     return dynamic.length > 0 ? dynamic : fallback
   }
 
+  // Build project→process map: hardcoded base + any custom entries added via Settings
+  const graphicsProjectToProcess: Record<string, string> = { ...GRAPHICS_PROJECT_TO_PROCESS }
+  formOptions
+    .filter(o => o.service === 'Graphics' && o.fieldKey === 'dsw_projectProcess' && o.isActive)
+    .forEach(o => { graphicsProjectToProcess[o.optionValue] = o.optionLabel })
+
   const isStatic   = activityType === 'Static Artwork Design'
   const isDigital  = activityType === 'Digital Design'
   const isGraphics = activityType === 'Graphics'
@@ -1038,14 +1044,14 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                     value={values.dsw_paperSize}
                     onChange={e => {
                       const project = e.target.value
-                      const process = GRAPHICS_PROJECT_TO_PROCESS[project] || ''
+                      const process = graphicsProjectToProcess[project] || ''
                       onChange('dsw_paperSize', project)
                       onChange('dsw_colorMode', process)
                       onChange('dsw_material', '')
                     }}
                     className={selectCls}>
                     <option value="">Select project category…</option>
-                    {fieldOpts('Graphics', 'dsw_paperSize', Object.keys(GRAPHICS_PROJECT_TO_PROCESS)).map(p => <option key={p}>{p}</option>)}
+                    {fieldOpts('Graphics', 'dsw_paperSize', Object.keys(graphicsProjectToProcess)).map(p => <option key={p}>{p}</option>)}
                   </select>
                 </div>
                 <div>

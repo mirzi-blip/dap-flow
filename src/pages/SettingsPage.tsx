@@ -131,24 +131,28 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
   const [expandedField, setExpandedField] = useState<string | null>(null)
   const [addingTo, setAddingTo] = useState<string | null>(null)   // fieldKey being added to
   const [newLabel, setNewLabel] = useState('')
+  const [newProcess, setNewProcess] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const serviceOpts = formOptions.filter(o => o.service === selectedService).sort((a, b) => a.sortOrder - b.sortOrder)
 
-  // Group by fieldKey, preserving first-seen order; hide orientation for Graphics (removed from form)
+  // Group by fieldKey, preserving first-seen order; hide internal/removed fields for Graphics
   const fieldKeys = Array.from(new Set(serviceOpts.map(o => o.fieldKey)))
-    .filter(fk => !(selectedService === 'Graphics' && fk === 'dsw_orientation'))
+    .filter(fk => !(selectedService === 'Graphics' && (fk === 'dsw_orientation' || fk === 'dsw_projectProcess')))
   const fieldGroups = fieldKeys.map(fk => ({
     fieldKey: fk,
     fieldLabel: serviceOpts.find(o => o.fieldKey === fk)?.fieldLabel ?? fk,
     options: serviceOpts.filter(o => o.fieldKey === fk),
   }))
 
+  const isGraphicsCategory = selectedService === 'Graphics' && addingTo === 'dsw_paperSize'
+
   function handleAddOption(fieldKey: string, fieldLabel: string) {
     const label = newLabel.trim()
     if (!label) return
+    if (isGraphicsCategory && !newProcess) return
     const existing = formOptions.filter(o => o.service === selectedService && o.fieldKey === fieldKey)
     const maxOrder = existing.reduce((m, o) => Math.max(m, o.sortOrder), -1)
     addFormOption({
@@ -162,7 +166,22 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
       sortOrder: maxOrder + 1,
       createdAt: new Date().toISOString(),
     })
+    // Store process mapping as a companion entry so BookingRequestForm can auto-select
+    if (isGraphicsCategory && newProcess) {
+      addFormOption({
+        id: `fopt_${Date.now()}_proc_${Math.random().toString(36).slice(2, 6)}`,
+        service: 'Graphics',
+        fieldKey: 'dsw_projectProcess',
+        fieldLabel: 'Project Process Map',
+        optionValue: label,
+        optionLabel: newProcess,
+        isActive: true,
+        sortOrder: maxOrder + 1,
+        createdAt: new Date().toISOString(),
+      })
+    }
     setNewLabel('')
+    setNewProcess('')
     setAddingTo(null)
   }
 
@@ -325,23 +344,40 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
                     {/* Add option row */}
                     <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/20">
                       {addingTo === fieldKey ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            autoFocus
-                            value={newLabel}
-                            onChange={e => setNewLabel(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') handleAddOption(fieldKey, fieldLabel); if (e.key === 'Escape') { setAddingTo(null); setNewLabel('') } }}
-                            placeholder="Option label…"
-                            className="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:text-slate-100"
-                          />
-                          <button type="button" onClick={() => handleAddOption(fieldKey, fieldLabel)}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors">
-                            Add
-                          </button>
-                          <button type="button" onClick={() => { setAddingTo(null); setNewLabel('') }}
-                            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl transition-colors">
-                            <X size={13} />
-                          </button>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              autoFocus
+                              value={newLabel}
+                              onChange={e => setNewLabel(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') handleAddOption(fieldKey, fieldLabel); if (e.key === 'Escape') { setAddingTo(null); setNewLabel(''); setNewProcess('') } }}
+                              placeholder="Project category name…"
+                              className="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:text-slate-100"
+                            />
+                            <button type="button" onClick={() => handleAddOption(fieldKey, fieldLabel)}
+                              disabled={isGraphicsCategory && !newProcess}
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-colors">
+                              Add
+                            </button>
+                            <button type="button" onClick={() => { setAddingTo(null); setNewLabel(''); setNewProcess('') }}
+                              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl transition-colors">
+                              <X size={13} />
+                            </button>
+                          </div>
+                          {isGraphicsCategory && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">Printing Process <span className="text-red-500">*</span></span>
+                              <select
+                                value={newProcess}
+                                onChange={e => setNewProcess(e.target.value)}
+                                className="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:text-slate-100">
+                                <option value="">Select printing process…</option>
+                                <option>Large Format Printing</option>
+                                <option>Offset Lithography</option>
+                                <option>Sublimation Printing</option>
+                              </select>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <button type="button" onClick={() => { setAddingTo(fieldKey); setNewLabel('') }}

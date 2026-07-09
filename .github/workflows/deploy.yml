@@ -1,1 +1,41 @@
-for compile
+name: Build and Deploy to S3
+
+on:
+  push:
+    branches:
+      - main # Change this to 'master' if your default branch is master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Check out the source code from GitHub
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # 2. Set up Node.js environment
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-node: '20' # Uses a stable Node version
+
+    # 3. Install dependencies and compile the project
+    - name: Install and Build
+      run: |
+        npm install
+        npm run build
+
+    # 4. Configure AWS Credentials
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets::AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets::AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1 # Change this to your exact S3 bucket region
+
+    # 5. Upload the compiled 'dist' folder contents to S3
+    - name: Deploy to S3
+      run: |
+        aws s3 sync ./dist s3://bmd.ipi.ph --delete
+

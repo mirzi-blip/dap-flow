@@ -73,6 +73,38 @@ const ACTIVITY_TYPES = [
 
 // ── Booking Form Configuration Tab ───────────────────────────────────────────
 
+const GRAPHICS_PROJECT_TO_PROCESS: Record<string, string> = {
+  'Banners': 'Large Format Printing', 'Flag Type': 'Large Format Printing',
+  'Billboards': 'Large Format Printing', 'Vehicle wraps': 'Large Format Printing',
+  'Wall murals': 'Large Format Printing', 'Window graphics': 'Large Format Printing',
+  'Boundary Signages': 'Large Format Printing', 'Lighted Signage': 'Large Format Printing',
+  'Wallsigns': 'Large Format Printing', 'Signages': 'Large Format Printing',
+  'Backdrops': 'Large Format Printing', 'Roll-up banners': 'Large Format Printing',
+  'Floor graphics': 'Large Format Printing', 'Event displays': 'Large Format Printing',
+  'Trade show booths': 'Large Format Printing',
+  'Brochures': 'Offset Lithography', 'Flyers': 'Offset Lithography',
+  'Leaflets': 'Offset Lithography', 'Catalogs': 'Offset Lithography',
+  'Magazines': 'Offset Lithography', 'Books': 'Offset Lithography',
+  'Calendars': 'Offset Lithography', 'Packaging boxes': 'Offset Lithography',
+  'Paper bags': 'Offset Lithography', 'Corporate stationery': 'Offset Lithography',
+  'Envelopes': 'Offset Lithography', 'Notebooks': 'Offset Lithography',
+  'Bundling Sticker': 'Offset Lithography', 'Wobbler': 'Offset Lithography',
+  'Shelftalker': 'Offset Lithography', 'Product Sticker': 'Offset Lithography',
+  'PR Box': 'Offset Lithography', 'Price Tag': 'Offset Lithography',
+  'Neck tag': 'Offset Lithography',
+  'Customized T-shirts and sportswear': 'Sublimation Printing',
+  'Coffee mugs and drinkware': 'Sublimation Printing',
+  'Lanyards': 'Sublimation Printing', 'Cap and Arm Sleeves': 'Sublimation Printing',
+  'Umbrella': 'Sublimation Printing', 'Folded Round Fan': 'Sublimation Printing',
+  'Eco Bag': 'Sublimation Printing', 'Loot Bag': 'Sublimation Printing',
+}
+
+const PROCESS_BADGE: Record<string, string> = {
+  'Large Format Printing': 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+  'Offset Lithography':    'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+  'Sublimation Printing':  'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+}
+
 const CONFIGURABLE_SERVICES = [
   { id: '__services__', label: 'Services', subtitle: 'Which services appear on the booking form' },
   { id: 'Static Artwork Design', label: 'Static Artwork Design', subtitle: 'Size, Material, Orientation' },
@@ -232,7 +264,14 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
                               className="flex-1 text-sm border border-blue-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:text-slate-100 dark:border-blue-500"
                             />
                           ) : (
-                            <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{opt.optionLabel}</span>
+                            <span className="flex-1 flex items-center gap-2 min-w-0">
+                              <span className="text-sm text-slate-700 dark:text-slate-200 truncate">{opt.optionLabel}</span>
+                              {selectedService === 'Graphics' && fieldKey === 'dsw_paperSize' && GRAPHICS_PROJECT_TO_PROCESS[opt.optionValue] && (
+                                <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${PROCESS_BADGE[GRAPHICS_PROJECT_TO_PROCESS[opt.optionValue]]}`}>
+                                  {GRAPHICS_PROJECT_TO_PROCESS[opt.optionValue]}
+                                </span>
+                              )}
+                            </span>
                           )}
 
                           <div className="flex items-center gap-1 shrink-0">

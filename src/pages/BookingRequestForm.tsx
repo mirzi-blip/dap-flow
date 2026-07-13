@@ -655,12 +655,7 @@ function AvailabilityCalendar({
 function Header() {
   return (
     <div className="flex items-center gap-3 px-6 sm:px-10 py-4 border-b border-white/10">
-      <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600 flex items-center justify-center shadow-md shrink-0">
-        <Camera size={16} className="text-white" strokeWidth={2.5} />
-        <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-sky-400 rounded-full flex items-center justify-center">
-          <Aperture size={8} className="text-white" strokeWidth={3} />
-        </span>
-      </div>
+      <img src="/favicon.svg" alt="DAP Flow" className="w-9 h-9 shrink-0 rounded-xl shadow-md" />
       <div>
         <p className="text-white font-bold text-sm leading-none">DAP Flow</p>
         <p className="text-blue-200 text-[10px] uppercase tracking-widest mt-0.5">Studio Booking Portal</p>

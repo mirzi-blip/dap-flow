@@ -60,12 +60,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       {/* ── Logo ─────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 pt-5 pb-4">
         <div className="flex items-center gap-3">
-          <div className="logo-glow w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600 flex items-center justify-center shrink-0 relative shadow-lg shadow-blue-900/50">
-            <Camera size={16} className="text-white" strokeWidth={2.5} />
-            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-sky-400 rounded-full flex items-center justify-center">
-              <Aperture size={8} className="text-white" strokeWidth={3} />
-            </span>
-          </div>
+          <img src="/favicon.svg" alt="DAP Flow" className="w-10 h-10 shrink-0 rounded-xl shadow-lg shadow-blue-900/30" />
           <div>
             <p className="font-black text-sm tracking-tight leading-none text-white">DAP Flow</p>
             <p className="text-[9px] text-blue-300/70 uppercase tracking-[0.14em] mt-0.5">Booking &amp; Workload</p>

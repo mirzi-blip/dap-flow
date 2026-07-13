@@ -33,9 +33,7 @@ export function LoginPage() {
         {/* Logo */}
         <div className="relative">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center">
-              <Camera size={18} className="text-white" strokeWidth={2.5} />
-            </div>
+            <img src="/favicon.svg" alt="DAP Flow" className="w-10 h-10 rounded-xl" />
             <div>
               <p className="text-white font-black text-lg leading-none tracking-tight">DAP Flow</p>
               <p className="text-blue-300 text-[11px] mt-0.5 uppercase tracking-widest">Booking &amp; Workload</p>
@@ -72,9 +70,7 @@ export function LoginPage() {
 
         {/* Mobile logo */}
         <div className="flex lg:hidden items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center shadow-lg shadow-blue-200">
-            <Camera size={18} className="text-white" strokeWidth={2.5} />
-          </div>
+          <img src="/favicon.svg" alt="DAP Flow" className="w-10 h-10 rounded-xl shadow-lg" />
           <div>
             <p className="font-black text-slate-900 text-base leading-none">DAP Flow</p>
             <p className="text-slate-400 text-[10px] mt-0.5 uppercase tracking-widest">Booking &amp; Workload</p>

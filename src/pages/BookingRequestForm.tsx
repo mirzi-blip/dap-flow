@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Camera, Aperture, ArrowLeft, ChevronLeft, ChevronRight, Search,
   ChevronDown, CalendarDays, Clock, Info, AlertTriangle,
@@ -149,7 +149,7 @@ function ScaleBadge({ scale }: { scale: ProjectScale | '' }) {
   const cfg: Record<ProjectScale, string> = {
     'Small Scale':    'bg-slate-100 text-slate-600 border-slate-200',
     'Medium Scale':   'bg-blue-50 text-blue-600 border-blue-200',
-    'Large Scale':    'bg-violet-50 text-violet-600 border-violet-200',
+    'Large Scale':    'bg-blue-50 text-blue-600 border-blue-200',
     'Campaign Level': 'bg-orange-50 text-orange-600 border-orange-200',
   }
   return (
@@ -808,7 +808,7 @@ function ApproverDropdown({ approvers, selectedId, selectedName, approverEmail, 
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-slate-800 truncate">{highlight(a.name, search)}</p>
                       {a.position && (
-                        <span className="text-[9px] font-bold bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap max-w-[120px] truncate">
+                        <span className="text-[9px] font-bold bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap max-w-[120px] truncate">
                           {a.position}
                         </span>
                       )}
@@ -936,29 +936,29 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
     return `${(b / 1024 ** 3).toFixed(2)} GB`
   }
 
-  const inputCls = 'w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder-slate-400'
+  const inputCls = 'w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400'
   const selectCls = inputCls
 
   return (
-    <div className="bg-violet-50 border border-violet-200 rounded-2xl overflow-hidden">
+    <div className="bg-blue-50 border border-blue-200 rounded-2xl overflow-hidden">
       {/* Header + Tabs */}
       <div className="px-5 pt-5">
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-5 h-5 rounded-md bg-violet-600 flex items-center justify-center shrink-0">
+          <div className="w-5 h-5 rounded-md bg-blue-600 flex items-center justify-center shrink-0">
             <span className="text-white text-[10px]">{emoji}</span>
           </div>
-          <p className="text-xs font-black text-violet-800 uppercase tracking-wide">{title}</p>
+          <p className="text-xs font-black text-blue-800 uppercase tracking-wide">{title}</p>
         </div>
-        <div className="flex border-b border-violet-200 -mx-5 px-5">
+        <div className="flex border-b border-blue-200 -mx-5 px-5">
           <button type="button" onClick={() => setActiveTab('specs')}
-            className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px transition-colors ${activeTab === 'specs' ? 'text-violet-700 border-violet-600' : 'text-violet-400 border-transparent hover:text-violet-600'}`}>
+            className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px transition-colors ${activeTab === 'specs' ? 'text-blue-700 border-blue-600' : 'text-blue-400 border-transparent hover:text-blue-600'}`}>
             Specifications
           </button>
           <button type="button" onClick={() => setActiveTab('upload')}
-            className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${activeTab === 'upload' ? 'text-violet-700 border-violet-600' : 'text-violet-400 border-transparent hover:text-violet-600'}`}>
+            className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${activeTab === 'upload' ? 'text-blue-700 border-blue-600' : 'text-blue-400 border-transparent hover:text-blue-600'}`}>
             Attachments
             {totalAttachments > 0 && (
-              <span className="w-4 h-4 rounded-full bg-violet-600 text-white text-[9px] font-black flex items-center justify-center">{totalAttachments}</span>
+              <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-black flex items-center justify-center">{totalAttachments}</span>
             )}
           </button>
         </div>
@@ -973,31 +973,31 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {isStatic && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Size <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Size <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select size…</option>
                     {fieldOpts('Static Artwork Design', 'dsw_paperSize', PAPER_SIZES_FB).map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
                     {fieldOpts('Static Artwork Design', 'dsw_orientation', ORIENTATIONS_FB).map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
                     <option value="">Select material…</option>
                     {fieldOpts('Static Artwork Design', 'dsw_material', MATERIAL_TYPES_FB).map(m => <option key={m}>{m}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Additional Specifications / Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Additional Specifications / Notes <span className="text-red-500">*</span></label>
                   <textarea rows={3} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Brand guidelines, special instructions, number of copies, reference files…"
-                    className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1006,25 +1006,25 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {isDigital && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Platform / Usage <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Platform / Usage <span className="text-red-500">*</span></label>
                   <input type="text" value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} placeholder="e.g. Facebook, Instagram, Website" className={inputCls} />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Asset Type <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Asset Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select type…</option>
                     {fieldOpts('Digital Design', 'dsw_orientation', ['Social Media Graphic', 'Motion Graphic / GIF', 'Digital Banner', 'Website Creative', 'Email Header', 'Other']).map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Output Dimensions <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Output Dimensions <span className="text-red-500">*</span></label>
                   <input type="text" value={values.dsw_dimensions} onChange={e => onChange('dsw_dimensions', e.target.value)} placeholder="e.g. 1080×1080 px" className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
                   <textarea rows={2} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Brand guidelines, reference links, special instructions…"
-                    className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1034,7 +1034,7 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Row 1: Project Category (left) | Dimensions (right) */}
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Project Category <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Project Category <span className="text-red-500">*</span></label>
                   <select
                     value={values.dsw_paperSize}
                     onChange={e => {
@@ -1050,21 +1050,21 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Output Dimensions <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Output Dimensions <span className="text-red-500">*</span></label>
                   <input type="text" value={values.dsw_dimensions} onChange={e => onChange('dsw_dimensions', e.target.value)} placeholder="e.g. 20×30 in, A2, 1920×1080 px" className={inputCls} />
                 </div>
                 {/* Row 2: Printing Process (auto, left) | Material Type (right) */}
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Printing Process <span className="text-red-500">*</span></label>
-                  <div className={`${selectCls} flex items-center gap-2 ${values.dsw_colorMode ? 'bg-violet-50' : 'bg-white'}`} style={{ cursor: 'default' }}>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Printing Process <span className="text-red-500">*</span></label>
+                  <div className={`${selectCls} flex items-center gap-2 ${values.dsw_colorMode ? 'bg-blue-50' : 'bg-white'}`} style={{ cursor: 'default' }}>
                     {values.dsw_colorMode
-                      ? <><span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" /><span className="text-violet-700 font-semibold">{values.dsw_colorMode}</span><span className="ml-auto text-[10px] text-violet-400">auto-selected</span></>
+                      ? <><span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" /><span className="text-blue-700 font-semibold">{values.dsw_colorMode}</span><span className="ml-auto text-[10px] text-blue-400">auto-selected</span></>
                       : <span className="text-slate-400">Select a project category first…</span>
                     }
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
                   <select
                     value={values.dsw_material}
                     onChange={e => onChange('dsw_material', e.target.value)}
@@ -1075,10 +1075,10 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
                   <textarea rows={2} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Brand guidelines, special instructions, reference files…"
-                    className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1087,38 +1087,38 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {isPrinting && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Paper Size <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Paper Size <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select size…</option>
                     {fieldOpts('Printing', 'dsw_paperSize', PAPER_SIZES_FB).map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Color <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Color <span className="text-red-500">*</span></label>
                   <select value={values.dsw_colorMode} onChange={e => onChange('dsw_colorMode', e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
                     {fieldOpts('Printing', 'dsw_colorMode', ['Colored', 'B&W']).map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
                     {fieldOpts('Printing', 'dsw_orientation', ORIENTATIONS_FB).map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
                     <option value="">Select material…</option>
                     {fieldOpts('Printing', 'dsw_material', MATERIAL_TYPES_FB).map(m => <option key={m}>{m}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
                   <textarea rows={2} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Quantity, finishing (lamination, binding), delivery instructions…"
-                    className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1127,17 +1127,17 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {isASC && (
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Ad Type <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Ad Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select advertisement type…</option>
                     {fieldOpts('ASC', 'dsw_paperSize', ['TVC (TV Commercial)', 'Radio Ad', 'Print Ad', 'Out-of-Home (OOH)', 'Online Ad / Digital', 'Social Media Content', 'Other']).map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Project Brief / Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Project Brief / Notes <span className="text-red-500">*</span></label>
                   <textarea rows={4} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Describe the advertisement, target audience, message, compliance requirements, and any other relevant details for ASC submission…"
-                    className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1145,17 +1145,17 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {/* Audio Services */}
             {activityType === 'Audio Services' && (
               <div className="grid grid-cols-1 gap-3">
-                <div className="flex items-start gap-2.5 bg-violet-100/60 border border-violet-200 rounded-xl px-4 py-3">
-                  <svg className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="flex items-start gap-2.5 bg-blue-100/60 border border-blue-200 rounded-xl px-4 py-3">
+                  <svg className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="text-xs text-violet-700">Upload your script or voice-over brief in the <strong>Attachments</strong> tab. You may also paste a link to a shared document.</p>
+                  <p className="text-xs text-blue-700">Upload your script or voice-over brief in the <strong>Attachments</strong> tab. You may also paste a link to a shared document.</p>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Script / Production Brief <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Script / Production Brief <span className="text-red-500">*</span></label>
                   <textarea rows={4} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Describe the content: tone, target audience, key messages, reading style, estimated duration, and any special instructions for the voice talent or audio team…"
-                    className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1164,51 +1164,51 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {isVideoEditing && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Platform <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Platform <span className="text-red-500">*</span></label>
                   <select value={values.dsw_platform} onChange={e => onChange('dsw_platform', e.target.value)} className={selectCls}>
                     <option value="">Select platform…</option>
                     {fieldOpts('Video Editing', 'dsw_platform', ['Broadcast', 'TVCX', 'Social Media']).map(p => <option key={p}>{p}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Resolution <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Resolution <span className="text-red-500">*</span></label>
                   <select value={values.dsw_dimensions} onChange={e => onChange('dsw_dimensions', e.target.value)} className={selectCls}>
                     <option value="">Select resolution…</option>
                     {fieldOpts('Video Editing', 'dsw_dimensions', ['720p (HD)', '1080p (Full HD)', '1440p (2K)', '2160p (4K)', 'Custom']).map(r => <option key={r}>{r}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select orientation…</option>
                     {fieldOpts('Video Editing', 'dsw_orientation', ['Landscape (16:9)', 'Portrait (9:16)', 'Square (1:1)']).map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Output Format <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Output Format <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select format…</option>
                     {fieldOpts('Video Editing', 'dsw_paperSize', ['MP4', 'MOV', 'AVI', 'MKV', 'WebM']).map(f => <option key={f}>{f}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Duration <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Duration <span className="text-red-500">*</span></label>
                   <input type="text" value={values.dsw_colorMode} onChange={e => onChange('dsw_colorMode', e.target.value)}
                     placeholder="e.g. 2 mins, 30 sec, 1:30"
                     className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Style / Tone</label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Style / Tone</label>
                   <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
                     <option value="">Select style…</option>
                     {fieldOpts('Video Editing', 'dsw_material', ['Promotional', 'Documentary', 'Cinematic', 'Social Media Reel', 'Tutorial / How-To', 'Event Coverage', 'Music Video', 'Other']).map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
                   <textarea rows={3} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Raw footage location, editing style references, music/audio preferences, deadline, and any special instructions…"
-                    className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1218,21 +1218,21 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
         {/* ── Attachments Tab ── */}
         {activeTab === 'upload' && (
           <div className="space-y-4">
-            <p className="text-[11px] text-violet-600">
+            <p className="text-[11px] text-blue-600">
               Attach files or paste links to shared drives / videos. Max 3 files (up to 2 GB each).
             </p>
 
             {/* File upload */}
             {attachments.length < 3 && (
-              <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-violet-300 rounded-xl py-6 px-4 cursor-pointer hover:border-violet-500 hover:bg-violet-100/50 transition-all">
-                <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-blue-300 rounded-xl py-6 px-4 cursor-pointer hover:border-blue-500 hover:bg-blue-100/50 transition-all">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                   </svg>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-semibold text-violet-700">Click to upload files</p>
-                  <p className="text-[11px] text-violet-400 mt-0.5">{3 - attachments.length} slot{3 - attachments.length !== 1 ? 's' : ''} remaining · any file type</p>
+                  <p className="text-sm font-semibold text-blue-700">Click to upload files</p>
+                  <p className="text-[11px] text-blue-400 mt-0.5">{3 - attachments.length} slot{3 - attachments.length !== 1 ? 's' : ''} remaining · any file type</p>
                 </div>
                 <input type="file" multiple className="sr-only" onChange={handleFileChange} />
               </label>
@@ -1245,8 +1245,8 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {attachments.length > 0 && (
               <div className="space-y-2">
                 {attachments.map((file, i) => (
-                  <div key={i} className="flex items-center gap-3 bg-white border border-violet-100 rounded-xl px-3 py-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center shrink-0 text-[9px] font-black text-violet-600 uppercase">
+                  <div key={i} className="flex items-center gap-3 bg-white border border-blue-100 rounded-xl px-3 py-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 text-[9px] font-black text-blue-600 uppercase">
                       {file.name.split('.').pop()?.slice(0, 4) || 'FILE'}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1263,11 +1263,11 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
 
             {/* Divider + Link section */}
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-px bg-violet-200" />
-              <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wide">Or paste a link</span>
-              <div className="flex-1 h-px bg-violet-200" />
+              <div className="flex-1 h-px bg-blue-200" />
+              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wide">Or paste a link</span>
+              <div className="flex-1 h-px bg-blue-200" />
             </div>
-            <p className="text-[11px] text-violet-500">File too large? Share via Google Drive, Dropbox, YouTube, or any link.</p>
+            <p className="text-[11px] text-blue-500">File too large? Share via Google Drive, Dropbox, YouTube, or any link.</p>
             <div className="flex gap-2">
               <input
                 type="url"
@@ -1275,11 +1275,11 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                 onChange={e => setLinkDraft(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLink() } }}
                 placeholder="https://drive.google.com/…"
-                className="flex-1 border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder-slate-400"
+                className="flex-1 border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
               />
               <button type="button" onClick={addLink}
                 disabled={!linkDraft.trim()}
-                className="px-3 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-colors shrink-0">
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-colors shrink-0">
                 Add
               </button>
             </div>
@@ -1288,11 +1288,11 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {fileLinks.length > 0 && (
               <div className="space-y-2">
                 {fileLinks.map((link, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-white border border-violet-100 rounded-xl px-3 py-2">
-                    <svg className="w-4 h-4 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <div key={i} className="flex items-center gap-2 bg-white border border-blue-100 rounded-xl px-3 py-2">
+                    <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                     </svg>
-                    <a href={link} target="_blank" rel="noopener noreferrer" className="flex-1 text-xs text-violet-700 truncate hover:underline">{link}</a>
+                    <a href={link} target="_blank" rel="noopener noreferrer" className="flex-1 text-xs text-blue-700 truncate hover:underline">{link}</a>
                     <button type="button" onClick={() => removeLink(i)} className="text-slate-300 hover:text-red-400 transition-colors p-0.5">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>

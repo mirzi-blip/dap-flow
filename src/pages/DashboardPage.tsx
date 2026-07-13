@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -20,7 +20,7 @@ const MONTHS_FULL = ['January','February','March','April','May','June','July','A
 const statusBadge: Record<JOStatus, string> = {
   'Pending':     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   'Approved':    'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  'Scheduled':   'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
+  'Scheduled':   'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
   'For Review':     'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
   'Needs Revision': 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
   'Completed':      'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
@@ -537,7 +537,7 @@ export function DashboardPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
-              <Users size={14} className="text-violet-500" />
+              <Users size={14} className="text-blue-500" />
               Capacity &amp; Resource Load
             </h3>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
@@ -747,7 +747,7 @@ export function DashboardPage() {
             </BarChart>
           </ResponsiveContainer>
           <div className="flex items-center gap-4 mt-1">
-            <span className="flex items-center gap-1.5 text-[10px] text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-violet-600 inline-block" />Submitted</span>
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-blue-600 inline-block" />Submitted</span>
             <span className="flex items-center gap-1.5 text-[10px] text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />Completed</span>
           </div>
         </div>

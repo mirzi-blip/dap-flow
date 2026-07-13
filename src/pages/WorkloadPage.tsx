@@ -287,7 +287,7 @@ export function WorkloadPage() {
                   <div
                     key={di}
                     className={`min-h-[90px] p-2 transition-colors
-                      ${today ? 'bg-indigo-50/60 dark:bg-indigo-900/20' : ''}
+                      ${today ? 'bg-blue-50/60 dark:bg-blue-900/20' : ''}
                       ${isPast ? 'bg-slate-50/50 dark:bg-slate-900/20' : ''}
                     `}
                   >
@@ -295,7 +295,7 @@ export function WorkloadPage() {
                     <div className="mb-1.5">
                       <span className={`inline-flex w-6 h-6 items-center justify-center rounded-full text-[11px] font-bold
                         ${today
-                          ? 'bg-indigo-600 text-white'
+                          ? 'bg-blue-600 text-white'
                           : isPast
                             ? 'text-slate-300 dark:text-slate-600'
                             : 'text-slate-700 dark:text-slate-300'

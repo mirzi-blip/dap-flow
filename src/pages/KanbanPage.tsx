@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+﻿import { useState, useMemo, useEffect } from 'react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
 import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, PriorityBadge, StatusBadge } from '../components/ui/Badge'
@@ -28,7 +28,7 @@ const COLUMNS: { status: JOStatus; label: string; hex: string }[] = [
 const STATUS_COLORS: Record<JOStatus, string> = {
   'Pending':        'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
   'Approved':       'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  'Scheduled':      'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
+  'Scheduled':      'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
   'For Review':     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   'Needs Revision': 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
   'Completed':      'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
@@ -102,7 +102,7 @@ function KanbanCard({
         </button>
         {canProgress && next && (
           <button onClick={() => onAdvance(jo)}
-            className="flex-1 flex items-center justify-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-medium py-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors border border-dashed border-indigo-200 dark:border-indigo-800 hover:border-indigo-400">
+            className="flex-1 flex items-center justify-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 font-medium py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors border border-dashed border-blue-200 dark:border-blue-800 hover:border-blue-400">
             → {next}
           </button>
         )}
@@ -1049,7 +1049,7 @@ export function KanbanPage() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{c.authorName}</span>
                                 {c.fromStatus && c.toStatus && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
                                     {c.fromStatus} → {c.toStatus}
                                   </span>
                                 )}

@@ -41,7 +41,7 @@ const statusMeta: Record<UserStatus, { label: string; className: string; icon: R
 
 const roleBadge: Record<UserRole, string> = {
   'Admin':      'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  'DAP Team':   'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
+  'DAP Team':   'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
   'Brand Team': 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300',
   'Leadership': 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300',
   'End User':   'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300',
@@ -517,7 +517,7 @@ export function SettingsPage() {
   const [memberForm, setMemberForm] = useState<{ name: string; email: string; role: DAPSubRole; team: DAPTeam }>({ name: '', email: '', role: 'Photographer', team: 'Photo' })
   const [memberSaved, setMemberSaved] = useState('')
 
-  const MEMBER_COLORS = ['bg-blue-500','bg-cyan-500','bg-purple-500','bg-red-500','bg-emerald-500','bg-teal-500','bg-amber-500','bg-pink-500','bg-indigo-500','bg-orange-500']
+  const MEMBER_COLORS = ['bg-blue-500','bg-cyan-500','bg-purple-500','bg-red-500','bg-emerald-500','bg-teal-500','bg-amber-500','bg-pink-500','bg-blue-500','bg-orange-500']
 
   function openEditMember(r: Resource) {
     setAddingMember(false)
@@ -1168,7 +1168,7 @@ export function SettingsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{u.name}</p>
-                        {isSelf && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 font-bold px-1.5 py-0.5 rounded-full">You</span>}
+                        {isSelf && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold px-1.5 py-0.5 rounded-full">You</span>}
                       </div>
                       <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{u.email}</p>
                       {can('settings', 'manage_users') && (
@@ -1188,7 +1188,7 @@ export function SettingsPage() {
                     </span>
                     {can('settings', 'manage_users') && !isSelf && (
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => openEdit(u)} title="Edit" className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
+                        <button onClick={() => openEdit(u)} title="Edit" className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
                           <Pencil size={13} />
                         </button>
                         {u.status !== 'terminated' && u.status !== 'limited' && (
@@ -1369,7 +1369,7 @@ export function SettingsPage() {
                   const initials = a.name.replace(/[,]/g, ' ').split(/\s+/).filter(Boolean).map((w: string) => w[0]).slice(0, 2).join('')
                   return (
                     <div key={a.id} className={`flex items-center gap-4 px-5 py-4 transition-colors ${isInactive ? 'bg-slate-50/60 dark:bg-slate-800/40 opacity-60' : 'hover:bg-slate-50 dark:hover:bg-slate-700/40'}`}>
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-black ${isInactive ? 'bg-slate-200 dark:bg-slate-700 text-slate-400' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'}`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-black ${isInactive ? 'bg-slate-200 dark:bg-slate-700 text-slate-400' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'}`}>
                         {initials}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1391,7 +1391,7 @@ export function SettingsPage() {
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => openEditApprover(a)} title="Edit"
-                          className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
+                          className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
                           <Pencil size={13} />
                         </button>
                         {isInactive ? (
@@ -1507,7 +1507,7 @@ export function SettingsPage() {
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => openEditApprover(a)} title="Edit"
-                          className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
+                          className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
                           <Pencil size={13} />
                         </button>
                         {isInactive ? (

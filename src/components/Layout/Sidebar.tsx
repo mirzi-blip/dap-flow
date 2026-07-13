@@ -96,7 +96,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = '' }}
                 >
                   {active && (
-                    <span className="absolute left-0 w-1 h-6 rounded-r-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]" />
+                    <span className="absolute left-0 w-1 h-6 rounded-r-full bg-green-400 shadow-[0_0_8px_rgba(57,181,74,0.8)]" />
                   )}
                   <Icon
                     size={16}
@@ -104,7 +104,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                     className={active ? 'text-blue-300' : 'text-blue-400/50'}
                   />
                   <span className={active ? 'font-semibold' : ''}>{label}</span>
-                  {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 pulse-dot shadow-[0_0_6px_rgba(96,165,250,0.9)]" />}
+                  {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-green-400 pulse-dot shadow-[0_0_6px_rgba(57,181,74,0.9)]" />}
                 </button>
               )
             })}

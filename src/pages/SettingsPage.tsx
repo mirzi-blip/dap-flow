@@ -13,7 +13,7 @@ import { PERMISSION_MODULES, DEFAULT_PERMISSIONS, ALL_PERMISSIONS, perm } from '
 import { usePermissions } from '../hooks/usePermissions'
 import type { ManagedUser, UserRole, RequestingTeam, UserStatus, Resource, DAPSubRole, DAPTeam, Approver, BookingDepartment, FormOption } from '../types'
 
-const ROLES: UserRole[] = ['Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']
+const ROLES: UserRole[] = ['Super Admin', 'Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']
 const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
 
 type SettingsTab = 'profile' | 'users' | 'team' | 'capacity' | 'activity' | 'integrations' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments' | 'booking-form'
@@ -40,6 +40,7 @@ const statusMeta: Record<UserStatus, { label: string; className: string; icon: R
 }
 
 const roleBadge: Record<UserRole, string> = {
+  'Super Admin': 'bg-brand-900 text-white dark:bg-brand-300 dark:text-brand-900',
   'Admin':      'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
   'DAP Team':   'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
   'Brand Team': 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300',
@@ -699,7 +700,10 @@ export function SettingsPage() {
   }
 
   // RBAC: which role is being edited in the Permissions tab
-  const EDITABLE_ROLES: UserRole[] = ['DAP Team', 'Brand Team', 'Leadership', 'End User']
+  // Super Admins can also configure the Admin role; Super Admin itself is never editable
+  const EDITABLE_ROLES: UserRole[] = currentUser?.role === 'Super Admin'
+    ? ['Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']
+    : ['DAP Team', 'Brand Team', 'Leadership', 'End User']
   const [permRole, setPermRole] = useState<UserRole>('DAP Team')
   const [permSaved, setPermSaved] = useState(false)
 
@@ -817,7 +821,7 @@ export function SettingsPage() {
     ...(can('settings', 'manage_team')         ? [{ id: 'approvers'      as SettingsTab, label: 'Approvers',          icon: UserCheck  }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'dap-approvers' as SettingsTab, label: 'DAP Team Approvers', icon: Shield     }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'departments'   as SettingsTab, label: 'Departments',        icon: Building2    }] : []),
-    ...(currentUser?.role === 'Admin'           ? [{ id: 'booking-form'  as SettingsTab, label: 'Booking Form',       icon: FileSliders  }] : []),
+    ...(currentUser?.role === 'Admin' || currentUser?.role === 'Super Admin' ? [{ id: 'booking-form'  as SettingsTab, label: 'Booking Form',       icon: FileSliders  }] : []),
     ...(can('settings', 'manage_integrations') ? [{ id: 'integrations' as SettingsTab, label: 'Integrations',    icon: Plug2        }] : []),
     ...(can('settings', 'manage_permissions')  ? [{ id: 'permissions'  as SettingsTab, label: 'Permissions',     icon: Shield       }] : []),
   ]
@@ -1158,6 +1162,8 @@ export function SettingsPage() {
                 const sm = statusMeta[u.status]
                 const StatusIcon = sm.icon
                 const isSelf = u.id === currentUser?.id
+                // Super Admin accounts can only be managed by another Super Admin
+                const isProtected = u.role === 'Super Admin' && currentUser?.role !== 'Super Admin'
                 return (
                   <div key={u.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
                     <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl shrink-0 border border-slate-200 dark:border-slate-600 overflow-hidden">
@@ -1171,7 +1177,7 @@ export function SettingsPage() {
                         {isSelf && <span className="text-[10px] bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 font-bold px-1.5 py-0.5 rounded-full">You</span>}
                       </div>
                       <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{u.email}</p>
-                      {can('settings', 'manage_users') && (
+                      {can('settings', 'manage_users') && !isProtected && (
                         <div className="flex items-center gap-1 mt-0.5">
                           <p className="text-xs font-mono text-slate-400 dark:text-slate-500">
                             {revealedPasswords.has(u.id) ? u.password : '••••••••'}
@@ -1186,7 +1192,7 @@ export function SettingsPage() {
                     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ring-1 ${sm.className}`}>
                       <StatusIcon size={10} />{sm.label}
                     </span>
-                    {can('settings', 'manage_users') && !isSelf && (
+                    {can('settings', 'manage_users') && !isSelf && !isProtected && (
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => openEdit(u)} title="Edit" className="p-1.5 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-colors">
                           <Pencil size={13} />
@@ -1610,7 +1616,7 @@ export function SettingsPage() {
       )}
 
       {/* ── BOOKING FORM ──────────────────────────────────────── */}
-      {activeTab === 'booking-form' && currentUser?.role === 'Admin' && (
+      {activeTab === 'booking-form' && (currentUser?.role === 'Admin' || currentUser?.role === 'Super Admin') && (
         <BookingFormConfigTab
           formOptions={formOptions}
           addFormOption={addFormOption}

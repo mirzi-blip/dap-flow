@@ -99,7 +99,7 @@ export type Priority = 'High' | 'Medium' | 'Low'
 
 export type RequestingTeam = 'BMG' | 'MOD' | 'MTO' | 'CBE'
 
-export type UserRole = 'Admin' | 'DAP Team' | 'Brand Team' | 'Leadership' | 'End User'
+export type UserRole = 'Super Admin' | 'Admin' | 'DAP Team' | 'Brand Team' | 'Leadership' | 'End User'
 
 export type DAPSubRole =
   | 'Photographer'

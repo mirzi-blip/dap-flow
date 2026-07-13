@@ -106,6 +106,8 @@ export const ALL_PERMISSIONS: PermissionKey[] = PERMISSION_MODULES.flatMap(m =>
 // ── Default permission matrix ─────────────────────────────────────────────────
 
 export const DEFAULT_PERMISSIONS: RolePermissions = {
+  'Super Admin': ALL_PERMISSIONS,
+
   Admin: ALL_PERMISSIONS,
 
   'DAP Team': [

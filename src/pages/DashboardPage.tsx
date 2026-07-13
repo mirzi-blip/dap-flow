@@ -107,7 +107,7 @@ export function DashboardPage() {
   const STATUS_BREAKDOWN = [
     { label: 'Pending',     count: pendingJOs,    color: '#F59E0B' },
     { label: 'Approved',    count: approvedJOs,   color: '#3B82F6' },
-    { label: 'Scheduled',   count: scheduledJOs,  color: '#6366F1' },
+    { label: 'Scheduled',   count: scheduledJOs,  color: '#6F84DB' },
     { label: 'For Review',  count: forReviewJOs,  color: '#F97316' },
     { label: 'Completed',   count: completedJOs,  color: '#10B981' },
     { label: 'Delayed',     count: delayedJOs,    color: '#EF4444' },
@@ -269,7 +269,7 @@ export function DashboardPage() {
     return Object.entries(map).map(([name, value]) => ({ name, value }))
   }, [filteredJOs])
 
-  const PIE_COLORS = ['#7C3AED','#EC4899','#F97316','#10B981','#3B82F6','#F59E0B']
+  const PIE_COLORS = ['#5164C0','#EC4899','#F97316','#10B981','#3B82F6','#F59E0B']
 
   const tooltipStyle = {
     background: isDark ? '#1e293b' : '#fff',
@@ -587,7 +587,7 @@ export function DashboardPage() {
                 width: `${Math.min(100, (totalUsedHrs / TEAM_TOTAL_CAPACITY) * 100)}%`,
                 background: totalUsedHrs / TEAM_TOTAL_CAPACITY >= LOAD_OVERLOAD / 100
                   ? 'linear-gradient(90deg,#EF4444,#DC2626)'
-                  : 'linear-gradient(90deg,#7C3AED,#6366F1)',
+                  : 'linear-gradient(90deg,#5164C0,#6F84DB)',
               }} />
           </div>
           {/* 75% threshold marker */}
@@ -740,7 +740,7 @@ export function DashboardPage() {
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: isDark ? 'rgba(124,58,237,0.1)' : '#F5F3FF', radius: 6 }} />
               <Bar dataKey="count" name="Submitted" radius={[5, 5, 0, 0]} stackId="a">
                 {analyticsData.map((e, i) => (
-                  <Cell key={i} fill={e.current ? '#7C3AED' : isDark ? '#312e81' : '#EDE9FE'} />
+                  <Cell key={i} fill={e.current ? '#5164C0' : isDark ? '#2A3A78' : '#E2E8FB'} />
                 ))}
               </Bar>
               <Bar dataKey="completed" name="Completed" radius={[5, 5, 0, 0]} fill="#10b981" opacity={0.7} />
@@ -809,8 +809,8 @@ export function DashboardPage() {
         </div>
         <div className="flex items-stretch gap-1 overflow-x-auto pb-1">
           {([
-            { step: 1, label: 'Request\nSubmitted',  count: bookingRequests.length,                                                    color: '#7C3AED', phase: 'Discern' },
-            { step: 2, label: 'Pending\nReview',     count: bookingRequests.filter(r => r.status === 'Pending Review').length,         color: '#6366F1', phase: 'Discern' },
+            { step: 1, label: 'Request\nSubmitted',  count: bookingRequests.length,                                                    color: '#5164C0', phase: 'Discern' },
+            { step: 2, label: 'Pending\nReview',     count: bookingRequests.filter(r => r.status === 'Pending Review').length,         color: '#6F84DB', phase: 'Discern' },
             { step: 3, label: 'Members\nAssigned',   count: bookingRequests.filter(r => r.status === 'Assigned').length,               color: '#3B82F6', phase: 'Decide' },
             { step: 4, label: 'JO\nScheduled',       count: scheduledJOs,  color: '#0EA5E9', phase: 'Delegate' },
             { step: 5, label: 'For\nReview',         count: forReviewJOs,  color: '#F97316', phase: 'Deliver' },

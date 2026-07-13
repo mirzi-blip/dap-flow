@@ -67,7 +67,7 @@ const ACTIVITY_TYPES = [
   { name: 'Video Shoot',           color: '#EF4444', icon: '🎬' },
   { name: 'Static Artwork Design', color: '#10B981', icon: '🎨' },
   { name: 'Video Editing',         color: '#F97316', icon: '✂️' },
-  { name: 'Audio Recording',       color: '#8B5CF6', icon: '🎙️' },
+  { name: 'Audio Recording',       color: '#8B9FE8', icon: '🎙️' },
   { name: 'Audio Editing',         color: '#EC4899', icon: '🎧' },
 ]
 
@@ -1245,7 +1245,7 @@ export function SettingsPage() {
                 <div className="mt-3 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all" style={{
                     width: `${t.current}%`,
-                    background: t.current > 90 ? '#EF4444' : 'linear-gradient(90deg, #7C3AED, #EC4899)',
+                    background: t.current > 90 ? '#EF4444' : 'linear-gradient(90deg, #3C4C9C, #8B9FE8)',
                   }} />
                 </div>
               </div>

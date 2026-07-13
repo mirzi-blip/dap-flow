@@ -1605,7 +1605,7 @@ export function BookingRequestForm() {
     const step3Done = ['Assigned','Approved','Completed'].includes(liveStatus)
     const rejected  = liveStatus === 'Rejected' || liveStatus === 'Cancelled'
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(160deg,#0f4c81 0%,#1a6fb5 60%,#2389d7 100%)' }}>
+      <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(160deg,#1B2F5E 0%,#3C4C9C 60%,#6F84DB 100%)' }}>
         <Header />
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-10 text-center">
@@ -1665,7 +1665,7 @@ export function BookingRequestForm() {
             <button
               onClick={() => { setForm(EMPTY); setSubmitted(null); setLiveStatus('Pending Approval'); setPage(1); setSelectionStage('start'); setPendingActivity(''); setAttachedFiles([]); setAttachedLinks([]) }}
               className="w-full py-3 rounded-xl font-bold text-white text-sm"
-              style={{ background: 'linear-gradient(135deg,#0f4c81,#2389d7)' }}>
+              style={{ background: 'linear-gradient(135deg,#1B2F5E,#6F84DB)' }}>
               Submit Another Request
             </button>
           </div>
@@ -1674,7 +1674,7 @@ export function BookingRequestForm() {
     )
   }
 
-  const BG = 'linear-gradient(160deg,#0f4c81 0%,#1a6fb5 60%,#2389d7 100%)'
+  const BG = 'linear-gradient(160deg,#1B2F5E 0%,#3C4C9C 60%,#6F84DB 100%)'
 
   // ── Page 1: Select Service ─────────────────────────────────────────────────
   if (page === 1) {
@@ -1938,7 +1938,7 @@ export function BookingRequestForm() {
             <button type="button" disabled={!isPage2Valid}
               onClick={() => setPage(3)}
               className="w-full py-3.5 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-              style={{ background: isPage2Valid ? 'linear-gradient(135deg,#0f4c81 0%,#2389d7 100%)' : '#94a3b8' }}>
+              style={{ background: isPage2Valid ? 'linear-gradient(135deg,#1B2F5E 0%,#6F84DB 100%)' : '#94a3b8' }}>
               Continue to Details →
             </button>
           </div>
@@ -2075,7 +2075,7 @@ export function BookingRequestForm() {
             <button type="button" disabled={!isPage2Valid}
               onClick={() => setPage(3)}
               className="w-full py-3.5 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-              style={{ background: isPage2Valid ? 'linear-gradient(135deg,#0f4c81 0%,#2389d7 100%)' : '#94a3b8' }}>
+              style={{ background: isPage2Valid ? 'linear-gradient(135deg,#1B2F5E 0%,#6F84DB 100%)' : '#94a3b8' }}>
               Continue to Details →
             </button>
           </div>
@@ -2123,7 +2123,7 @@ export function BookingRequestForm() {
 
       <div className="flex-1 px-6 sm:px-10 pb-10 pt-3">
         <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden">
-          <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg,#0f4c81,#2389d7,#10b981)' }} />
+          <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg,#1B2F5E,#6F84DB,#10b981)' }} />
 
           <form onSubmit={handleSubmit} className="p-7 space-y-5">
 
@@ -2328,7 +2328,7 @@ export function BookingRequestForm() {
             {/* Submit */}
             <button type="submit" disabled={!isPage3Valid || submitting}
               className="w-full py-3.5 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-              style={{ background: !isPage3Valid || submitting ? '#94a3b8' : 'linear-gradient(135deg,#0f4c81 0%,#2389d7 100%)' }}>
+              style={{ background: !isPage3Valid || submitting ? '#94a3b8' : 'linear-gradient(135deg,#1B2F5E 0%,#6F84DB 100%)' }}>
               {submitting ? (
                 <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Submitting Request…</>
               ) : 'Submit for Approval →'}

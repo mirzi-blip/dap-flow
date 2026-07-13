@@ -19,7 +19,7 @@ import type { JOReview } from '../types'
 const COLUMNS: { status: JOStatus; label: string; hex: string }[] = [
   { status: 'Pending',         label: 'Backlog',        hex: '#EAB308' },
   { status: 'Approved',        label: 'Approved',       hex: '#3B82F6' },
-  { status: 'Scheduled',       label: 'Scheduled',      hex: '#6366F1' },
+  { status: 'Scheduled',       label: 'Scheduled',      hex: '#6F84DB' },
   { status: 'For Review',      label: 'For Review',     hex: '#F97316' },
   { status: 'Needs Revision',  label: 'Needs Revision', hex: '#E11D48' },
   { status: 'Completed',       label: 'Completed',      hex: '#10B981' },

@@ -19,11 +19,11 @@ export const activityCalendarColors: Record<ActivityType, string> = {
   'Photo Shoot':           '#3B82F6',
   'Video Shoot':           '#EF4444',
   'Static Artwork Design': '#10B981',
-  'Digital Design':        '#7C3AED',
+  'Digital Design':        '#5164C0',
   'Video Editing':         '#F97316',
   'Graphics':              '#F59E0B',
   'Printing':              '#14B8A6',
-  'ASC':                   '#6366F1',
+  'ASC':                   '#6F84DB',
   'Audio Recording':       '#0EA5E9',
   'Audio Editing':         '#EC4899',
   'Audio Services':        '#0EA5E9',
@@ -46,7 +46,7 @@ export const activityGradients: Record<ActivityType, string> = {
 export const statusColors: Record<JOStatus, { bg: string; text: string; ring: string; glow: string }> = {
   Pending:      { bg: 'bg-amber-50',   text: 'text-amber-700',  ring: 'ring-amber-200',  glow: '#F59E0B' },
   Approved:     { bg: 'bg-sky-50',     text: 'text-sky-700',    ring: 'ring-sky-200',    glow: '#0EA5E9' },
-  Scheduled:    { bg: 'bg-brand-50',  text: 'text-brand-700', ring: 'ring-brand-200', glow: '#6366F1' },
+  Scheduled:    { bg: 'bg-brand-50',  text: 'text-brand-700', ring: 'ring-brand-200', glow: '#6F84DB' },
 
   'For Review':     { bg: 'bg-orange-50',  text: 'text-orange-700', ring: 'ring-orange-200', glow: '#F97316' },
   'Needs Revision': { bg: 'bg-rose-50',    text: 'text-rose-700',   ring: 'ring-rose-200',   glow: '#E11D48' },
@@ -64,14 +64,14 @@ export const priorityColors: Record<Priority, { bg: string; text: string; dot: s
 export const teamColors: Record<string, { hex: string; tailwind: string; light: string }> = {
   Photo:  { hex: '#3B82F6', tailwind: 'bg-brand-500',    light: 'bg-brand-50' },
   Video:  { hex: '#EF4444', tailwind: 'bg-red-500',     light: 'bg-red-50' },
-  Audio:  { hex: '#8B5CF6', tailwind: 'bg-brand-500',  light: 'bg-brand-50' },
+  Audio:  { hex: '#8B9FE8', tailwind: 'bg-brand-500',  light: 'bg-brand-50' },
   Design: { hex: '#10B981', tailwind: 'bg-emerald-500', light: 'bg-emerald-50' },
 }
 
 export const kpiGradients = [
-  { from: '#6366F1', to: '#8B5CF6', icon: 'bg-gradient-to-br from-brand-500 to-brand-600' },
+  { from: '#6F84DB', to: '#8B9FE8', icon: 'bg-gradient-to-br from-brand-500 to-brand-600' },
   { from: '#F59E0B', to: '#F97316', icon: 'bg-gradient-to-br from-amber-400 to-orange-500' },
-  { from: '#8B5CF6', to: '#EC4899', icon: 'bg-gradient-to-br from-brand-500 to-pink-500' },
+  { from: '#8B9FE8', to: '#EC4899', icon: 'bg-gradient-to-br from-brand-500 to-pink-500' },
   { from: '#10B981', to: '#0EA5E9', icon: 'bg-gradient-to-br from-emerald-500 to-sky-500' },
 ]
 

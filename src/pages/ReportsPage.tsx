@@ -187,8 +187,8 @@ export function ReportsPage() {
   }, [globalFilteredJOs])
 
   const statusColors2: Record<string, string> = {
-    Pending: '#eab308', Approved: '#3b82f6', Scheduled: '#6366f1',
-    'In Progress': '#8b5cf6', 'For Review': '#f97316', Completed: '#10b981',
+    Pending: '#eab308', Approved: '#3b82f6', Scheduled: '#6F84DB',
+    'In Progress': '#8B9FE8', 'For Review': '#f97316', Completed: '#10b981',
     Delayed: '#ef4444', Cancelled: '#94a3b8',
   }
 
@@ -372,7 +372,7 @@ export function ReportsPage() {
               <YAxis tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 12, color: isDark ? '#94a3b8' : '#64748b' }} />
-              <Bar dataKey="submitted" name="Submitted" fill="#7C3AED" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="submitted" name="Submitted" fill="#5164C0" radius={[4, 4, 0, 0]} />
               <Bar dataKey="completed" name="Completed" fill="#10b981" radius={[4, 4, 0, 0]} />
               <Bar dataKey="delayed" name="Delayed" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -487,7 +487,7 @@ export function ReportsPage() {
                 <YAxis tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ fontSize: 12, color: isDark ? '#94a3b8' : '#64748b' }} />
-                <Bar dataKey="total" name="Total" fill="#7C3AED" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="total" name="Total" fill="#5164C0" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="completed" name="Completed" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -556,7 +556,7 @@ export function ReportsPage() {
                   <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all" style={{
                       width: `${r.util}%`,
-                      background: r.util > 90 ? '#ef4444' : r.util >= 70 ? '#10b981' : '#7C3AED',
+                      background: r.util > 90 ? '#ef4444' : r.util >= 70 ? '#10b981' : '#5164C0',
                     }} />
                   </div>
                 </div>

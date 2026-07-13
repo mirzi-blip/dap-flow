@@ -54,7 +54,7 @@ export const RESOURCES: Resource[] = [
     team: 'Photo',
     email: 'jordan@dapflow.com',
     initials: 'JL',
-    color: 'bg-blue-500',
+    color: 'bg-brand-500',
     maxWeeklyHours: 40,
   },
   {
@@ -74,7 +74,7 @@ export const RESOURCES: Resource[] = [
     team: 'Video',
     email: 'sam@dapflow.com',
     initials: 'SC',
-    color: 'bg-blue-500',
+    color: 'bg-brand-500',
     maxWeeklyHours: 40,
   },
   {

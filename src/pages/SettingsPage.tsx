@@ -40,8 +40,8 @@ const statusMeta: Record<UserStatus, { label: string; className: string; icon: R
 }
 
 const roleBadge: Record<UserRole, string> = {
-  'Admin':      'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  'DAP Team':   'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+  'Admin':      'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
+  'DAP Team':   'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
   'Brand Team': 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300',
   'Leadership': 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300',
   'End User':   'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300',
@@ -100,7 +100,7 @@ const GRAPHICS_PROJECT_TO_PROCESS: Record<string, string> = {
 }
 
 const PROCESS_BADGE: Record<string, string> = {
-  'Large Format Printing': 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+  'Large Format Printing': 'bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400',
   'Offset Lithography':    'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
   'Sublimation Printing':  'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
 }
@@ -228,12 +228,12 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
               onClick={() => { setSelectedService(svc.id); setExpandedField(null); setAddingTo(null) }}
               className={`w-full text-left px-3 py-2.5 rounded-xl transition-all ${
                 selectedService === svc.id
-                  ? 'bg-blue-600 text-white shadow-sm'
+                  ? 'bg-brand-600 text-white shadow-sm'
                   : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
             >
               <p className={`text-sm font-bold leading-tight ${selectedService === svc.id ? 'text-white' : ''}`}>{svc.label}</p>
-              <p className={`text-[10px] mt-0.5 leading-tight ${selectedService === svc.id ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>{svc.subtitle}</p>
+              <p className={`text-[10px] mt-0.5 leading-tight ${selectedService === svc.id ? 'text-brand-100' : 'text-slate-400 dark:text-slate-500'}`}>{svc.subtitle}</p>
             </button>
           ))}
         </div>
@@ -281,7 +281,7 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
                               value={editLabel}
                               onChange={e => setEditLabel(e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(opt.id); if (e.key === 'Escape') setEditingId(null) }}
-                              className="flex-1 text-sm border border-blue-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:text-slate-100 dark:border-blue-500"
+                              className="flex-1 text-sm border border-brand-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-400 dark:bg-slate-700 dark:text-slate-100 dark:border-brand-500"
                             />
                           ) : (
                             <span className="flex-1 flex items-center gap-2 min-w-0">
@@ -309,7 +309,7 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
                             {editingId === opt.id ? (
                               <>
                                 <button type="button" onClick={() => handleSaveEdit(opt.id)}
-                                  className="p-1 rounded text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                                  className="p-1 rounded text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors">
                                   <Check size={13} />
                                 </button>
                                 <button type="button" onClick={() => setEditingId(null)}
@@ -319,14 +319,14 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
                               </>
                             ) : (
                               <button type="button" onClick={() => { setEditingId(opt.id); setEditLabel(opt.optionLabel) }}
-                                className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                                className="p-1 rounded text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors">
                                 <Pencil size={12} />
                               </button>
                             )}
 
                             {/* Toggle active */}
                             <button type="button" onClick={() => updateFormOption({ ...opt, isActive: !opt.isActive })}
-                              className={`p-1 rounded transition-colors ${opt.isActive ? 'text-blue-500 hover:text-slate-400' : 'text-slate-300 hover:text-blue-500'}`}
+                              className={`p-1 rounded transition-colors ${opt.isActive ? 'text-brand-500 hover:text-slate-400' : 'text-slate-300 hover:text-brand-500'}`}
                               title={opt.isActive ? 'Hide from form' : 'Show in form'}>
                               {opt.isActive ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}
                             </button>
@@ -352,11 +352,11 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
                               onChange={e => setNewLabel(e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter') handleAddOption(fieldKey, fieldLabel); if (e.key === 'Escape') { setAddingTo(null); setNewLabel(''); setNewProcess('') } }}
                               placeholder="Project category name…"
-                              className="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:text-slate-100"
+                              className="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-400 dark:bg-slate-700 dark:text-slate-100"
                             />
                             <button type="button" onClick={() => handleAddOption(fieldKey, fieldLabel)}
                               disabled={isGraphicsCategory && !newProcess}
-                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-colors">
+                              className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-colors">
                               Add
                             </button>
                             <button type="button" onClick={() => { setAddingTo(null); setNewLabel(''); setNewProcess('') }}
@@ -370,7 +370,7 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
                               <select
                                 value={newProcess}
                                 onChange={e => setNewProcess(e.target.value)}
-                                className="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:text-slate-100">
+                                className="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-400 dark:bg-slate-700 dark:text-slate-100">
                                 <option value="">Select printing process…</option>
                                 <option>Large Format Printing</option>
                                 <option>Offset Lithography</option>
@@ -381,7 +381,7 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
                         </div>
                       ) : (
                         <button type="button" onClick={() => { setAddingTo(fieldKey); setNewLabel('') }}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
+                          className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors">
                           <Plus size={13} /> Add option
                         </button>
                       )}
@@ -517,7 +517,7 @@ export function SettingsPage() {
   const [memberForm, setMemberForm] = useState<{ name: string; email: string; role: DAPSubRole; team: DAPTeam }>({ name: '', email: '', role: 'Photographer', team: 'Photo' })
   const [memberSaved, setMemberSaved] = useState('')
 
-  const MEMBER_COLORS = ['bg-blue-500','bg-cyan-500','bg-purple-500','bg-red-500','bg-emerald-500','bg-teal-500','bg-amber-500','bg-pink-500','bg-blue-500','bg-orange-500']
+  const MEMBER_COLORS = ['bg-brand-500','bg-cyan-500','bg-purple-500','bg-red-500','bg-emerald-500','bg-teal-500','bg-amber-500','bg-pink-500','bg-brand-500','bg-orange-500']
 
   function openEditMember(r: Resource) {
     setAddingMember(false)
@@ -634,7 +634,7 @@ export function SettingsPage() {
       name: 'Google Calendar',
       description: 'Sync JO deadlines and production schedules to Google Calendar. Keeps your team updated automatically.',
       icon: Calendar,
-      iconColor: 'text-blue-500',
+      iconColor: 'text-brand-500',
       connected: false,
       syncLabel: 'Syncs: Deadlines, Launch Dates, Scheduled Events',
       configFields: [{ label: 'Calendar ID', placeholder: 'your-calendar@gmail.com' }],
@@ -677,7 +677,7 @@ export function SettingsPage() {
       name: 'Microsoft Teams',
       description: 'Post JO status updates and approval notifications directly to Teams channels.',
       icon: Users,
-      iconColor: 'text-blue-500',
+      iconColor: 'text-brand-500',
       connected: false,
       syncLabel: 'Syncs: Status changes, Approval requests',
       configFields: [{ label: 'Webhook URL', placeholder: 'https://outlook.office.com/webhook/...' }],
@@ -844,7 +844,7 @@ export function SettingsPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
                 active
-                  ? 'bg-blue-600 text-white shadow-sm'
+                  ? 'bg-brand-600 text-white shadow-sm'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
@@ -864,7 +864,7 @@ export function SettingsPage() {
               <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Edit names and emails — members receive notifications when assigned to a Job Order.</p>
             </div>
             {can('settings', 'manage_team') && !addingMember && (
-              <button onClick={openAddMember} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
+              <button onClick={openAddMember} className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-colors">
                 <UserPlus size={13} /> Add Member
               </button>
             )}
@@ -872,8 +872,8 @@ export function SettingsPage() {
 
           {/* Add member form */}
           {addingMember && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 space-y-3">
-              <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide">New Team Member</p>
+            <div className="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-2xl p-4 space-y-3">
+              <p className="text-xs font-bold text-brand-700 dark:text-brand-300 uppercase tracking-wide">New Team Member</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Full Name *</label>
@@ -897,7 +897,7 @@ export function SettingsPage() {
                 </div>
               </div>
               <div className="flex gap-2 pt-1">
-                <button onClick={saveMember} disabled={!memberForm.name.trim() || !memberForm.email.trim()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 text-white text-xs font-semibold rounded-xl transition-colors">
+                <button onClick={saveMember} disabled={!memberForm.name.trim() || !memberForm.email.trim()} className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 text-white text-xs font-semibold rounded-xl transition-colors">
                   <Check size={12} /> Add Member
                 </button>
                 <button onClick={() => setAddingMember(false)} className="px-3 py-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 text-xs font-semibold rounded-xl hover:bg-white dark:hover:bg-slate-700 transition-colors">
@@ -943,7 +943,7 @@ export function SettingsPage() {
                       </div>
                     </div>
                     <div className="flex gap-2 pt-1">
-                      <button onClick={saveMember} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
+                      <button onClick={saveMember} className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-colors">
                         <Check size={12} /> Save
                       </button>
                       <button onClick={() => setEditingMember(null)} className="px-3 py-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 text-xs font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
@@ -959,7 +959,7 @@ export function SettingsPage() {
                         <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{r.name}</p>
                         {memberSaved === r.id && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5"><Check size={10} /> Saved</span>}
                         {can('settings', 'manage_team') && (
-                          <button onClick={() => openEditMember(r)} className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 px-2 py-1 rounded-lg transition-colors shrink-0">
+                          <button onClick={() => openEditMember(r)} className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 px-2 py-1 rounded-lg transition-colors shrink-0">
                             <Pencil size={11} /> Edit
                           </button>
                         )}
@@ -1014,7 +1014,7 @@ export function SettingsPage() {
                     type="button"
                     onClick={() => photoInputRef.current?.click()}
                     disabled={photoUploading}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white transition-colors"
                   >
                     <Camera size={13} /> {photoUploading ? 'Uploading…' : 'Upload Photo'}
                   </button>
@@ -1050,7 +1050,7 @@ export function SettingsPage() {
                   <div className="grid grid-cols-8 gap-1">
                     {EMOJI_OPTIONS.map(e => (
                       <button key={e} type="button" onClick={() => { setProfileEmoji(e); setShowProfileEmojiPicker(false) }}
-                        className={`text-xl p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${profileEmoji === e ? 'bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-400' : ''}`}>
+                        className={`text-xl p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${profileEmoji === e ? 'bg-brand-100 dark:bg-brand-900/40 ring-2 ring-brand-400' : ''}`}>
                         {e}
                       </button>
                     ))}
@@ -1101,7 +1101,7 @@ export function SettingsPage() {
               className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 profileSaved
                   ? 'bg-emerald-500 text-white'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                  : 'bg-brand-600 hover:bg-brand-700 text-white shadow-sm'
               }`}
             >
               {profileSaved ? <><Check size={15} /> Saved!</> : <><Save size={15} /> Save Profile</>}
@@ -1137,7 +1137,7 @@ export function SettingsPage() {
               <button
                 key={key}
                 onClick={() => setFilterStatus(key)}
-                className={`card p-4 text-left transition-all hover:shadow-md ${filterStatus === key ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''}`}
+                className={`card p-4 text-left transition-all hover:shadow-md ${filterStatus === key ? 'ring-2 ring-brand-400 dark:ring-brand-500' : ''}`}
               >
                 <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{counts[key]}</p>
                 <p className={`text-[11px] font-semibold mt-0.5 ${cls}`}>{label}</p>
@@ -1168,7 +1168,7 @@ export function SettingsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{u.name}</p>
-                        {isSelf && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold px-1.5 py-0.5 rounded-full">You</span>}
+                        {isSelf && <span className="text-[10px] bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 font-bold px-1.5 py-0.5 rounded-full">You</span>}
                       </div>
                       <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{u.email}</p>
                       {can('settings', 'manage_users') && (
@@ -1188,7 +1188,7 @@ export function SettingsPage() {
                     </span>
                     {can('settings', 'manage_users') && !isSelf && (
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => openEdit(u)} title="Edit" className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
+                        <button onClick={() => openEdit(u)} title="Edit" className="p-1.5 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-colors">
                           <Pencil size={13} />
                         </button>
                         {u.status !== 'terminated' && u.status !== 'limited' && (
@@ -1228,7 +1228,7 @@ export function SettingsPage() {
               <div key={t.team} className="card p-5">
                 <div className="flex items-center justify-between mb-3">
                   <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">{t.team}</p>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${t.current > 90 ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'}`}>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${t.current > 90 ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400'}`}>
                     {t.current}% utilized
                   </span>
                 </div>
@@ -1316,7 +1316,7 @@ export function SettingsPage() {
               >
                 <Mail size={13} /> Export CSV
               </button>
-              <button onClick={openAddApprover} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
+              <button onClick={openAddApprover} className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-colors">
                 <Plus size={13} /> Add Approver
               </button>
             </div>
@@ -1369,7 +1369,7 @@ export function SettingsPage() {
                   const initials = a.name.replace(/[,]/g, ' ').split(/\s+/).filter(Boolean).map((w: string) => w[0]).slice(0, 2).join('')
                   return (
                     <div key={a.id} className={`flex items-center gap-4 px-5 py-4 transition-colors ${isInactive ? 'bg-slate-50/60 dark:bg-slate-800/40 opacity-60' : 'hover:bg-slate-50 dark:hover:bg-slate-700/40'}`}>
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-black ${isInactive ? 'bg-slate-200 dark:bg-slate-700 text-slate-400' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'}`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-black ${isInactive ? 'bg-slate-200 dark:bg-slate-700 text-slate-400' : 'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300'}`}>
                         {initials}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1383,7 +1383,7 @@ export function SettingsPage() {
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {a.email && <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{a.email}</p>}
                           {a.position && (
-                            <span className="text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full shrink-0">
+                            <span className="text-[10px] font-semibold bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded-full shrink-0">
                               {a.position}
                             </span>
                           )}
@@ -1391,7 +1391,7 @@ export function SettingsPage() {
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => openEditApprover(a)} title="Edit"
-                          className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
+                          className="p-1.5 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-colors">
                           <Pencil size={13} />
                         </button>
                         {isInactive ? (
@@ -1435,7 +1435,7 @@ export function SettingsPage() {
                 {' '}· used in the Output Review workflow
               </p>
             </div>
-            <button onClick={openAddApprover} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
+            <button onClick={openAddApprover} className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-colors">
               <Plus size={13} /> Add DAP Approver
             </button>
           </div>
@@ -1485,7 +1485,7 @@ export function SettingsPage() {
                   const initials = a.name.replace(/[,]/g, ' ').split(/\s+/).filter(Boolean).map((w: string) => w[0]).slice(0, 2).join('')
                   return (
                     <div key={a.id} className={`flex items-center gap-4 px-5 py-4 transition-colors ${isInactive ? 'bg-slate-50/60 dark:bg-slate-800/40 opacity-60' : 'hover:bg-slate-50 dark:hover:bg-slate-700/40'}`}>
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-black ${isInactive ? 'bg-slate-200 dark:bg-slate-700 text-slate-400' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'}`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-black ${isInactive ? 'bg-slate-200 dark:bg-slate-700 text-slate-400' : 'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300'}`}>
                         {initials}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1499,7 +1499,7 @@ export function SettingsPage() {
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {a.email && <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{a.email}</p>}
                           {a.position && (
-                            <span className="text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full shrink-0">
+                            <span className="text-[10px] font-semibold bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded-full shrink-0">
                               {a.position}
                             </span>
                           )}
@@ -1507,7 +1507,7 @@ export function SettingsPage() {
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => openEditApprover(a)} title="Edit"
-                          className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
+                          className="p-1.5 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-colors">
                           <Pencil size={13} />
                         </button>
                         {isInactive ? (
@@ -1561,7 +1561,7 @@ export function SettingsPage() {
               <button
                 onClick={handleAddDepartment}
                 disabled={!deptInput.trim()}
-                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 text-white text-xs font-semibold rounded-xl transition-colors shrink-0"
+                className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 text-white text-xs font-semibold rounded-xl transition-colors shrink-0"
               >
                 <Plus size={13} /> Add
               </button>
@@ -1583,10 +1583,10 @@ export function SettingsPage() {
             <div className="divide-y divide-slate-50 dark:divide-slate-700">
               {departments.map(d => (
                 <div key={d.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${d.isDefault ? 'bg-blue-400' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${d.isDefault ? 'bg-brand-400' : 'bg-slate-300 dark:bg-slate-600'}`} />
                   <p className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
                   {d.isDefault ? (
-                    <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full shrink-0">
+                    <span className="text-[10px] font-bold bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 px-2 py-0.5 rounded-full shrink-0">
                       Default
                     </span>
                   ) : (
@@ -1666,7 +1666,7 @@ export function SettingsPage() {
                       <button
                         onClick={() => toggleIntegration(intg.id)}
                         className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
-                          intg.connected ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-600'
+                          intg.connected ? 'bg-brand-600' : 'bg-slate-200 dark:bg-slate-600'
                         }`}
                       >
                         <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
@@ -1706,7 +1706,7 @@ export function SettingsPage() {
                         <a
                           href="#"
                           onClick={e => e.preventDefault()}
-                          className="ml-auto flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                          className="ml-auto flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 hover:underline font-semibold"
                         >
                           <ExternalLink size={11} /> View Docs
                         </a>
@@ -1738,9 +1738,9 @@ export function SettingsPage() {
           <div className="flex gap-2 flex-wrap">
             {/* Admin — always locked */}
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-sm font-semibold cursor-not-allowed select-none">
-              <Shield size={14} className="text-blue-400" />
+              <Shield size={14} className="text-brand-400" />
               Admin
-              <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full font-bold">FULL</span>
+              <span className="text-[10px] bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 px-1.5 py-0.5 rounded-full font-bold">FULL</span>
             </div>
             {EDITABLE_ROLES.map(role => (
               <button
@@ -1748,8 +1748,8 @@ export function SettingsPage() {
                 onClick={() => setPermRole(role)}
                 className={`px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
                   permRole === role
-                    ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-200 dark:shadow-blue-900'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                    ? 'border-brand-500 bg-brand-600 text-white shadow-sm shadow-brand-200 dark:shadow-brand-900'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand-300 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20'
                 }`}
               >
                 {role}
@@ -1777,7 +1777,7 @@ export function SettingsPage() {
                       onClick={() => toggleModuleAll(mod.key)}
                       className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors ${
                         allChecked
-                          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200'
+                          ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 hover:bg-brand-200'
                           : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
                       }`}
                     >
@@ -1798,8 +1798,8 @@ export function SettingsPage() {
                           {/* Custom checkbox */}
                           <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
                             checked
-                              ? 'bg-blue-600 border-blue-600'
-                              : 'border-slate-300 dark:border-slate-600 group-hover:border-blue-400'
+                              ? 'bg-brand-600 border-brand-600'
+                              : 'border-slate-300 dark:border-slate-600 group-hover:border-brand-400'
                           }`}>
                             {checked && <Check size={12} className="text-white" strokeWidth={3} />}
                           </div>
@@ -1838,7 +1838,7 @@ export function SettingsPage() {
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 permSaved
                   ? 'bg-emerald-500 text-white'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                  : 'bg-brand-600 hover:bg-brand-700 text-white shadow-sm'
               }`}
             >
               {permSaved ? <><Check size={14} /> Saved!</> : <><Save size={14} /> Save Permissions</>}
@@ -1895,7 +1895,7 @@ export function SettingsPage() {
                     />
                     <button type="button" onClick={() => formPhotoInputRef.current?.click()}
                       disabled={formPhotoUploading}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white transition-colors">
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white transition-colors">
                       <Camera size={12} /> {formPhotoUploading ? 'Uploading…' : 'Upload Photo'}
                     </button>
                     {/* Emoji fallback */}
@@ -1916,7 +1916,7 @@ export function SettingsPage() {
                     <div className="grid grid-cols-8 gap-1">
                       {EMOJI_OPTIONS.map(e => (
                         <button key={e} type="button" onClick={() => { setFormEmoji(e); setShowFormEmojiPicker(false) }}
-                          className={`text-xl p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${formEmoji === e ? 'bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-400' : ''}`}>
+                          className={`text-xl p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${formEmoji === e ? 'bg-brand-100 dark:bg-brand-900/40 ring-2 ring-brand-400' : ''}`}>
                           {e}
                         </button>
                       ))}
@@ -1998,7 +1998,7 @@ export function SettingsPage() {
               <button onClick={() => setShowProfileConfirm(false)} className="flex-1 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
                 Cancel
               </button>
-              <button onClick={commitProfileSave} className="flex-1 py-2 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+              <button onClick={commitProfileSave} className="flex-1 py-2 rounded-xl text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 transition-colors">
                 Confirm &amp; Save
               </button>
             </div>

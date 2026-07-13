@@ -148,8 +148,8 @@ function ScaleBadge({ scale }: { scale: ProjectScale | '' }) {
   if (!scale) return null
   const cfg: Record<ProjectScale, string> = {
     'Small Scale':    'bg-slate-100 text-slate-600 border-slate-200',
-    'Medium Scale':   'bg-blue-50 text-blue-600 border-blue-200',
-    'Large Scale':    'bg-blue-50 text-blue-600 border-blue-200',
+    'Medium Scale':   'bg-brand-50 text-brand-600 border-brand-200',
+    'Large Scale':    'bg-brand-50 text-brand-600 border-brand-200',
     'Campaign Level': 'bg-orange-50 text-orange-600 border-orange-200',
   }
   return (
@@ -176,7 +176,7 @@ function StepBar({ page }: { page: 1 | 2 | 3 }) {
             <div className="flex items-center gap-1.5">
               <div className={`w-7 h-7 rounded-full text-xs font-black flex items-center justify-center transition-all
                 ${done   ? 'bg-white/30 text-white'
-                : active ? 'bg-white text-blue-800 shadow'
+                : active ? 'bg-white text-brand-800 shadow'
                          : 'bg-white/20 text-white/50'}`}>
                 {done
                   ? <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
@@ -268,10 +268,10 @@ function TimePicker({ value, onChange, placeholder = 'Select time' }: TimePicker
         type="button"
         onClick={() => setOpen(v => !v)}
         className={`w-full flex items-center gap-2.5 border rounded-xl px-3 py-2.5 text-sm text-left transition-all ${
-          open ? 'border-blue-400 ring-2 ring-blue-100' : 'border-slate-200 hover:border-blue-300'
+          open ? 'border-brand-400 ring-2 ring-brand-100' : 'border-slate-200 hover:border-brand-300'
         } ${label ? 'text-slate-800' : 'text-slate-400'} bg-white`}
       >
-        <Clock size={14} className={label ? 'text-blue-500' : 'text-slate-300'} />
+        <Clock size={14} className={label ? 'text-brand-500' : 'text-slate-300'} />
         <span className="flex-1 font-medium">{label ?? placeholder}</span>
         <ChevronDown size={13} className={`text-slate-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -283,7 +283,7 @@ function TimePicker({ value, onChange, placeholder = 'Select time' }: TimePicker
             {(['AM', 'PM'] as const).map(ap => (
               <button key={ap} type="button" onClick={() => toggleAmpm(ap)}
                 className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  pickAmpm === ap ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  pickAmpm === ap ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}>{ap}</button>
             ))}
           </div>
@@ -292,7 +292,7 @@ function TimePicker({ value, onChange, placeholder = 'Select time' }: TimePicker
             {HOURS.map(h => (
               <button key={h} type="button" onClick={() => selectHour(h)}
                 className={`py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  pickHour === h ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-600'
+                  pickHour === h ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-brand-50 hover:text-brand-600'
                 }`}>{h}</button>
             ))}
           </div>
@@ -301,7 +301,7 @@ function TimePicker({ value, onChange, placeholder = 'Select time' }: TimePicker
             {MINUTES.map(m => (
               <button key={m} type="button" onClick={() => selectMin(m)}
                 className={`py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  pickMin === m ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-600'
+                  pickMin === m ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-brand-50 hover:text-brand-600'
                 }`}>:{String(m).padStart(2, '0')}</button>
             ))}
           </div>
@@ -345,11 +345,11 @@ function SimpleDatePicker({ value, onChange, label = 'DATE NEEDED' }: SimpleDate
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <CalendarDays size={14} className="text-blue-500" />
+          <CalendarDays size={14} className="text-brand-500" />
           <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">{label}</p>
         </div>
         {value && (
-          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-600">
+          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-brand-100 text-brand-600">
             {new Date(value + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
           </span>
         )}
@@ -386,11 +386,11 @@ function SimpleDatePicker({ value, onChange, label = 'DATE NEEDED' }: SimpleDate
           const isToday = iso === todayIso
 
           let cls = ''
-          if      (isSel)  cls = 'bg-blue-600 text-white shadow-sm'
+          if      (isSel)  cls = 'bg-brand-600 text-white shadow-sm'
           else if (isPast) cls = 'bg-slate-50 text-slate-300 cursor-not-allowed'
-          else             cls = 'bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border border-slate-100'
+          else             cls = 'bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-700 cursor-pointer border border-slate-100'
 
-          const todayRing = isToday && !isSel ? 'ring-2 ring-blue-400 ring-offset-1' : ''
+          const todayRing = isToday && !isSel ? 'ring-2 ring-brand-400 ring-offset-1' : ''
 
           return (
             <button key={iso} type="button" disabled={isPast}
@@ -405,7 +405,7 @@ function SimpleDatePicker({ value, onChange, label = 'DATE NEEDED' }: SimpleDate
       {/* Legend */}
       <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100">
         <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-white border border-slate-200"/><span className="text-[10px] text-slate-500">Available</span></div>
-        <div className="flex items-center gap-1.5 ml-auto"><div className="w-3 h-3 rounded-sm bg-blue-600"/><span className="text-[10px] text-slate-500">Selected</span></div>
+        <div className="flex items-center gap-1.5 ml-auto"><div className="w-3 h-3 rounded-sm bg-brand-600"/><span className="text-[10px] text-slate-500">Selected</span></div>
       </div>
     </div>
   )
@@ -513,7 +513,7 @@ function AvailabilityCalendar({
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <CalendarDays size={14} className="text-blue-500" />
+          <CalendarDays size={14} className="text-brand-500" />
           <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Availability</p>
           {loading && (
             <svg className="w-3 h-3 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
@@ -523,7 +523,7 @@ function AvailabilityCalendar({
           )}
         </div>
         <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-          selectionStage === 'start' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'
+          selectionStage === 'start' ? 'bg-brand-100 text-brand-600' : 'bg-emerald-100 text-emerald-600'
         }`}>
           {selectionStage === 'start' ? '① Pick start date' : '② Pick end date'}
         </span>
@@ -573,8 +573,8 @@ function AvailabilityCalendar({
             : isPast || isFull
 
           let cls = ''
-          if      (isSelStart || isSelEnd) cls = 'bg-blue-600 text-white shadow-sm'
-          else if (isInRange)              cls = 'bg-blue-100 text-blue-700'
+          if      (isSelStart || isSelEnd) cls = 'bg-brand-600 text-white shadow-sm'
+          else if (isInRange)              cls = 'bg-brand-100 text-brand-700'
           else if (isPast)                 cls = 'bg-slate-50 text-slate-300 cursor-not-allowed'
           else if (isFull)                 cls = 'bg-red-50 text-red-300 cursor-not-allowed line-through'
           else if (fullCrewDay)            cls = 'bg-orange-50 text-orange-600 hover:bg-orange-100 cursor-pointer border border-orange-100'
@@ -582,7 +582,7 @@ function AvailabilityCalendar({
           else if (sameCount > 0)          cls = 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 cursor-pointer'
           else                             cls = 'bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer border border-slate-100'
 
-          const todayRing = isToday && !isSelStart && !isSelEnd ? 'ring-2 ring-blue-400 ring-offset-1' : ''
+          const todayRing = isToday && !isSelStart && !isSelEnd ? 'ring-2 ring-brand-400 ring-offset-1' : ''
 
           // Hover tooltip content
           const showTooltip = hoveredDay === iso && dayBookings.length > 0
@@ -645,7 +645,7 @@ function AvailabilityCalendar({
         <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-orange-50 border border-orange-200"/><span className="text-[10px] text-slate-500">Full Crew</span></div>
         <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-amber-50 border border-amber-200"/><span className="text-[10px] text-slate-500">Partial</span></div>
         <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-red-50 border border-red-200"/><span className="text-[10px] text-slate-500">Fully Booked</span></div>
-        <div className="flex items-center gap-1.5 ml-auto"><div className="w-3 h-3 rounded-sm bg-blue-600"/><span className="text-[10px] text-slate-500">Selected</span></div>
+        <div className="flex items-center gap-1.5 ml-auto"><div className="w-3 h-3 rounded-sm bg-brand-600"/><span className="text-[10px] text-slate-500">Selected</span></div>
       </div>
     </div>
   )
@@ -658,7 +658,7 @@ function Header() {
       <img src="/favicon.svg" alt="DAP Flow" className="w-9 h-9 shrink-0 rounded-xl shadow-md" />
       <div>
         <p className="text-white font-bold text-sm leading-none">DAP Flow</p>
-        <p className="text-blue-200 text-[10px] uppercase tracking-widest mt-0.5">Studio Booking Portal</p>
+        <p className="text-brand-200 text-[10px] uppercase tracking-widest mt-0.5">Studio Booking Portal</p>
       </div>
     </div>
   )
@@ -725,10 +725,10 @@ function ApproverDropdown({ approvers, selectedId, selectedName, approverEmail, 
   if (selectedId) {
     const sel = approvers.find(a => a.id === selectedId)
     return (
-      <div className="bg-blue-50 border border-blue-200 rounded-xl overflow-hidden">
+      <div className="bg-brand-50 border border-brand-200 rounded-xl overflow-hidden">
         {/* Approver identity row */}
         <div className="flex items-center gap-3 px-4 py-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 text-white font-black text-xs">
+          <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center shrink-0 text-white font-black text-xs">
             {selectedName.replace(/[,]/g, ' ').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('')}
           </div>
           <div className="flex-1 min-w-0">
@@ -741,14 +741,14 @@ function ApproverDropdown({ approvers, selectedId, selectedName, approverEmail, 
           </button>
         </div>
         {/* Inline email input */}
-        <div className="px-4 pb-3 border-t border-blue-100 pt-3">
-          <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1.5">
+        <div className="px-4 pb-3 border-t border-brand-100 pt-3">
+          <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1.5">
             Approver Email <span className="text-red-500">*</span>
-            <span className="ml-1 text-[10px] font-normal normal-case text-blue-500">— for sending the approval request</span>
+            <span className="ml-1 text-[10px] font-normal normal-case text-brand-500">— for sending the approval request</span>
           </label>
           <input
             type="email"
-            className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+            className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
             placeholder="approver@company.com"
             value={approverEmail}
             onChange={e => onEmailChange(e.target.value)}
@@ -762,7 +762,7 @@ function ApproverDropdown({ approvers, selectedId, selectedName, approverEmail, 
     <div ref={ref} className="relative">
       <div
         className={`w-full flex items-center gap-2 border rounded-xl px-3 py-2.5 bg-white transition-all ${
-          open ? 'border-blue-400 ring-2 ring-blue-100' : 'border-slate-200 hover:border-blue-300 cursor-pointer'
+          open ? 'border-brand-400 ring-2 ring-brand-100' : 'border-slate-200 hover:border-brand-300 cursor-pointer'
         }`}
         onClick={() => setOpen(true)}
       >
@@ -800,7 +800,7 @@ function ApproverDropdown({ approvers, selectedId, selectedName, approverEmail, 
               return (
                 <button key={a.id} type="button"
                   onClick={() => { onSelect(a.id, a.name, a.email, a.position); setSearch(''); setOpen(false) }}
-                  className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-3">
+                  className="w-full text-left px-4 py-2.5 hover:bg-brand-50 transition-colors flex items-center gap-3">
                   <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 text-[10px] font-black text-slate-500">
                     {initials}
                   </div>
@@ -808,7 +808,7 @@ function ApproverDropdown({ approvers, selectedId, selectedName, approverEmail, 
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-slate-800 truncate">{highlight(a.name, search)}</p>
                       {a.position && (
-                        <span className="text-[9px] font-bold bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap max-w-[120px] truncate">
+                        <span className="text-[9px] font-bold bg-brand-50 text-brand-500 px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap max-w-[120px] truncate">
                           {a.position}
                         </span>
                       )}
@@ -936,29 +936,29 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
     return `${(b / 1024 ** 3).toFixed(2)} GB`
   }
 
-  const inputCls = 'w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400'
+  const inputCls = 'w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400'
   const selectCls = inputCls
 
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-2xl overflow-hidden">
+    <div className="bg-brand-50 border border-brand-200 rounded-2xl overflow-hidden">
       {/* Header + Tabs */}
       <div className="px-5 pt-5">
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-5 h-5 rounded-md bg-blue-600 flex items-center justify-center shrink-0">
+          <div className="w-5 h-5 rounded-md bg-brand-600 flex items-center justify-center shrink-0">
             <span className="text-white text-[10px]">{emoji}</span>
           </div>
-          <p className="text-xs font-black text-blue-800 uppercase tracking-wide">{title}</p>
+          <p className="text-xs font-black text-brand-800 uppercase tracking-wide">{title}</p>
         </div>
-        <div className="flex border-b border-blue-200 -mx-5 px-5">
+        <div className="flex border-b border-brand-200 -mx-5 px-5">
           <button type="button" onClick={() => setActiveTab('specs')}
-            className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px transition-colors ${activeTab === 'specs' ? 'text-blue-700 border-blue-600' : 'text-blue-400 border-transparent hover:text-blue-600'}`}>
+            className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px transition-colors ${activeTab === 'specs' ? 'text-brand-700 border-brand-600' : 'text-brand-400 border-transparent hover:text-brand-600'}`}>
             Specifications
           </button>
           <button type="button" onClick={() => setActiveTab('upload')}
-            className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${activeTab === 'upload' ? 'text-blue-700 border-blue-600' : 'text-blue-400 border-transparent hover:text-blue-600'}`}>
+            className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${activeTab === 'upload' ? 'text-brand-700 border-brand-600' : 'text-brand-400 border-transparent hover:text-brand-600'}`}>
             Attachments
             {totalAttachments > 0 && (
-              <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-black flex items-center justify-center">{totalAttachments}</span>
+              <span className="w-4 h-4 rounded-full bg-brand-600 text-white text-[9px] font-black flex items-center justify-center">{totalAttachments}</span>
             )}
           </button>
         </div>
@@ -973,31 +973,31 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {isStatic && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Size <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Size <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select size…</option>
                     {fieldOpts('Static Artwork Design', 'dsw_paperSize', PAPER_SIZES_FB).map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
                     {fieldOpts('Static Artwork Design', 'dsw_orientation', ORIENTATIONS_FB).map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
                     <option value="">Select material…</option>
                     {fieldOpts('Static Artwork Design', 'dsw_material', MATERIAL_TYPES_FB).map(m => <option key={m}>{m}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Additional Specifications / Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Additional Specifications / Notes <span className="text-red-500">*</span></label>
                   <textarea rows={3} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Brand guidelines, special instructions, number of copies, reference files…"
-                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1006,25 +1006,25 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {isDigital && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Platform / Usage <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Platform / Usage <span className="text-red-500">*</span></label>
                   <input type="text" value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} placeholder="e.g. Facebook, Instagram, Website" className={inputCls} />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Asset Type <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Asset Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select type…</option>
                     {fieldOpts('Digital Design', 'dsw_orientation', ['Social Media Graphic', 'Motion Graphic / GIF', 'Digital Banner', 'Website Creative', 'Email Header', 'Other']).map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Output Dimensions <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Output Dimensions <span className="text-red-500">*</span></label>
                   <input type="text" value={values.dsw_dimensions} onChange={e => onChange('dsw_dimensions', e.target.value)} placeholder="e.g. 1080×1080 px" className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
                   <textarea rows={2} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Brand guidelines, reference links, special instructions…"
-                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1034,7 +1034,7 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Row 1: Project Category (left) | Dimensions (right) */}
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Project Category <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Project Category <span className="text-red-500">*</span></label>
                   <select
                     value={values.dsw_paperSize}
                     onChange={e => {
@@ -1050,21 +1050,21 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Output Dimensions <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Output Dimensions <span className="text-red-500">*</span></label>
                   <input type="text" value={values.dsw_dimensions} onChange={e => onChange('dsw_dimensions', e.target.value)} placeholder="e.g. 20×30 in, A2, 1920×1080 px" className={inputCls} />
                 </div>
                 {/* Row 2: Printing Process (auto, left) | Material Type (right) */}
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Printing Process <span className="text-red-500">*</span></label>
-                  <div className={`${selectCls} flex items-center gap-2 ${values.dsw_colorMode ? 'bg-blue-50' : 'bg-white'}`} style={{ cursor: 'default' }}>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Printing Process <span className="text-red-500">*</span></label>
+                  <div className={`${selectCls} flex items-center gap-2 ${values.dsw_colorMode ? 'bg-brand-50' : 'bg-white'}`} style={{ cursor: 'default' }}>
                     {values.dsw_colorMode
-                      ? <><span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" /><span className="text-blue-700 font-semibold">{values.dsw_colorMode}</span><span className="ml-auto text-[10px] text-blue-400">auto-selected</span></>
+                      ? <><span className="w-2 h-2 rounded-full bg-brand-500 shrink-0" /><span className="text-brand-700 font-semibold">{values.dsw_colorMode}</span><span className="ml-auto text-[10px] text-brand-400">auto-selected</span></>
                       : <span className="text-slate-400">Select a project category first…</span>
                     }
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
                   <select
                     value={values.dsw_material}
                     onChange={e => onChange('dsw_material', e.target.value)}
@@ -1075,10 +1075,10 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
                   <textarea rows={2} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Brand guidelines, special instructions, reference files…"
-                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1087,38 +1087,38 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {isPrinting && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Paper Size <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Paper Size <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select size…</option>
                     {fieldOpts('Printing', 'dsw_paperSize', PAPER_SIZES_FB).map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Color <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Color <span className="text-red-500">*</span></label>
                   <select value={values.dsw_colorMode} onChange={e => onChange('dsw_colorMode', e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
                     {fieldOpts('Printing', 'dsw_colorMode', ['Colored', 'B&W']).map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
                     {fieldOpts('Printing', 'dsw_orientation', ORIENTATIONS_FB).map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Material Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
                     <option value="">Select material…</option>
                     {fieldOpts('Printing', 'dsw_material', MATERIAL_TYPES_FB).map(m => <option key={m}>{m}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
                   <textarea rows={2} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Quantity, finishing (lamination, binding), delivery instructions…"
-                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1127,17 +1127,17 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {isASC && (
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Ad Type <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Ad Type <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select advertisement type…</option>
                     {fieldOpts('ASC', 'dsw_paperSize', ['TVC (TV Commercial)', 'Radio Ad', 'Print Ad', 'Out-of-Home (OOH)', 'Online Ad / Digital', 'Social Media Content', 'Other']).map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Project Brief / Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Project Brief / Notes <span className="text-red-500">*</span></label>
                   <textarea rows={4} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Describe the advertisement, target audience, message, compliance requirements, and any other relevant details for ASC submission…"
-                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1145,17 +1145,17 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {/* Audio Services */}
             {activityType === 'Audio Services' && (
               <div className="grid grid-cols-1 gap-3">
-                <div className="flex items-start gap-2.5 bg-blue-100/60 border border-blue-200 rounded-xl px-4 py-3">
-                  <svg className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="flex items-start gap-2.5 bg-brand-100/60 border border-brand-200 rounded-xl px-4 py-3">
+                  <svg className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="text-xs text-blue-700">Upload your script or voice-over brief in the <strong>Attachments</strong> tab. You may also paste a link to a shared document.</p>
+                  <p className="text-xs text-brand-700">Upload your script or voice-over brief in the <strong>Attachments</strong> tab. You may also paste a link to a shared document.</p>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Script / Production Brief <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Script / Production Brief <span className="text-red-500">*</span></label>
                   <textarea rows={4} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Describe the content: tone, target audience, key messages, reading style, estimated duration, and any special instructions for the voice talent or audio team…"
-                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1164,51 +1164,51 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {isVideoEditing && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Platform <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Platform <span className="text-red-500">*</span></label>
                   <select value={values.dsw_platform} onChange={e => onChange('dsw_platform', e.target.value)} className={selectCls}>
                     <option value="">Select platform…</option>
                     {fieldOpts('Video Editing', 'dsw_platform', ['Broadcast', 'TVCX', 'Social Media']).map(p => <option key={p}>{p}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Resolution <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Resolution <span className="text-red-500">*</span></label>
                   <select value={values.dsw_dimensions} onChange={e => onChange('dsw_dimensions', e.target.value)} className={selectCls}>
                     <option value="">Select resolution…</option>
                     {fieldOpts('Video Editing', 'dsw_dimensions', ['720p (HD)', '1080p (Full HD)', '1440p (2K)', '2160p (4K)', 'Custom']).map(r => <option key={r}>{r}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Orientation <span className="text-red-500">*</span></label>
                   <select value={values.dsw_orientation} onChange={e => onChange('dsw_orientation', e.target.value)} className={selectCls}>
                     <option value="">Select orientation…</option>
                     {fieldOpts('Video Editing', 'dsw_orientation', ['Landscape (16:9)', 'Portrait (9:16)', 'Square (1:1)']).map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Output Format <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Output Format <span className="text-red-500">*</span></label>
                   <select value={values.dsw_paperSize} onChange={e => onChange('dsw_paperSize', e.target.value)} className={selectCls}>
                     <option value="">Select format…</option>
                     {fieldOpts('Video Editing', 'dsw_paperSize', ['MP4', 'MOV', 'AVI', 'MKV', 'WebM']).map(f => <option key={f}>{f}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Duration <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Duration <span className="text-red-500">*</span></label>
                   <input type="text" value={values.dsw_colorMode} onChange={e => onChange('dsw_colorMode', e.target.value)}
                     placeholder="e.g. 2 mins, 30 sec, 1:30"
                     className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Style / Tone</label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Style / Tone</label>
                   <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
                     <option value="">Select style…</option>
                     {fieldOpts('Video Editing', 'dsw_material', ['Promotional', 'Documentary', 'Cinematic', 'Social Media Reel', 'Tutorial / How-To', 'Event Coverage', 'Music Video', 'Other']).map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
                   <textarea rows={3} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Raw footage location, editing style references, music/audio preferences, deadline, and any special instructions…"
-                    className="w-full border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
             )}
@@ -1218,21 +1218,21 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
         {/* ── Attachments Tab ── */}
         {activeTab === 'upload' && (
           <div className="space-y-4">
-            <p className="text-[11px] text-blue-600">
+            <p className="text-[11px] text-brand-600">
               Attach files or paste links to shared drives / videos. Max 3 files (up to 2 GB each).
             </p>
 
             {/* File upload */}
             {attachments.length < 3 && (
-              <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-blue-300 rounded-xl py-6 px-4 cursor-pointer hover:border-blue-500 hover:bg-blue-100/50 transition-all">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-brand-300 rounded-xl py-6 px-4 cursor-pointer hover:border-brand-500 hover:bg-brand-100/50 transition-all">
+                <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                   </svg>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-semibold text-blue-700">Click to upload files</p>
-                  <p className="text-[11px] text-blue-400 mt-0.5">{3 - attachments.length} slot{3 - attachments.length !== 1 ? 's' : ''} remaining · any file type</p>
+                  <p className="text-sm font-semibold text-brand-700">Click to upload files</p>
+                  <p className="text-[11px] text-brand-400 mt-0.5">{3 - attachments.length} slot{3 - attachments.length !== 1 ? 's' : ''} remaining · any file type</p>
                 </div>
                 <input type="file" multiple className="sr-only" onChange={handleFileChange} />
               </label>
@@ -1245,8 +1245,8 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {attachments.length > 0 && (
               <div className="space-y-2">
                 {attachments.map((file, i) => (
-                  <div key={i} className="flex items-center gap-3 bg-white border border-blue-100 rounded-xl px-3 py-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 text-[9px] font-black text-blue-600 uppercase">
+                  <div key={i} className="flex items-center gap-3 bg-white border border-brand-100 rounded-xl px-3 py-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-brand-100 flex items-center justify-center shrink-0 text-[9px] font-black text-brand-600 uppercase">
                       {file.name.split('.').pop()?.slice(0, 4) || 'FILE'}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1263,11 +1263,11 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
 
             {/* Divider + Link section */}
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-px bg-blue-200" />
-              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wide">Or paste a link</span>
-              <div className="flex-1 h-px bg-blue-200" />
+              <div className="flex-1 h-px bg-brand-200" />
+              <span className="text-[10px] font-bold text-brand-400 uppercase tracking-wide">Or paste a link</span>
+              <div className="flex-1 h-px bg-brand-200" />
             </div>
-            <p className="text-[11px] text-blue-500">File too large? Share via Google Drive, Dropbox, YouTube, or any link.</p>
+            <p className="text-[11px] text-brand-500">File too large? Share via Google Drive, Dropbox, YouTube, or any link.</p>
             <div className="flex gap-2">
               <input
                 type="url"
@@ -1275,11 +1275,11 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                 onChange={e => setLinkDraft(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLink() } }}
                 placeholder="https://drive.google.com/…"
-                className="flex-1 border border-blue-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                className="flex-1 border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
               />
               <button type="button" onClick={addLink}
                 disabled={!linkDraft.trim()}
-                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-colors shrink-0">
+                className="px-3 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-colors shrink-0">
                 Add
               </button>
             </div>
@@ -1288,11 +1288,11 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
             {fileLinks.length > 0 && (
               <div className="space-y-2">
                 {fileLinks.map((link, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-white border border-blue-100 rounded-xl px-3 py-2">
-                    <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <div key={i} className="flex items-center gap-2 bg-white border border-brand-100 rounded-xl px-3 py-2">
+                    <svg className="w-4 h-4 text-brand-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                     </svg>
-                    <a href={link} target="_blank" rel="noopener noreferrer" className="flex-1 text-xs text-blue-700 truncate hover:underline">{link}</a>
+                    <a href={link} target="_blank" rel="noopener noreferrer" className="flex-1 text-xs text-brand-700 truncate hover:underline">{link}</a>
                     <button type="button" onClick={() => removeLink(i)} className="text-slate-300 hover:text-red-400 transition-colors p-0.5">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
@@ -1617,7 +1617,7 @@ export function BookingRequestForm() {
             <p className="text-slate-500 text-sm mb-6">Your request has been sent to <span className="font-semibold text-slate-700">{submitted.approverName}</span> for approval.</p>
             <div className="bg-slate-50 rounded-2xl p-4 mb-4 border border-slate-100">
               <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-2">Reference Number</p>
-              <p className="font-mono font-black text-2xl text-blue-700 tracking-widest">{submitted.refId}</p>
+              <p className="font-mono font-black text-2xl text-brand-700 tracking-widest">{submitted.refId}</p>
               <p className="text-xs text-slate-400 mt-1">Save this for tracking your request</p>
             </div>
             <div className="mb-6 text-left">
@@ -1688,14 +1688,14 @@ export function BookingRequestForm() {
           <div className="px-6 sm:px-10 pt-4 pb-2">
             <div className="max-w-lg mx-auto">
               <button type="button" onClick={() => setPendingActivity('')}
-                className="flex items-center gap-1.5 text-blue-200 hover:text-white text-xs font-semibold transition-colors mb-4">
+                className="flex items-center gap-1.5 text-brand-200 hover:text-white text-xs font-semibold transition-colors mb-4">
                 <ArrowLeft size={14} /> Back to services
               </button>
               <div className="flex items-center gap-2 bg-white/15 border border-white/25 rounded-xl px-4 py-2.5 mb-6">
                 <span className="text-xl">{SERVICE_ICONS[pendingActivity]}</span>
                 <div>
                   <p className="text-white font-bold text-sm">{pendingActivity}</p>
-                  <p className="text-blue-200 text-xs">{SERVICE_DESC[pendingActivity]}</p>
+                  <p className="text-brand-200 text-xs">{SERVICE_DESC[pendingActivity]}</p>
                 </div>
               </div>
             </div>
@@ -1703,7 +1703,7 @@ export function BookingRequestForm() {
 
           <div className="px-6 sm:px-10 py-3 text-center">
             <h1 className="text-2xl font-black text-white mb-1">What type of {pendingActivity === 'Photo Shoot' ? 'photo' : 'video'} shoot?</h1>
-            <p className="text-blue-200 text-sm max-w-md mx-auto">This determines crew requirements and booking capacity.</p>
+            <p className="text-brand-200 text-sm max-w-md mx-auto">This determines crew requirements and booking capacity.</p>
           </div>
 
           <div className="flex-1 px-6 sm:px-10 pb-10">
@@ -1753,8 +1753,8 @@ export function BookingRequestForm() {
 
             {/* Info box */}
             <div className="max-w-lg mx-auto mt-4 flex items-start gap-2.5 bg-white/10 border border-white/20 rounded-xl px-4 py-3">
-              <Info size={14} className="text-blue-200 shrink-0 mt-0.5" />
-              <p className="text-blue-200 text-xs leading-relaxed">
+              <Info size={14} className="text-brand-200 shrink-0 mt-0.5" />
+              <p className="text-brand-200 text-xs leading-relaxed">
                 <span className="font-semibold text-white">Major</span> shoots block the date for other Major bookings on the same day.{' '}
                 <span className="font-semibold text-white">Minor</span> shoots may share availability depending on remaining capacity.
               </p>
@@ -1762,7 +1762,7 @@ export function BookingRequestForm() {
           </div>
 
           <div className="text-center py-4 border-t border-white/10">
-            <p className="text-blue-300 text-xs">Digital &amp; Arts Production (DAP) · Booking &amp; Workload Management App · {new Date().getFullYear()}</p>
+            <p className="text-brand-300 text-xs">Digital &amp; Arts Production (DAP) · Booking &amp; Workload Management App · {new Date().getFullYear()}</p>
           </div>
         </div>
       )
@@ -1775,7 +1775,7 @@ export function BookingRequestForm() {
         <StepBar page={1} />
         <div className="px-6 sm:px-10 py-5 text-center">
           <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">What service do you need?</h1>
-          <p className="text-blue-200 text-sm max-w-md mx-auto">Click a service to check availability and continue.</p>
+          <p className="text-brand-200 text-sm max-w-md mx-auto">Click a service to check availability and continue.</p>
         </div>
         <div className="flex-1 px-6 sm:px-10 pb-10">
           <div className="max-w-2xl mx-auto">
@@ -1809,14 +1809,14 @@ export function BookingRequestForm() {
             {/* Request tracker */}
             <div className="mt-2 bg-white/10 border border-white/20 rounded-2xl p-5">
               <p className="text-white font-bold text-sm mb-1">Track your request</p>
-              <p className="text-blue-200 text-xs mb-4">Enter your reference number to see the current status.</p>
+              <p className="text-brand-200 text-xs mb-4">Enter your reference number to see the current status.</p>
               <form onSubmit={handleTrack} className="flex gap-2">
                 <input value={trackRef}
                   onChange={e => { setTrackRef(e.target.value.toUpperCase()); setTrackError(''); setTrackResult(null) }}
                   placeholder="e.g. A1B2C3D4" maxLength={8}
                   className="flex-1 bg-white/20 border border-white/30 text-white placeholder-white/40 rounded-xl px-4 py-2.5 text-sm font-mono font-bold outline-none focus:border-white/60 transition-colors" />
                 <button type="submit" disabled={trackLoading}
-                  className="px-4 py-2.5 bg-white text-blue-800 font-bold text-sm rounded-xl hover:bg-blue-50 transition-colors disabled:opacity-60">
+                  className="px-4 py-2.5 bg-white text-brand-800 font-bold text-sm rounded-xl hover:bg-brand-50 transition-colors disabled:opacity-60">
                   {trackLoading ? '...' : 'Track'}
                 </button>
               </form>
@@ -1848,7 +1848,7 @@ export function BookingRequestForm() {
                     <div className="flex items-start justify-between gap-2 mb-4">
                       <div>
                         <p className="text-white text-xs font-bold uppercase tracking-wide">{trackResult.activity_type}</p>
-                        {trackResult.jo_number && <p className="text-blue-200 text-[10px] mt-0.5">Job Order: <span className="font-mono font-bold text-white">{trackResult.jo_number}</span></p>}
+                        {trackResult.jo_number && <p className="text-brand-200 text-[10px] mt-0.5">Job Order: <span className="font-mono font-bold text-white">{trackResult.jo_number}</span></p>}
                       </div>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badgeCls}`}>{displayStatus}</span>
                     </div>
@@ -1897,7 +1897,7 @@ export function BookingRequestForm() {
           </div>
         </div>
         <div className="text-center py-4 border-t border-white/10">
-          <p className="text-blue-300 text-xs">Digital &amp; Arts Production (DAP) · Booking &amp; Workload Management App · {new Date().getFullYear()}</p>
+          <p className="text-brand-300 text-xs">Digital &amp; Arts Production (DAP) · Booking &amp; Workload Management App · {new Date().getFullYear()}</p>
         </div>
       </div>
     )
@@ -1913,7 +1913,7 @@ export function BookingRequestForm() {
         <div className="px-6 sm:px-10 pt-4 pb-2">
           <div className="max-w-xl mx-auto flex items-center gap-3 flex-wrap">
             <button type="button" onClick={() => setPage(1)}
-              className="flex items-center gap-1.5 text-blue-200 hover:text-white text-xs font-semibold transition-colors">
+              className="flex items-center gap-1.5 text-brand-200 hover:text-white text-xs font-semibold transition-colors">
               <ArrowLeft size={14} /> Back
             </button>
             <div className="flex items-center gap-2 bg-white/15 border border-white/25 rounded-xl px-3 py-1.5">
@@ -1925,7 +1925,7 @@ export function BookingRequestForm() {
 
         <div className="px-6 sm:px-10 py-3 text-center">
           <h1 className="text-xl sm:text-2xl font-black text-white mb-1">When do you need it?</h1>
-          <p className="text-blue-200 text-xs">Select the date you need this artwork by.</p>
+          <p className="text-brand-200 text-xs">Select the date you need this artwork by.</p>
         </div>
 
         <div className="flex-1 px-6 sm:px-10 pb-10">
@@ -1945,7 +1945,7 @@ export function BookingRequestForm() {
         </div>
 
         <div className="text-center py-4 border-t border-white/10">
-          <p className="text-blue-300 text-xs">Digital &amp; Arts Production (DAP) · Booking &amp; Workload Management App · {new Date().getFullYear()}</p>
+          <p className="text-brand-300 text-xs">Digital &amp; Arts Production (DAP) · Booking &amp; Workload Management App · {new Date().getFullYear()}</p>
         </div>
       </div>
     )
@@ -1968,7 +1968,7 @@ export function BookingRequestForm() {
                 setPendingActivity(form.activityType as ActivityType)
               }
             }}
-              className="flex items-center gap-1.5 text-blue-200 hover:text-white text-xs font-semibold transition-colors">
+              className="flex items-center gap-1.5 text-brand-200 hover:text-white text-xs font-semibold transition-colors">
               <ArrowLeft size={14} /> Back
             </button>
             <div className="flex items-center gap-2 bg-white/15 border border-white/25 rounded-xl px-3 py-1.5">
@@ -1987,7 +1987,7 @@ export function BookingRequestForm() {
 
         <div className="px-6 sm:px-10 py-3 text-center">
           <h1 className="text-xl sm:text-2xl font-black text-white mb-1">When do you need it?</h1>
-          <p className="text-blue-200 text-xs">Pick your preferred dates from the calendar below.</p>
+          <p className="text-brand-200 text-xs">Pick your preferred dates from the calendar below.</p>
         </div>
 
         <div className="flex-1 px-6 sm:px-10 pb-10">
@@ -2015,7 +2015,7 @@ export function BookingRequestForm() {
             {/* Date & time inputs */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-4">
               <div className="flex items-center gap-2 mb-1">
-                <CalendarDays size={14} className="text-blue-500" />
+                <CalendarDays size={14} className="text-brand-500" />
                 <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Schedule Details</p>
               </div>
 
@@ -2025,7 +2025,7 @@ export function BookingRequestForm() {
                     Start Date <span className="text-red-500">*</span>
                   </label>
                   <input type="date"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400"
                     value={form.neededDate} onChange={field('neededDate')} min={todayIso} required />
                 </div>
                 <div>
@@ -2033,7 +2033,7 @@ export function BookingRequestForm() {
                     End Date <span className="text-red-500">*</span>
                   </label>
                   <input type="date"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400"
                     value={form.endDate} onChange={field('endDate')} min={form.neededDate || todayIso} required />
                 </div>
               </div>
@@ -2054,15 +2054,15 @@ export function BookingRequestForm() {
               </div>
 
               {form.neededDate && form.endDate && (
-                <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
-                  <CalendarDays size={13} className="text-blue-500 shrink-0" />
-                  <p className="text-xs text-blue-700">
+                <div className="flex items-center gap-2 bg-brand-50 border border-brand-100 rounded-xl px-3 py-2.5">
+                  <CalendarDays size={13} className="text-brand-500 shrink-0" />
+                  <p className="text-xs text-brand-700">
                     <span className="font-semibold">{new Date(form.neededDate + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     {form.endDate !== form.neededDate && (
                       <> → <span className="font-semibold">{new Date(form.endDate + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</span></>
                     )}
                     {form.startTime && form.endTime && (
-                      <span className="text-blue-500 ml-1">· {(() => {
+                      <span className="text-brand-500 ml-1">· {(() => {
                         const fmt = (t: string) => { const [h, m] = t.split(':').map(Number); const ap = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${ap}` }
                         return `${fmt(form.startTime)} – ${fmt(form.endTime)}`
                       })()}</span>
@@ -2082,7 +2082,7 @@ export function BookingRequestForm() {
         </div>
 
         <div className="text-center py-4 border-t border-white/10">
-          <p className="text-blue-300 text-xs">Digital &amp; Arts Production (DAP) · Booking &amp; Workload Management App · {new Date().getFullYear()}</p>
+          <p className="text-brand-300 text-xs">Digital &amp; Arts Production (DAP) · Booking &amp; Workload Management App · {new Date().getFullYear()}</p>
         </div>
       </div>
     )
@@ -2097,7 +2097,7 @@ export function BookingRequestForm() {
       <div className="px-6 sm:px-10 pt-4 pb-2">
         <div className="max-w-2xl mx-auto flex items-center gap-3 flex-wrap">
           <button type="button" onClick={() => setPage(2)}
-            className="flex items-center gap-1.5 text-blue-200 hover:text-white text-xs font-semibold transition-colors">
+            className="flex items-center gap-1.5 text-brand-200 hover:text-white text-xs font-semibold transition-colors">
             <ArrowLeft size={14} /> Back
           </button>
           <div className="flex items-center gap-2 bg-white/15 border border-white/25 rounded-xl px-3 py-1.5">
@@ -2111,7 +2111,7 @@ export function BookingRequestForm() {
           </div>
           {form.neededDate && (
             <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-xl px-3 py-1.5">
-              <CalendarDays size={11} className="text-blue-200" />
+              <CalendarDays size={11} className="text-brand-200" />
               <span className="text-white text-xs font-semibold">
                 {new Date(form.neededDate + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}
                 {form.endDate && form.endDate !== form.neededDate && ` → ${new Date(form.endDate + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}`}
@@ -2150,7 +2150,7 @@ export function BookingRequestForm() {
                   Project Name <span className="text-red-500">*</span>
                 </label>
                 <input type="text"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
                   placeholder="Name or title of your project / activity"
                   value={form.projectName} onChange={field('projectName')} autoFocus required />
                 {form.activityType === 'Video Editing' && (
@@ -2182,14 +2182,14 @@ export function BookingRequestForm() {
                   Requesting Department <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white"
                   value={form.department} onChange={field('department')} required>
                   <option value="">Select department…</option>
                   {departments.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
                 {form.department === 'Other' && (
                   <input type="text"
-                    className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                    className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
                     placeholder="Enter your department name"
                     value={form.departmentOther} onChange={field('departmentOther')} required />
                 )}
@@ -2199,7 +2199,7 @@ export function BookingRequestForm() {
                   Department Local <span className="text-red-500">*</span>
                 </label>
                 <input type="text"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
                   placeholder="e.g. local 1234"
                   value={form.departmentLocal} onChange={field('departmentLocal')} required />
               </div>
@@ -2212,7 +2212,7 @@ export function BookingRequestForm() {
                   Requestor Name <span className="text-red-500">*</span>
                 </label>
                 <input type="text"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
                   placeholder="Full name of the requestor"
                   value={form.requestorName} onChange={field('requestorName')} required />
               </div>
@@ -2221,7 +2221,7 @@ export function BookingRequestForm() {
                   Requestor Email <span className="text-red-500">*</span>
                 </label>
                 <input type="email"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
                   placeholder="requestor@company.com"
                   value={form.requestorEmail} onChange={field('requestorEmail')} required />
               </div>
@@ -2234,7 +2234,7 @@ export function BookingRequestForm() {
                 <span className="ml-1.5 text-[10px] font-normal normal-case text-slate-400">— name of the person encoding this form</span>
               </label>
               <input type="text"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
                 placeholder="Full name of encoder"
                 value={form.preparedBy} onChange={field('preparedBy')} required />
             </div>
@@ -2266,9 +2266,9 @@ export function BookingRequestForm() {
                   }
                 />
               )}
-              <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mt-2">
-                <Info size={13} className="text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-blue-700 leading-relaxed">
+              <div className="flex items-start gap-2.5 bg-brand-50 border border-brand-100 rounded-xl px-4 py-3 mt-2">
+                <Info size={13} className="text-brand-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-brand-700 leading-relaxed">
                   Your request will first be sent to{' '}
                   <span className="font-semibold">{form.approverName || 'your selected approver'}</span> for confirmation before the DAP team proceeds.
                 </p>
@@ -2282,7 +2282,7 @@ export function BookingRequestForm() {
                   Venue / Location <span className="text-red-500">*</span>
                 </label>
                 <input type="text"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
                   placeholder="Where will the activity be held?"
                   value={form.venue} onChange={field('venue')} required />
               </div>
@@ -2295,7 +2295,7 @@ export function BookingRequestForm() {
                   Type of Shoot <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white"
                   value={form.dsw_shootTypeDetail} onChange={field('dsw_shootTypeDetail')} required>
                   <option value="">Select type of shoot…</option>
                   {opts('Video Shoot', 'dsw_shootTypeDetail', ['Stream', 'BTS (Behind the Scenes)']).map(t => <option key={t}>{t}</option>)}
@@ -2310,7 +2310,7 @@ export function BookingRequestForm() {
                   Additional Notes <span className="text-red-500">*</span>
                 </label>
                 <textarea rows={4}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 resize-none"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none"
                   placeholder="Special requirements, expected deliverables, creative direction, reference materials, or any details the DAP team should know…"
                   value={form.notes} onChange={field('notes')} required />
                 <p className="text-[10px] text-slate-400 mt-1">Be as specific as possible to reduce clarification rounds.</p>
@@ -2341,7 +2341,7 @@ export function BookingRequestForm() {
       </div>
 
       <div className="text-center py-4 border-t border-white/10">
-        <p className="text-blue-300 text-xs">Digital &amp; Arts Production (DAP) · Booking &amp; Workload Management App · {new Date().getFullYear()}</p>
+        <p className="text-brand-300 text-xs">Digital &amp; Arts Production (DAP) · Booking &amp; Workload Management App · {new Date().getFullYear()}</p>
       </div>
     </div>
   )

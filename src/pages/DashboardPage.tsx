@@ -19,8 +19,8 @@ const MONTHS_FULL = ['January','February','March','April','May','June','July','A
 
 const statusBadge: Record<JOStatus, string> = {
   'Pending':     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
-  'Approved':    'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  'Scheduled':   'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+  'Approved':    'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
+  'Scheduled':   'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
   'For Review':     'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
   'Needs Revision': 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
   'Completed':      'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
@@ -294,7 +294,7 @@ export function DashboardPage() {
 
           {/* ── Date range filter ── */}
           <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 shadow-sm">
-            <CalendarDays size={13} className="text-blue-500 shrink-0" />
+            <CalendarDays size={13} className="text-brand-500 shrink-0" />
             {/* FROM */}
             <select
               value={fromMonth}
@@ -358,7 +358,7 @@ export function DashboardPage() {
         {/* Total JOs — hero card */}
         <div className="kpi-card-hero col-span-2 lg:col-span-1 cursor-pointer" onClick={() => setView('joborders')}>
           <div className="flex items-start justify-between mb-4">
-            <p className="text-sm font-semibold text-blue-200">Total JOs</p>
+            <p className="text-sm font-semibold text-brand-200">Total JOs</p>
             <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
               <ArrowUpRight size={16} className="text-white" />
             </div>
@@ -375,14 +375,14 @@ export function DashboardPage() {
         <div className="kpi-card cursor-pointer hover:shadow-md transition-shadow" onClick={() => setView('kanban')}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Active</p>
-            <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-              <Zap size={14} className="text-blue-600 dark:text-blue-400" />
+            <div className="w-7 h-7 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center">
+              <Zap size={14} className="text-brand-600 dark:text-brand-400" />
             </div>
           </div>
           <p className="text-3xl font-black text-slate-900 dark:text-slate-100">{activeJOs}</p>
           <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">In pipeline</p>
           <div className="mt-3 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-blue-500 transition-all duration-700"
+            <div className="h-full rounded-full bg-brand-500 transition-all duration-700"
               style={{ width: `${totalJOs > 0 ? (activeJOs / totalJOs) * 100 : 0}%` }} />
           </div>
         </div>
@@ -537,7 +537,7 @@ export function DashboardPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
-              <Users size={14} className="text-blue-500" />
+              <Users size={14} className="text-brand-500" />
               Capacity &amp; Resource Load
             </h3>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
@@ -639,7 +639,7 @@ export function DashboardPage() {
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <CalendarClock size={15} className="text-blue-600 dark:text-blue-400" />
+              <CalendarClock size={15} className="text-brand-600 dark:text-brand-400" />
               <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Today's Schedule Snapshot</h3>
             </div>
             <button onClick={() => setView('calendar')} className="btn-ghost">
@@ -747,7 +747,7 @@ export function DashboardPage() {
             </BarChart>
           </ResponsiveContainer>
           <div className="flex items-center gap-4 mt-1">
-            <span className="flex items-center gap-1.5 text-[10px] text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-blue-600 inline-block" />Submitted</span>
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-brand-600 inline-block" />Submitted</span>
             <span className="flex items-center gap-1.5 text-[10px] text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />Completed</span>
           </div>
         </div>

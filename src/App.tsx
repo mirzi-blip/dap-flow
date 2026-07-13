@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+﻿import { useEffect } from 'react'
 import { useAppStore, useDataStore } from './store/useAppStore'
 import { db } from './db/database'
 import { supabase, rowToRequest, rowToJobOrder } from './lib/supabase'
@@ -269,7 +269,7 @@ export default function App() {
                 setShowPasswordExpiry(false)
                 setView('settings')
               }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors"
             >
               Change Password →
             </button>
@@ -278,8 +278,8 @@ export default function App() {
       </div>
     )}
     {requestAlert && (
-      <div className="fixed bottom-5 right-5 z-[9999] w-80 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 rounded-2xl shadow-2xl overflow-hidden animate-slide-in">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-2.5 flex items-center justify-between">
+      <div className="fixed bottom-5 right-5 z-[9999] w-80 bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700 rounded-2xl shadow-2xl overflow-hidden animate-slide-in">
+        <div className="bg-gradient-to-r from-brand-600 to-brand-500 px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
             <p className="text-white text-xs font-bold uppercase tracking-wide">New Booking Request</p>
@@ -294,7 +294,7 @@ export default function App() {
         <div className="px-4 pb-3 flex gap-2">
           <button
             onClick={() => { setView('joborders'); setRequestAlert(null) }}
-            className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors"
+            className="flex-1 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-colors"
           >
             Review Request →
           </button>

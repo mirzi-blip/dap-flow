@@ -24,11 +24,11 @@ export function LoginPage() {
     <div className="min-h-screen bg-[#F4F6FA] flex flex-col lg:flex-row">
 
       {/* ── Left panel (brand) — hidden on small screens ─────── */}
-      <div className="hidden lg:flex lg:w-[42%] xl:w-[45%] bg-gradient-to-br from-blue-950 via-blue-800 to-blue-600 flex-col justify-between p-10 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-[42%] xl:w-[45%] bg-gradient-to-br from-brand-950 via-brand-800 to-brand-600 flex-col justify-between p-10 relative overflow-hidden">
         {/* Decorative circles */}
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
         <div className="absolute -bottom-32 -left-20 w-80 h-80 rounded-full bg-white/5" />
-        <div className="absolute top-1/3 right-8 w-48 h-48 rounded-full bg-blue-400/10" />
+        <div className="absolute top-1/3 right-8 w-48 h-48 rounded-full bg-brand-400/10" />
 
         {/* Logo */}
         <div className="relative">
@@ -36,7 +36,7 @@ export function LoginPage() {
             <img src="/favicon.svg" alt="DAP Flow" className="w-10 h-10 rounded-xl" />
             <div>
               <p className="text-white font-black text-lg leading-none tracking-tight">DAP Flow</p>
-              <p className="text-blue-300 text-[11px] mt-0.5 uppercase tracking-widest">Booking &amp; Workload</p>
+              <p className="text-brand-300 text-[11px] mt-0.5 uppercase tracking-widest">Booking &amp; Workload</p>
             </div>
           </div>
         </div>
@@ -45,9 +45,9 @@ export function LoginPage() {
         <div className="relative">
           <h1 className="text-4xl xl:text-5xl font-black text-white leading-tight">
             Booking &<br />Workload<br />
-            <span className="text-sky-300">Management</span>
+            <span className="text-brand-300">Management</span>
           </h1>
-          <p className="text-blue-200 mt-4 text-base leading-relaxed max-w-xs">
+          <p className="text-brand-200 mt-4 text-base leading-relaxed max-w-xs">
             Plan, schedule, and execute studio productions with full team visibility — even offline.
           </p>
 
@@ -62,7 +62,7 @@ export function LoginPage() {
         </div>
 
         {/* Footer */}
-        <p className="relative text-blue-400 text-xs">DAP Booking &amp; Workload System · Working Title: DAP Flow · v1.0</p>
+        <p className="relative text-brand-400 text-xs">DAP Booking &amp; Workload System · Working Title: DAP Flow · v1.0</p>
       </div>
 
       {/* ── Right panel (form) ───────────────────────────────── */}
@@ -96,7 +96,7 @@ export function LoginPage() {
                   onChange={e => setEmail(e.target.value)}
                   required
                   placeholder="you@dapflow.com"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 pl-10 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all shadow-sm"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 pl-10 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 transition-all shadow-sm"
                 />
               </div>
             </div>
@@ -111,7 +111,7 @@ export function LoginPage() {
                   onChange={e => setPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 pl-10 pr-10 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all shadow-sm"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 pl-10 pr-10 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 transition-all shadow-sm"
                 />
                 <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
                   {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -129,7 +129,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm transition-colors shadow-sm shadow-blue-200 flex items-center justify-center gap-2"
+              className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm transition-colors shadow-sm shadow-brand-200 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <span className="flex items-center gap-2">

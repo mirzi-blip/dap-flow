@@ -1,4 +1,4 @@
-import {
+﻿import {
   LayoutDashboard, CalendarRange, FileText, Workflow, GanttChartSquare,
   TrendingUp, SlidersHorizontal, LogOut, Wifi, WifiOff,
   Camera, Aperture, X,
@@ -54,19 +54,19 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       lg:relative lg:translate-x-0
       ${open ? 'translate-x-0 slide-in-left' : '-translate-x-full'}
     `}
-      style={{ background: 'linear-gradient(160deg, #0f1e3d 0%, #102354 40%, #0d2966 100%)' }}
+      style={{ background: 'linear-gradient(160deg, #111D3B 0%, #1B2F5E 45%, #24346B 100%)' }}
     >
 
       {/* ── Logo ─────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 pt-5 pb-4">
         <div className="flex items-center gap-3">
-          <img src="/favicon.svg" alt="DAP Flow" className="w-10 h-10 shrink-0 rounded-xl shadow-lg shadow-blue-900/30" />
+          <img src="/favicon.svg" alt="DAP Flow" className="w-10 h-10 shrink-0 rounded-xl shadow-lg shadow-brand-900/30" />
           <div>
             <p className="font-black text-sm tracking-tight leading-none text-white">DAP Flow</p>
-            <p className="text-[9px] text-blue-300/70 uppercase tracking-[0.14em] mt-0.5">Booking &amp; Workload</p>
+            <p className="text-[9px] text-brand-300/70 uppercase tracking-[0.14em] mt-0.5">Booking &amp; Workload</p>
           </div>
         </div>
-        <button onClick={onClose} className="lg:hidden p-1.5 text-blue-300/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+        <button onClick={onClose} className="lg:hidden p-1.5 text-brand-300/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
           <X size={16} />
         </button>
       </div>
@@ -77,7 +77,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       <nav className="flex-1 px-2 py-3 overflow-y-auto">
         {NAV_GROUPS.map(group => (
           <div key={group.label}>
-            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-blue-300/40 px-3 mb-1 mt-5 block">
+            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-brand-300/40 px-3 mb-1 mt-5 block">
               {group.label}
             </span>
             {group.items.filter(item => canViewModule(item.module)).map(({ id, label, icon: Icon }) => {
@@ -89,22 +89,22 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mb-0.5 ${
                     active
                       ? 'bg-white/15 text-white shadow-sm'
-                      : 'text-blue-200/70 hover:text-white'
+                      : 'text-brand-200/70 hover:text-white'
                   }`}
                   style={active ? { boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.12)' } : undefined}
                   onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.07)' }}
                   onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = '' }}
                 >
                   {active && (
-                    <span className="absolute left-0 w-1 h-6 rounded-r-full bg-green-400 shadow-[0_0_8px_rgba(57,181,74,0.8)]" />
+                    <span className="absolute left-0 w-1 h-6 rounded-r-full bg-brand-400 shadow-[0_0_8px_rgba(139,159,232,0.8)]" />
                   )}
                   <Icon
                     size={16}
                     strokeWidth={active ? 2.5 : 2}
-                    className={active ? 'text-blue-300' : 'text-blue-400/50'}
+                    className={active ? 'text-brand-300' : 'text-brand-400/50'}
                   />
                   <span className={active ? 'font-semibold' : ''}>{label}</span>
-                  {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-green-400 pulse-dot shadow-[0_0_6px_rgba(57,181,74,0.9)]" />}
+                  {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-brand-400 pulse-dot shadow-[0_0_6px_rgba(139,159,232,0.9)]" />}
                 </button>
               )
             })}
@@ -138,12 +138,12 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-white truncate">{currentUser?.name}</p>
-            <p className="text-[10px] text-blue-300/60 truncate">{currentUser?.role}</p>
+            <p className="text-[10px] text-brand-300/60 truncate">{currentUser?.role}</p>
           </div>
           <button
             onClick={logout}
             title="Sign out"
-            className="p-1.5 text-blue-300/40 hover:text-red-400 hover:bg-red-500/15 rounded-lg transition-colors"
+            className="p-1.5 text-brand-300/40 hover:text-red-400 hover:bg-red-500/15 rounded-lg transition-colors"
           >
             <LogOut size={13} />
           </button>

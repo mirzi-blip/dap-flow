@@ -45,8 +45,8 @@ interface Comment { id: string; text: string; author: string; createdAt: string 
 
 const STATUS_COLORS: Record<JOStatus, string> = {
   'Pending':     'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
-  'Approved':    'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  'Scheduled':   'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+  'Approved':    'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
+  'Scheduled':   'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
   'For Review':     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   'Needs Revision': 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
   'Completed':      'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
@@ -824,8 +824,8 @@ export function JobOrdersPage() {
   function SortIcon({ col }: { col: SortCol }) {
     if (sortCol !== col) return <ChevronUp size={11} className="opacity-20 inline ml-0.5" />
     return sortDir === 'asc'
-      ? <ChevronUp size={11} className="inline ml-0.5 text-blue-500" />
-      : <ChevronDown size={11} className="inline ml-0.5 text-blue-500" />
+      ? <ChevronUp size={11} className="inline ml-0.5 text-brand-500" />
+      : <ChevronDown size={11} className="inline ml-0.5 text-brand-500" />
   }
 
   const sortableHeaders: { label: string; col: SortCol | null }[] = [
@@ -848,7 +848,7 @@ export function JobOrdersPage() {
           onClick={() => setPageTab('list')}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all -mb-px ${
             pageTab === 'list'
-              ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+              ? 'border-brand-600 text-brand-700 dark:text-brand-400'
               : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
           }`}
         >
@@ -860,7 +860,7 @@ export function JobOrdersPage() {
             onClick={() => setPageTab('requests')}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all -mb-px ${
               pageTab === 'requests'
-                ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+                ? 'border-brand-600 text-brand-700 dark:text-brand-400'
                 : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
@@ -880,13 +880,13 @@ export function JobOrdersPage() {
         <div className="space-y-5">
           {/* Public Booking Link card — Admin/DAP only */}
           {canSeeRequests && (
-            <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl px-5 py-4">
-              <ClipboardList size={18} className="text-blue-500 dark:text-blue-400 shrink-0" />
+            <div className="flex items-center gap-3 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-2xl px-5 py-4">
+              <ClipboardList size={18} className="text-brand-500 dark:text-brand-400 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide mb-0.5">
+                <p className="text-xs font-bold text-brand-700 dark:text-brand-300 uppercase tracking-wide mb-0.5">
                   Public Booking Link
                 </p>
-                <p className="text-sm font-mono text-blue-600 dark:text-blue-400 truncate">
+                <p className="text-sm font-mono text-brand-600 dark:text-brand-400 truncate">
                   {BOOKING_URL}
                 </p>
               </div>
@@ -895,7 +895,7 @@ export function JobOrdersPage() {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
                   linkCopied
                     ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                    : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60'
+                    : 'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 hover:bg-brand-200 dark:hover:bg-brand-900/60'
                 }`}
               >
                 {linkCopied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
@@ -1139,7 +1139,7 @@ export function JobOrdersPage() {
                             key={r.id}
                             className={`flex items-start gap-2.5 cursor-pointer p-2.5 rounded-xl transition-colors border ${
                               selected
-                                ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700'
+                                ? 'bg-brand-50 dark:bg-brand-900/30 border-brand-300 dark:border-brand-700'
                                 : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                             }`}
                           >
@@ -1147,7 +1147,7 @@ export function JobOrdersPage() {
                               type="checkbox"
                               checked={selected}
                               onChange={() => toggleMember(r.id)}
-                              className="mt-0.5 accent-blue-600"
+                              className="mt-0.5 accent-brand-600"
                             />
                             <span className={`w-8 h-8 rounded-full ${r.color} flex items-center justify-center text-white text-[11px] font-bold shrink-0`}>
                               {r.initials}
@@ -1242,7 +1242,7 @@ export function JobOrdersPage() {
         <div className="relative flex-1 min-w-[200px]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
-            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm"
             placeholder="Search JOs, projects, campaigns…"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -1262,7 +1262,7 @@ export function JobOrdersPage() {
         ] as const).map(([val, setter, options, placeholder], i) => (
           <select
             key={i}
-            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-700 dark:text-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-700 dark:text-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             value={val as string}
             onChange={(e) => (setter as (v: string) => void)(e.target.value)}
           >
@@ -1281,7 +1281,7 @@ export function JobOrdersPage() {
       {/* Count */}
       <p className="text-sm text-slate-500 dark:text-slate-400">
         Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{filtered.length}</span> of {jobOrders.length} job orders
-        {search && <span className="ml-1 text-blue-600 dark:text-blue-400">· filtered by "{search}"</span>}
+        {search && <span className="ml-1 text-brand-600 dark:text-brand-400">· filtered by "{search}"</span>}
       </p>
 
       {/* Table */}
@@ -1321,7 +1321,7 @@ export function JobOrdersPage() {
                       onClick={() => openDetail(jo)}
                     >
                       <td className="px-4 py-3">
-                        <span className="font-mono text-xs text-blue-600 dark:text-blue-400 font-medium block">
+                        <span className="font-mono text-xs text-brand-600 dark:text-brand-400 font-medium block">
                           {jo.joNumber}
                         </span>
                         {(() => {
@@ -1404,11 +1404,11 @@ export function JobOrdersPage() {
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                 confirmAction.type === 'cancel'
                   ? 'bg-red-100 dark:bg-red-900/30'
-                  : 'bg-blue-100 dark:bg-blue-900/30'
+                  : 'bg-brand-100 dark:bg-brand-900/30'
               }`}>
                 {confirmAction.type === 'cancel'
                   ? <Trash2 size={18} className="text-red-600 dark:text-red-400" />
-                  : <CheckCircle2 size={18} className="text-blue-600 dark:text-blue-400" />
+                  : <CheckCircle2 size={18} className="text-brand-600 dark:text-brand-400" />
                 }
               </div>
               <div>
@@ -1437,7 +1437,7 @@ export function JobOrdersPage() {
                 placeholder="Add a note about this status change…"
                 rows={3}
                 autoFocus
-                className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder-slate-400"
+                className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none placeholder-slate-400"
               />
             </div>
 
@@ -1454,7 +1454,7 @@ export function JobOrdersPage() {
                 className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   confirmAction.type === 'cancel'
                     ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-brand-600 hover:bg-brand-700'
                 }`}
               >
                 {confirmAction.type === 'schedule' && 'Yes, Schedule'}
@@ -1533,7 +1533,7 @@ export function JobOrdersPage() {
               {canEdit && !editMode && selectedJO.status !== 'Completed' && selectedJO.status !== 'Cancelled' && (
                 <button
                   onClick={() => { setEditMode(true); setDetailTab('overview') }}
-                  className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 px-3 py-1.5 rounded-xl transition-colors border border-blue-200 dark:border-blue-800"
+                  className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 px-3 py-1.5 rounded-xl transition-colors border border-brand-200 dark:border-brand-800"
                 >
                   <Pencil size={12} /> Edit JO
                 </button>
@@ -1543,7 +1543,7 @@ export function JobOrdersPage() {
                   <button onClick={() => setEditMode(false)} className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                     Cancel
                   </button>
-                  <button onClick={handleEditSave} className="flex items-center gap-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-xl transition-colors">
+                  <button onClick={handleEditSave} className="flex items-center gap-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-xl transition-colors">
                     <Check size={12} /> Save Changes
                   </button>
                 </div>
@@ -1562,7 +1562,7 @@ export function JobOrdersPage() {
                 return (
                   <button key={id} onClick={() => setDetailTab(id)}
                     className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-all -mb-px ${
-                      active ? 'border-blue-600 text-blue-700 dark:text-blue-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                      active ? 'border-brand-600 text-brand-700 dark:text-brand-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
                     }`}
                   >
                     <Icon size={13} />{label}
@@ -1651,12 +1651,12 @@ export function JobOrdersPage() {
                     const srcReq = bookingRequests.find(r => r.joId === selectedJO.id)
                     if (!srcReq) return null
                     return (
-                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-3">
-                        <p className="text-[10px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-wide mb-2">Source Booking Request</p>
+                      <div className="bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-800 rounded-xl p-3">
+                        <p className="text-[10px] font-bold text-brand-500 dark:text-brand-400 uppercase tracking-wide mb-2">Source Booking Request</p>
                         <div className="flex items-center justify-between gap-3 flex-wrap">
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-slate-500 dark:text-slate-400">REF#</span>
-                            <span className="font-mono font-black text-sm text-blue-700 dark:text-blue-300 tracking-widest">
+                            <span className="font-mono font-black text-sm text-brand-700 dark:text-brand-300 tracking-widest">
                               {srcReq.id.slice(0, 8).toUpperCase()}
                             </span>
                           </div>
@@ -1667,7 +1667,7 @@ export function JobOrdersPage() {
                             </span>
                           </div>
                         </div>
-                        <div className="mt-2 pt-2 border-t border-blue-100 dark:border-blue-800 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                        <div className="mt-2 pt-2 border-t border-brand-100 dark:border-brand-800 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
                           <span className="text-slate-400 dark:text-slate-500">Requested by</span>
                           <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.preparedBy}</span>
                           <span className="text-slate-400 dark:text-slate-500">Department</span>
@@ -1763,7 +1763,7 @@ export function JobOrdersPage() {
                       )}
                       {selectedJO.completionFileUrl && (
                         <a href={selectedJO.completionFileUrl} target="_blank" rel="noreferrer" download
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                          className="inline-flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 hover:underline">
                           <Paperclip size={11} /> Download attachment
                         </a>
                       )}
@@ -1794,7 +1794,7 @@ export function JobOrdersPage() {
                             <div className="flex items-start justify-between gap-2">
                               <div>
                                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                                  Status changed to <span className="text-blue-600 dark:text-blue-400">{log.toStatus}</span>
+                                  Status changed to <span className="text-brand-600 dark:text-brand-400">{log.toStatus}</span>
                                 </p>
                                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                                   from <span className="font-medium">{log.fromStatus}</span> · by {log.changedBy}
@@ -1826,7 +1826,7 @@ export function JobOrdersPage() {
                   <div className="grid grid-cols-5 gap-2">
                     <input value={newLink.label} onChange={e => setNewLink(l => ({ ...l, label: e.target.value }))} placeholder="Label (optional)" className="form-input col-span-2 text-xs" />
                     <input value={newLink.url} onChange={e => setNewLink(l => ({ ...l, url: e.target.value }))} placeholder="https://..." className="form-input col-span-2 text-xs" />
-                    <button onClick={addFileRef} className="flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors">
+                    <button onClick={addFileRef} className="flex items-center justify-center gap-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-colors">
                       <Link2 size={13} /> Add
                     </button>
                   </div>
@@ -1838,9 +1838,9 @@ export function JobOrdersPage() {
                   <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
                   <button
                     onClick={() => { setFileUploadError(''); fileInputRef.current?.click() }}
-                    className="flex items-center gap-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 text-slate-700 dark:text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
+                    className="flex items-center gap-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-brand-400 dark:hover:border-brand-500 text-slate-700 dark:text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
                   >
-                    <Upload size={13} className="text-blue-500" /> Choose File to Upload
+                    <Upload size={13} className="text-brand-500" /> Choose File to Upload
                   </button>
                   {fileUploadError && <p className="text-xs text-red-600 dark:text-red-400">{fileUploadError}</p>}
                 </div>
@@ -1852,10 +1852,10 @@ export function JobOrdersPage() {
                   <div className="space-y-2">
                     {joFiles.map(ref => (
                       <div key={ref.id} className="flex items-center gap-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 group">
-                        {ref.isFile ? <Paperclip size={14} className="text-emerald-500 shrink-0" /> : <Link2 size={14} className="text-blue-500 shrink-0" />}
+                        {ref.isFile ? <Paperclip size={14} className="text-emerald-500 shrink-0" /> : <Link2 size={14} className="text-brand-500 shrink-0" />}
                         <div className="flex-1 min-w-0">
                           <a href={ref.url} target="_blank" rel="noopener noreferrer" download={ref.isFile ? ref.label : undefined}
-                            className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline truncate block" onClick={e => e.stopPropagation()}>
+                            className="text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline truncate block" onClick={e => e.stopPropagation()}>
                             {ref.label}
                           </a>
                           <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
@@ -1883,7 +1883,7 @@ export function JobOrdersPage() {
                     </div>
                   ) : joComments.map(c => (
                     <div key={c.id} className="flex gap-3">
-                      <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-blue-500 to-blue-500 flex items-center justify-center text-[10px] font-black text-white shrink-0 mt-0.5">
+                      <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-brand-500 to-brand-500 flex items-center justify-center text-[10px] font-black text-white shrink-0 mt-0.5">
                         {c.author.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)}
                       </div>
                       <div className="flex-1 bg-slate-50 dark:bg-slate-700/40 rounded-xl px-3 py-2.5">
@@ -1901,7 +1901,7 @@ export function JobOrdersPage() {
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment() } }}
                     placeholder="Add a comment… (Enter to submit)" className="form-input flex-1 text-sm" />
                   <button onClick={addComment} disabled={!newComment.trim()}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 text-white disabled:text-slate-400 rounded-xl transition-colors">
+                    className="px-3 py-2 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 text-white disabled:text-slate-400 rounded-xl transition-colors">
                     <Send size={14} />
                   </button>
                 </div>
@@ -2075,7 +2075,7 @@ export function JobOrdersPage() {
                     <button
                       onClick={() => completionFileRef.current?.click()}
                       disabled={completionLoading}
-                      className="w-full flex items-center gap-2 justify-center border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-xl py-3 text-xs text-slate-400 dark:text-slate-500 hover:border-blue-300 dark:hover:border-blue-600 hover:text-blue-500 dark:hover:text-blue-400 transition-colors disabled:pointer-events-none"
+                      className="w-full flex items-center gap-2 justify-center border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-xl py-3 text-xs text-slate-400 dark:text-slate-500 hover:border-brand-300 dark:hover:border-brand-600 hover:text-brand-500 dark:hover:text-brand-400 transition-colors disabled:pointer-events-none"
                     >
                       <Upload size={14} /> Click to attach a file
                     </button>
@@ -2083,9 +2083,9 @@ export function JobOrdersPage() {
                 </div>
 
                 {/* ── Email notice ── */}
-                <div className="flex items-start gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-3 py-2.5">
-                  <Send size={12} className="text-blue-500 dark:text-blue-400 mt-0.5 shrink-0" />
-                  <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                <div className="flex items-start gap-2 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-xl px-3 py-2.5">
+                  <Send size={12} className="text-brand-500 dark:text-brand-400 mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-brand-700 dark:text-brand-300 leading-relaxed">
                     A completion email will automatically be sent to the requestor after saving (if a linked booking request exists).
                   </p>
                 </div>
@@ -2150,7 +2150,7 @@ function RequestCard({ req, canSeeRequests, onReview, onDelete }: RequestCardPro
   const statusStyles: Record<BookingRequestStatus, string> = {
     'Pending Approval': 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
     'Pending Review': 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
-    'Assigned':       'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+    'Assigned':       'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
     'Approved':       'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
     'Rejected':       'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
   }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -76,8 +76,8 @@ function KpiCard({
 function SectionHeader({ icon: Icon, title, subtitle, iconColor }: { icon: React.ElementType; title: string; subtitle?: string; iconColor?: string }) {
   return (
     <div className="flex items-center gap-3 mb-4">
-      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${iconColor ?? 'bg-blue-100 dark:bg-blue-900/40'}`}>
-        <Icon size={16} className={iconColor ? 'text-white' : 'text-blue-600 dark:text-blue-400'} />
+      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${iconColor ?? 'bg-brand-100 dark:bg-brand-900/40'}`}>
+        <Icon size={16} className={iconColor ? 'text-white' : 'text-brand-600 dark:text-brand-400'} />
       </div>
       <div>
         <h2 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{title}</h2>
@@ -271,7 +271,7 @@ export function ReportsPage() {
           <select
             value={filterYear}
             onChange={e => setFilterYear(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
           >
             <option value="all">All Years</option>
             {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
@@ -279,7 +279,7 @@ export function ReportsPage() {
           <select
             value={filterMonth}
             onChange={e => setFilterMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
           >
             <option value="all">All Months</option>
             {MONTHS_SHORT.map((m, i) => <option key={m} value={i}>{m}</option>)}
@@ -287,7 +287,7 @@ export function ReportsPage() {
           {isFiltered && (
             <button
               onClick={() => { setFilterYear('all'); setFilterMonth('all') }}
-              className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+              className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
             >
               <X size={12} />
               Clear
@@ -296,7 +296,7 @@ export function ReportsPage() {
         </div>
         <div className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
           isFiltered
-            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+            ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400'
             : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
         }`}>
           {filterLabel} · {globalFilteredJOs.length} JOs
@@ -312,7 +312,7 @@ export function ReportsPage() {
           label="Execution Index"
           value={summary.executionIndex}
           sub="Composite performance score"
-          color="text-blue-600 dark:text-blue-400"
+          color="text-brand-600 dark:text-brand-400"
           icon={Target}
           trend={summary.executionIndex >= 70 ? 'up' : 'down'}
         />
@@ -531,7 +531,7 @@ export function ReportsPage() {
         <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
           <SectionHeader icon={Users} title="Individual Resource Load" subtitle={`Active JO workload per team member · ${filterLabel}`} />
           {isFiltered && (
-            <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+            <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400">
               Filtered: {filterLabel}
             </span>
           )}
@@ -571,17 +571,17 @@ export function ReportsPage() {
       </div>
 
       {/* Execution index hero */}
-      <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-500 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+      <div className="bg-gradient-to-r from-brand-600 via-brand-700 to-brand-500 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none" />
         <div className="absolute bottom-0 left-20 w-40 h-40 bg-white/5 rounded-full translate-y-1/2 pointer-events-none" />
         <div className="relative flex items-center justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Zap size={16} className="text-blue-300" />
-              <p className="text-blue-200 text-sm font-semibold">DAP Execution Index · {filterLabel}</p>
+              <Zap size={16} className="text-brand-300" />
+              <p className="text-brand-200 text-sm font-semibold">DAP Execution Index · {filterLabel}</p>
             </div>
             <p className="text-7xl font-black leading-none">{summary.executionIndex}</p>
-            <p className="text-blue-200 text-xs mt-2">60% on-time delivery · 40% completion rate</p>
+            <p className="text-brand-200 text-xs mt-2">60% on-time delivery · 40% completion rate</p>
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 space-y-2.5 text-sm min-w-[200px]">
             {[
@@ -592,7 +592,7 @@ export function ReportsPage() {
               { label: 'Cancelled', val: summary.cancelled, icon: AlertTriangle, warn: summary.cancelled > 0 },
             ].map(({ label, val, icon: Icon, warn }) => (
               <div key={label} className="flex items-center justify-between gap-6">
-                <div className="flex items-center gap-1.5 text-blue-200">
+                <div className="flex items-center gap-1.5 text-brand-200">
                   <Icon size={12} />
                   <span>{label}</span>
                 </div>

@@ -27,8 +27,8 @@ const COLUMNS: { status: JOStatus; label: string; hex: string }[] = [
 
 const STATUS_COLORS: Record<JOStatus, string> = {
   'Pending':        'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
-  'Approved':       'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  'Scheduled':      'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+  'Approved':       'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
+  'Scheduled':      'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
   'For Review':     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   'Needs Revision': 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
   'Completed':      'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
@@ -97,12 +97,12 @@ function KanbanCard({
       )}
       <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
         <button onClick={() => onView(jo)}
-          className="flex-1 flex items-center justify-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 font-medium py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors border border-dashed border-slate-200 dark:border-slate-600 hover:border-blue-300">
+          className="flex-1 flex items-center justify-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 font-medium py-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors border border-dashed border-slate-200 dark:border-slate-600 hover:border-brand-300">
           <Eye size={11} /> View
         </button>
         {canProgress && next && (
           <button onClick={() => onAdvance(jo)}
-            className="flex-1 flex items-center justify-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 font-medium py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors border border-dashed border-blue-200 dark:border-blue-800 hover:border-blue-400">
+            className="flex-1 flex items-center justify-center gap-1 text-xs text-brand-600 dark:text-brand-400 hover:text-brand-800 font-medium py-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors border border-dashed border-brand-200 dark:border-brand-800 hover:border-brand-400">
             → {next}
           </button>
         )}
@@ -551,7 +551,7 @@ export function KanbanPage() {
                     {canProgress && (
                       <button
                         onClick={e => { e.stopPropagation(); setReactivateJO(jo); setReactivateStatus(null); setReactivateComment('') }}
-                        className="w-full mt-2.5 text-xs font-semibold py-1.5 rounded-lg border border-dashed border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                        className="w-full mt-2.5 text-xs font-semibold py-1.5 rounded-lg border border-dashed border-brand-300 dark:border-brand-700 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors"
                       >
                         Move to… ↗
                       </button>
@@ -590,7 +590,7 @@ export function KanbanPage() {
                 onChange={e => setMoveComment(e.target.value)}
                 placeholder="Describe what was completed, any blockers, or notes for the team…"
                 rows={3}
-                className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder-slate-400"
+                className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none placeholder-slate-400"
               />
             </div>
 
@@ -601,15 +601,15 @@ export function KanbanPage() {
                   Attach Output / Artwork <span className="text-red-500">*</span>
                 </label>
                 {moveFile ? (
-                  <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl px-3 py-2.5">
-                    <Paperclip size={14} className="text-blue-500 shrink-0" />
+                  <div className="flex items-center gap-3 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-700 rounded-xl px-3 py-2.5">
+                    <Paperclip size={14} className="text-brand-500 shrink-0" />
                     <span className="text-sm text-slate-800 dark:text-slate-200 truncate flex-1">{moveFile.name}</span>
                     <button type="button" onClick={() => setMoveFile(null)} className="text-slate-400 hover:text-red-500 text-xs font-semibold transition-colors shrink-0">Remove</button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center gap-2 border-2 border-dashed border-blue-200 dark:border-blue-700 rounded-xl py-6 cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-all">
-                    <Upload size={22} className="text-blue-400" />
-                    <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">Click to upload output file</span>
+                  <label className="flex flex-col items-center gap-2 border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-xl py-6 cursor-pointer hover:border-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-900/20 transition-all">
+                    <Upload size={22} className="text-brand-400" />
+                    <span className="text-sm font-semibold text-brand-600 dark:text-brand-400">Click to upload output file</span>
                     <span className="text-xs text-slate-400">Image, PDF, video link, or any format</span>
                     <input type="file" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) setMoveFile(f) }} />
                   </label>
@@ -626,8 +626,8 @@ export function KanbanPage() {
                   </label>
                   {moveReqApproverEmail ? (
                     <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5">
-                      <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                      <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-bold text-brand-600 dark:text-brand-400">
                           {moveReqApproverName.charAt(0).toUpperCase()}
                         </span>
                       </div>
@@ -654,7 +654,7 @@ export function KanbanPage() {
                       setMoveDapApproverEmail(e.target.value)
                       setMoveDapApproverName(found?.name ?? '')
                     }}
-                    className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
                   >
                     <option value="">Select DAP team approver…</option>
                     {approvers.filter(a => a.isActive !== false && a.approverType === 'dap').map(a => (
@@ -684,7 +684,7 @@ export function KanbanPage() {
               <button type="button"
                 onClick={() => { if (isForReview) { setShowMoveConfirm(true) } else { handleConfirmMove() } }}
                 disabled={!moveValid || moveLoading}
-                className="flex-1 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center justify-center gap-2">
                 {moveLoading
                   ? <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Moving…</>
                   : isForReview ? 'Submit for Review →' : `Move to ${moveNext} →`}
@@ -739,12 +739,12 @@ export function KanbanPage() {
                   <button key={status} onClick={() => setReactivateStatus(status)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${
                       selected
-                        ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/30'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/20'
+                        ? 'border-brand-400 dark:border-brand-500 bg-brand-50 dark:bg-brand-900/30'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-brand-300 dark:hover:border-brand-600 hover:bg-brand-50/50 dark:hover:bg-brand-900/20'
                     }`}>
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: col?.hex ?? '#94a3b8' }} />
-                    <span className={`text-sm font-semibold ${selected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-800 dark:text-slate-200'}`}>{status}</span>
-                    {selected && <span className="ml-auto text-blue-600 dark:text-blue-400 text-[10px] font-bold">Selected ✓</span>}
+                    <span className={`text-sm font-semibold ${selected ? 'text-brand-700 dark:text-brand-300' : 'text-slate-800 dark:text-slate-200'}`}>{status}</span>
+                    {selected && <span className="ml-auto text-brand-600 dark:text-brand-400 text-[10px] font-bold">Selected ✓</span>}
                   </button>
                 )
               })}
@@ -760,10 +760,10 @@ export function KanbanPage() {
                   onChange={e => setReactivateComment(e.target.value)}
                   placeholder="Reason for moving this job order…"
                   rows={2}
-                  className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder-slate-400"
+                  className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none placeholder-slate-400"
                 />
                 <button onClick={handleReactivate} disabled={!reactivateComment.trim()}
-                  className="w-full py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors">
+                  className="w-full py-2.5 text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors">
                   Move to {reactivateStatus} →
                 </button>
               </div>
@@ -803,7 +803,7 @@ export function KanbanPage() {
                 <button key={id} onClick={() => setDetailTab(id)}
                   className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-all -mb-px ${
                     detailTab === id
-                      ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+                      ? 'border-brand-600 text-brand-700 dark:text-brand-400'
                       : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
                   }`}>
                   <Icon size={13} />{label}
@@ -876,7 +876,7 @@ export function KanbanPage() {
                           <div className="flex-1 bg-slate-50 dark:bg-slate-700/40 rounded-xl px-4 py-3 mt-0.5">
                             <div className="flex items-start justify-between gap-2">
                               <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                                <span className="text-blue-600 dark:text-blue-400">{log.toStatus}</span>
+                                <span className="text-brand-600 dark:text-brand-400">{log.toStatus}</span>
                                 <span className="text-slate-400 font-normal"> · from {log.fromStatus} · by {log.changedBy}</span>
                               </p>
                               <p className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">{formatDateTime(log.changedAt)}</p>
@@ -905,14 +905,14 @@ export function KanbanPage() {
                 ) : (
                   <>
                     {/* Output file */}
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl px-4 py-3 flex items-center gap-3">
-                      <Paperclip size={15} className="text-blue-500 shrink-0" />
+                    <div className="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-700 rounded-xl px-4 py-3 flex items-center gap-3">
+                      <Paperclip size={15} className="text-brand-500 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Output File</p>
                         <p className="text-sm text-slate-800 dark:text-slate-200 truncate">{joReview.outputFileName || 'Attachment'}</p>
                       </div>
                       <a href={joReview.outputFileUrl} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 shrink-0">
+                        className="flex items-center gap-1 text-xs font-bold text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 shrink-0">
                         <ExternalLink size={12} /> Open
                       </a>
                     </div>
@@ -1006,7 +1006,7 @@ export function KanbanPage() {
                         placeholder={approveAction === 'approve' ? 'e.g. Output looks good, approved.' : 'e.g. Please adjust the color palette and resize for print.'}
                         rows={3}
                         autoFocus
-                        className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder-slate-400"
+                        className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none placeholder-slate-400"
                       />
                       <div className="flex gap-2">
                         <button onClick={() => { setApproveSlot(null); setApproveComment('') }}
@@ -1041,7 +1041,7 @@ export function KanbanPage() {
                     <div className="space-y-3">
                       {comments.map(c => (
                         <div key={c.id} className="flex gap-3 relative">
-                          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0 z-10 ring-2 ring-white dark:ring-slate-800">
+                          <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0 z-10 ring-2 ring-white dark:ring-slate-800">
                             {initials(c.authorName)}
                           </div>
                           <div className="flex-1 bg-slate-50 dark:bg-slate-700/40 rounded-xl px-4 py-3">
@@ -1049,7 +1049,7 @@ export function KanbanPage() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{c.authorName}</span>
                                 {c.fromStatus && c.toStatus && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300">
                                     {c.fromStatus} → {c.toStatus}
                                   </span>
                                 )}
@@ -1061,7 +1061,7 @@ export function KanbanPage() {
                             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{c.body}</p>
                             {c.attachmentUrl && (
                               <a href={c.attachmentUrl} target="_blank" rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 mt-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                                className="inline-flex items-center gap-1.5 mt-2 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 transition-colors">
                                 <Paperclip size={11} />
                                 {c.attachmentName || 'View Attachment'}
                               </a>
@@ -1086,11 +1086,11 @@ export function KanbanPage() {
                         onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddComment() }}
                         placeholder="Add a comment… (Ctrl+Enter to send)"
                         rows={2}
-                        className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder-slate-400"
+                        className="w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none placeholder-slate-400"
                       />
                       <div className="flex justify-end">
                         <button onClick={handleAddComment} disabled={!commentDraft.trim() || commentSending}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors">
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors">
                           <Send size={11} />
                           {commentSending ? 'Sending…' : 'Send'}
                         </button>

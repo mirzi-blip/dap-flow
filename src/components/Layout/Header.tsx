@@ -79,7 +79,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
           >
             <Bell size={17} />
             {unread > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-3.5 h-3.5 bg-blue-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+              <span className="absolute top-1.5 right-1.5 w-3.5 h-3.5 bg-brand-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
                 {unread > 9 ? '9+' : unread}
               </span>
             )}
@@ -92,10 +92,10 @@ export function Header({ onMenuToggle }: HeaderProps) {
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-50 dark:border-slate-700">
                   <p className="font-bold text-sm text-slate-900 dark:text-slate-100">
                     Notifications
-                    {unread > 0 && <span className="ml-2 text-xs bg-blue-600 text-white rounded-full px-1.5 py-0.5">{unread}</span>}
+                    {unread > 0 && <span className="ml-2 text-xs bg-brand-600 text-white rounded-full px-1.5 py-0.5">{unread}</span>}
                   </p>
                   {unread > 0 && (
-                    <button onClick={() => currentUser && markAllRead(currentUser.id)} className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 font-semibold">
+                    <button onClick={() => currentUser && markAllRead(currentUser.id)} className="text-xs text-brand-600 dark:text-brand-400 hover:text-brand-800 font-semibold">
                       Mark all read
                     </button>
                   )}
@@ -107,7 +107,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
                     <div
                       key={n.id}
                       onClick={() => markNotificationRead(n.id)}
-                      className={`px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex gap-3 ${!n.read ? 'bg-blue-50/40 dark:bg-blue-900/20' : ''}`}
+                      className={`px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex gap-3 ${!n.read ? 'bg-brand-50/40 dark:bg-brand-900/20' : ''}`}
                     >
                       <span className="text-lg shrink-0 mt-0.5">{notifIcons[n.type]}</span>
                       <div className="flex-1 min-w-0">
@@ -115,7 +115,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{n.message}</p>
                         <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">{formatDateTime(n.createdAt)}</p>
                       </div>
-                      {!n.read && <span className="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0" />}
+                      {!n.read && <span className="w-2 h-2 rounded-full bg-brand-500 mt-2 shrink-0" />}
                     </div>
                   ))}
                 </div>

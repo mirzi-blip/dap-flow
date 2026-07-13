@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+﻿import { createClient } from '@supabase/supabase-js'
 import type { BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam, ManagedUser, Approver, BookingDepartment, ShootType, ProjectScale, DesignSpecs, JOReview, Resource, DAPSubRole, DAPTeam, FormOption } from '../types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
@@ -390,7 +390,7 @@ export function rowToResource(row: Record<string, unknown>): Resource {
     team: row.team as DAPTeam,
     email: (row.email as string) || '',
     initials: (row.initials as string) || '',
-    color: (row.color as string) || 'bg-blue-500',
+    color: (row.color as string) || 'bg-brand-500',
     maxWeeklyHours: (row.max_weekly_hours as number) || 40,
   }
 }

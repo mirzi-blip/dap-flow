@@ -2,14 +2,14 @@
 
 // Activity colors — per wireframe spec (Blue/Red/Green/Purple/Orange)
 export const activityColors: Record<ActivityType, { bg: string; text: string; border: string; dot: string }> = {
-  'Photo Shoot':           { bg: 'bg-blue-50',    text: 'text-blue-700',   border: 'border-blue-200',   dot: 'bg-blue-500' },
+  'Photo Shoot':           { bg: 'bg-brand-50',    text: 'text-brand-700',   border: 'border-brand-200',   dot: 'bg-brand-500' },
   'Video Shoot':           { bg: 'bg-red-50',     text: 'text-red-700',    border: 'border-red-200',    dot: 'bg-red-500' },
   'Static Artwork Design': { bg: 'bg-emerald-50', text: 'text-emerald-700',border: 'border-emerald-200',dot: 'bg-emerald-500' },
-  'Digital Design':        { bg: 'bg-violet-50',  text: 'text-violet-700', border: 'border-violet-200', dot: 'bg-violet-500' },
+  'Digital Design':        { bg: 'bg-brand-50',  text: 'text-brand-700', border: 'border-brand-200', dot: 'bg-brand-500' },
   'Video Editing':         { bg: 'bg-orange-50',  text: 'text-orange-700', border: 'border-orange-200', dot: 'bg-orange-500' },
   'Graphics':              { bg: 'bg-amber-50',   text: 'text-amber-700',  border: 'border-amber-200',  dot: 'bg-amber-500' },
   'Printing':              { bg: 'bg-teal-50',    text: 'text-teal-700',   border: 'border-teal-200',   dot: 'bg-teal-500' },
-  'ASC':                   { bg: 'bg-indigo-50',  text: 'text-indigo-700', border: 'border-indigo-200', dot: 'bg-indigo-500' },
+  'ASC':                   { bg: 'bg-brand-50',  text: 'text-brand-700', border: 'border-brand-200', dot: 'bg-brand-500' },
   'Audio Recording':       { bg: 'bg-sky-50',     text: 'text-sky-700',    border: 'border-sky-200',    dot: 'bg-sky-500' },
   'Audio Editing':         { bg: 'bg-pink-50',    text: 'text-pink-700',   border: 'border-pink-200',   dot: 'bg-pink-500' },
   'Audio Services':        { bg: 'bg-sky-50',     text: 'text-sky-700',    border: 'border-sky-200',    dot: 'bg-sky-500' },
@@ -30,23 +30,23 @@ export const activityCalendarColors: Record<ActivityType, string> = {
 }
 
 export const activityGradients: Record<ActivityType, string> = {
-  'Photo Shoot':           'from-blue-500 to-blue-600',
+  'Photo Shoot':           'from-brand-500 to-brand-600',
   'Video Shoot':           'from-red-500 to-rose-600',
   'Static Artwork Design': 'from-emerald-500 to-teal-600',
-  'Digital Design':        'from-violet-500 to-purple-600',
+  'Digital Design':        'from-brand-500 to-purple-600',
   'Video Editing':         'from-orange-500 to-amber-600',
   'Graphics':              'from-amber-400 to-orange-500',
   'Printing':              'from-teal-500 to-cyan-600',
-  'ASC':                   'from-indigo-500 to-violet-600',
-  'Audio Recording':       'from-sky-500 to-blue-600',
+  'ASC':                   'from-brand-500 to-brand-600',
+  'Audio Recording':       'from-sky-500 to-brand-600',
   'Audio Editing':         'from-pink-500 to-rose-500',
-  'Audio Services':        'from-sky-500 to-blue-600',
+  'Audio Services':        'from-sky-500 to-brand-600',
 }
 
 export const statusColors: Record<JOStatus, { bg: string; text: string; ring: string; glow: string }> = {
   Pending:      { bg: 'bg-amber-50',   text: 'text-amber-700',  ring: 'ring-amber-200',  glow: '#F59E0B' },
   Approved:     { bg: 'bg-sky-50',     text: 'text-sky-700',    ring: 'ring-sky-200',    glow: '#0EA5E9' },
-  Scheduled:    { bg: 'bg-indigo-50',  text: 'text-indigo-700', ring: 'ring-indigo-200', glow: '#6366F1' },
+  Scheduled:    { bg: 'bg-brand-50',  text: 'text-brand-700', ring: 'ring-brand-200', glow: '#6366F1' },
 
   'For Review':     { bg: 'bg-orange-50',  text: 'text-orange-700', ring: 'ring-orange-200', glow: '#F97316' },
   'Needs Revision': { bg: 'bg-rose-50',    text: 'text-rose-700',   ring: 'ring-rose-200',   glow: '#E11D48' },
@@ -62,16 +62,16 @@ export const priorityColors: Record<Priority, { bg: string; text: string; dot: s
 }
 
 export const teamColors: Record<string, { hex: string; tailwind: string; light: string }> = {
-  Photo:  { hex: '#3B82F6', tailwind: 'bg-blue-500',    light: 'bg-blue-50' },
+  Photo:  { hex: '#3B82F6', tailwind: 'bg-brand-500',    light: 'bg-brand-50' },
   Video:  { hex: '#EF4444', tailwind: 'bg-red-500',     light: 'bg-red-50' },
-  Audio:  { hex: '#8B5CF6', tailwind: 'bg-blue-500',  light: 'bg-blue-50' },
+  Audio:  { hex: '#8B5CF6', tailwind: 'bg-brand-500',  light: 'bg-brand-50' },
   Design: { hex: '#10B981', tailwind: 'bg-emerald-500', light: 'bg-emerald-50' },
 }
 
 export const kpiGradients = [
-  { from: '#6366F1', to: '#8B5CF6', icon: 'bg-gradient-to-br from-indigo-500 to-blue-600' },
+  { from: '#6366F1', to: '#8B5CF6', icon: 'bg-gradient-to-br from-brand-500 to-brand-600' },
   { from: '#F59E0B', to: '#F97316', icon: 'bg-gradient-to-br from-amber-400 to-orange-500' },
-  { from: '#8B5CF6', to: '#EC4899', icon: 'bg-gradient-to-br from-blue-500 to-pink-500' },
+  { from: '#8B5CF6', to: '#EC4899', icon: 'bg-gradient-to-br from-brand-500 to-pink-500' },
   { from: '#10B981', to: '#0EA5E9', icon: 'bg-gradient-to-br from-emerald-500 to-sky-500' },
 ]
 

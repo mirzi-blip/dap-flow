@@ -164,7 +164,7 @@ export function CalendarPage() {
                 <select
                   value={currentYear}
                   onChange={e => { const d = new Date(currentDate); d.setFullYear(Number(e.target.value)); setCurrentDate(d) }}
-                  className="font-bold text-blue-600 dark:text-blue-400 bg-transparent border-none outline-none cursor-pointer text-sm"
+                  className="font-bold text-brand-600 dark:text-brand-400 bg-transparent border-none outline-none cursor-pointer text-sm"
                 >
                   {years.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
@@ -184,7 +184,7 @@ export function CalendarPage() {
           </button>
           <button
             onClick={() => setCurrentDate(new Date())}
-            className="text-xs text-blue-600 dark:text-blue-400 font-semibold px-2.5 py-1 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors border border-blue-200 dark:border-blue-800"
+            className="text-xs text-brand-600 dark:text-brand-400 font-semibold px-2.5 py-1 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-colors border border-brand-200 dark:border-brand-800"
           >
             Today
           </button>
@@ -202,12 +202,12 @@ export function CalendarPage() {
           </div>
 
           {/* Member filter */}
-          <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl px-2 py-1">
-            <Users size={12} className="text-blue-500 dark:text-blue-400 shrink-0" />
+          <div className="flex items-center gap-1.5 bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-700 rounded-xl px-2 py-1">
+            <Users size={12} className="text-brand-500 dark:text-brand-400 shrink-0" />
             <select
               value={filterMember}
               onChange={(e) => { setFilterMember(e.target.value); if (e.target.value) setFilterTeam('All') }}
-              className="text-xs font-semibold bg-transparent text-blue-700 dark:text-blue-300 border-none outline-none cursor-pointer"
+              className="text-xs font-semibold bg-transparent text-brand-700 dark:text-brand-300 border-none outline-none cursor-pointer"
             >
               <option value="">All Members</option>
               {resources.map((r) => (
@@ -266,7 +266,7 @@ export function CalendarPage() {
                   key={i}
                   className={`min-h-[110px] border-b border-r border-slate-100 dark:border-slate-700 p-2 last:border-r-0 ${
                     !isCurrentMonth ? 'bg-slate-50/50 dark:bg-slate-900/30' : ''
-                  } ${isToday ? 'bg-blue-50/40 dark:bg-blue-900/20' : ''} ${canCreate ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors' : ''}`}
+                  } ${isToday ? 'bg-brand-50/40 dark:bg-brand-900/20' : ''} ${canCreate ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors' : ''}`}
                   onClick={() => {
                     if (canCreate) {
                       setSelectedDay(day)
@@ -283,7 +283,7 @@ export function CalendarPage() {
                     <span
                       className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium ${
                         isToday
-                          ? 'bg-blue-600 text-white'
+                          ? 'bg-brand-600 text-white'
                           : isCurrentMonth
                           ? 'text-slate-900 dark:text-slate-100'
                           : 'text-slate-300 dark:text-slate-600'
@@ -326,7 +326,7 @@ export function CalendarPage() {
                     </p>
                     <span
                       className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold mx-auto mt-1 ${
-                        isToday ? 'bg-blue-600 text-white' : 'text-slate-900 dark:text-slate-100'
+                        isToday ? 'bg-brand-600 text-white' : 'text-slate-900 dark:text-slate-100'
                       }`}
                     >
                       {format(day, 'd')}
@@ -414,8 +414,8 @@ export function CalendarPage() {
             </div>
 
             {selectedEventJO && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-100 dark:border-blue-800">
-                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">Linked Job Order</p>
+              <div className="bg-brand-50 dark:bg-brand-900/20 rounded-xl p-3 border border-brand-100 dark:border-brand-800">
+                <p className="text-xs text-brand-600 dark:text-brand-400 font-medium mb-1">Linked Job Order</p>
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{selectedEventJO.joNumber} · {selectedEventJO.projectName}</p>
                 <StatusBadge status={selectedEventJO.status} />
               </div>

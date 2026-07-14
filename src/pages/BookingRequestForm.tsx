@@ -387,8 +387,8 @@ function SimpleDatePicker({ value, onChange, label = 'DATE NEEDED' }: SimpleDate
 
           let cls = ''
           if      (isSel)  cls = 'bg-brand-600 text-white shadow-md ring-2 ring-brand-300 ring-offset-1'
-          else if (isPast) cls = 'text-slate-300 cursor-not-allowed'
-          else             cls = 'bg-white text-slate-800 font-bold border border-brand-300 hover:bg-brand-600 hover:text-white hover:border-brand-600 cursor-pointer shadow-sm'
+          else if (isPast) cls = 'bg-slate-100 text-slate-500 cursor-not-allowed'
+          else             cls = 'bg-white text-slate-900 font-bold border border-brand-300 hover:bg-brand-600 hover:text-white hover:border-brand-600 cursor-pointer shadow-sm'
 
           const todayRing = isToday && !isSel ? 'ring-2 ring-brand-400 ring-offset-1' : ''
 
@@ -576,12 +576,12 @@ function AvailabilityCalendar({
           let cls = ''
           if      (isSelStart || isSelEnd) cls = 'bg-brand-600 text-white shadow-md ring-2 ring-brand-300 ring-offset-1'
           else if (isInRange)              cls = 'bg-brand-100 text-brand-700 font-bold'
-          else if (isPast)                 cls = 'text-slate-300 cursor-not-allowed'
-          else if (isFull)                 cls = 'bg-red-50 text-red-400 cursor-not-allowed line-through border border-red-200'
+          else if (isPast)                 cls = 'bg-slate-100 text-slate-500 cursor-not-allowed'
+          else if (isFull)                 cls = 'bg-red-50 text-red-500 cursor-not-allowed line-through border border-red-200'
           else if (fullCrewDay)            cls = 'bg-orange-50 text-orange-700 font-bold hover:bg-orange-100 cursor-pointer border border-orange-300'
           else if (sameCount >= MAX_CONCURRENT - 1) cls = 'bg-amber-50 text-amber-700 font-bold hover:bg-amber-100 cursor-pointer border border-amber-300'
           else if (sameCount > 0)          cls = 'bg-yellow-50 text-yellow-700 font-bold hover:bg-yellow-100 cursor-pointer border border-yellow-300'
-          else                             cls = 'bg-white text-slate-800 font-bold border border-emerald-300 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 cursor-pointer shadow-sm'
+          else                             cls = 'bg-white text-slate-900 font-bold border border-emerald-300 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 cursor-pointer shadow-sm'
 
           const todayRing = isToday && !isSelStart && !isSelEnd ? 'ring-2 ring-brand-400 ring-offset-1' : ''
 

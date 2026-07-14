@@ -371,7 +371,7 @@ function SimpleDatePicker({ value, onChange, label = 'DATE NEEDED' }: SimpleDate
       {/* DOW headers */}
       <div className="grid grid-cols-7 mb-1">
         {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
-          <p key={d} className="text-center text-[10px] font-bold text-slate-400 py-0.5">{d}</p>
+          <p key={d} className="text-center text-[10px] font-bold text-slate-500 py-0.5 uppercase tracking-wide">{d}</p>
         ))}
       </div>
 
@@ -386,16 +386,16 @@ function SimpleDatePicker({ value, onChange, label = 'DATE NEEDED' }: SimpleDate
           const isToday = iso === todayIso
 
           let cls = ''
-          if      (isSel)  cls = 'bg-brand-600 text-white shadow-sm'
-          else if (isPast) cls = 'bg-slate-50 text-slate-300 cursor-not-allowed'
-          else             cls = 'bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-700 cursor-pointer border border-slate-100'
+          if      (isSel)  cls = 'bg-brand-600 text-white shadow-md ring-2 ring-brand-300 ring-offset-1'
+          else if (isPast) cls = 'text-slate-300 cursor-not-allowed'
+          else             cls = 'bg-white text-slate-800 font-bold border border-brand-300 hover:bg-brand-600 hover:text-white hover:border-brand-600 cursor-pointer shadow-sm'
 
           const todayRing = isToday && !isSel ? 'ring-2 ring-brand-400 ring-offset-1' : ''
 
           return (
             <button key={iso} type="button" disabled={isPast}
               onClick={() => !isPast && onChange(iso)}
-              className={`w-full h-8 rounded-lg text-xs font-semibold transition-all ${cls} ${todayRing}`}>
+              className={`w-full h-9 rounded-lg text-xs font-semibold transition-all ${cls} ${todayRing}`}>
               {day}
             </button>
           )
@@ -404,8 +404,9 @@ function SimpleDatePicker({ value, onChange, label = 'DATE NEEDED' }: SimpleDate
 
       {/* Legend */}
       <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100">
-        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-white border border-slate-200"/><span className="text-[10px] text-slate-500">Available</span></div>
-        <div className="flex items-center gap-1.5 ml-auto"><div className="w-3 h-3 rounded-sm bg-brand-600"/><span className="text-[10px] text-slate-500">Selected</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded-sm bg-white border border-brand-300 shadow-sm"/><span className="text-[10px] font-medium text-slate-600">Available</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded-sm bg-slate-100"/><span className="text-[10px] font-medium text-slate-500">Unavailable</span></div>
+        <div className="flex items-center gap-1.5 ml-auto"><div className="w-3.5 h-3.5 rounded-sm bg-brand-600"/><span className="text-[10px] font-medium text-slate-600">Selected</span></div>
       </div>
     </div>
   )
@@ -545,7 +546,7 @@ function AvailabilityCalendar({
       {/* DOW headers */}
       <div className="grid grid-cols-7 mb-1">
         {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
-          <p key={d} className="text-center text-[10px] font-bold text-slate-400 py-0.5">{d}</p>
+          <p key={d} className="text-center text-[10px] font-bold text-slate-500 py-0.5 uppercase tracking-wide">{d}</p>
         ))}
       </div>
 
@@ -573,14 +574,14 @@ function AvailabilityCalendar({
             : isPast || isFull
 
           let cls = ''
-          if      (isSelStart || isSelEnd) cls = 'bg-brand-600 text-white shadow-sm'
-          else if (isInRange)              cls = 'bg-brand-100 text-brand-700'
-          else if (isPast)                 cls = 'bg-slate-50 text-slate-300 cursor-not-allowed'
-          else if (isFull)                 cls = 'bg-red-50 text-red-300 cursor-not-allowed line-through'
-          else if (fullCrewDay)            cls = 'bg-orange-50 text-orange-600 hover:bg-orange-100 cursor-pointer border border-orange-100'
-          else if (sameCount >= MAX_CONCURRENT - 1) cls = 'bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer'
-          else if (sameCount > 0)          cls = 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 cursor-pointer'
-          else                             cls = 'bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer border border-slate-100'
+          if      (isSelStart || isSelEnd) cls = 'bg-brand-600 text-white shadow-md ring-2 ring-brand-300 ring-offset-1'
+          else if (isInRange)              cls = 'bg-brand-100 text-brand-700 font-bold'
+          else if (isPast)                 cls = 'text-slate-300 cursor-not-allowed'
+          else if (isFull)                 cls = 'bg-red-50 text-red-400 cursor-not-allowed line-through border border-red-200'
+          else if (fullCrewDay)            cls = 'bg-orange-50 text-orange-700 font-bold hover:bg-orange-100 cursor-pointer border border-orange-300'
+          else if (sameCount >= MAX_CONCURRENT - 1) cls = 'bg-amber-50 text-amber-700 font-bold hover:bg-amber-100 cursor-pointer border border-amber-300'
+          else if (sameCount > 0)          cls = 'bg-yellow-50 text-yellow-700 font-bold hover:bg-yellow-100 cursor-pointer border border-yellow-300'
+          else                             cls = 'bg-white text-slate-800 font-bold border border-emerald-300 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 cursor-pointer shadow-sm'
 
           const todayRing = isToday && !isSelStart && !isSelEnd ? 'ring-2 ring-brand-400 ring-offset-1' : ''
 
@@ -593,7 +594,7 @@ function AvailabilityCalendar({
                 onClick={() => !disabled && onSelectDate(iso)}
                 onMouseEnter={() => setHoveredDay(iso)}
                 onMouseLeave={() => setHoveredDay(null)}
-                className={`w-full h-8 rounded-lg text-xs font-semibold transition-all ${cls} ${todayRing}`}>
+                className={`w-full h-9 rounded-lg text-xs font-semibold transition-all ${cls} ${todayRing}`}>
                 {day}
               </button>
 
@@ -641,11 +642,11 @@ function AvailabilityCalendar({
 
       {/* Legend */}
       <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100 flex-wrap">
-        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-white border border-slate-200"/><span className="text-[10px] text-slate-500">Available</span></div>
-        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-orange-50 border border-orange-200"/><span className="text-[10px] text-slate-500">Full Crew</span></div>
-        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-amber-50 border border-amber-200"/><span className="text-[10px] text-slate-500">Partial</span></div>
-        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-red-50 border border-red-200"/><span className="text-[10px] text-slate-500">Fully Booked</span></div>
-        <div className="flex items-center gap-1.5 ml-auto"><div className="w-3 h-3 rounded-sm bg-brand-600"/><span className="text-[10px] text-slate-500">Selected</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded-sm bg-white border border-emerald-300 shadow-sm"/><span className="text-[10px] font-medium text-slate-600">Available</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded-sm bg-orange-50 border border-orange-300"/><span className="text-[10px] font-medium text-slate-600">Full Crew</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded-sm bg-amber-50 border border-amber-300"/><span className="text-[10px] font-medium text-slate-600">Partial</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded-sm bg-red-50 border border-red-200"/><span className="text-[10px] font-medium text-slate-600">Fully Booked</span></div>
+        <div className="flex items-center gap-1.5 ml-auto"><div className="w-3.5 h-3.5 rounded-sm bg-brand-600"/><span className="text-[10px] font-medium text-slate-600">Selected</span></div>
       </div>
     </div>
   )
@@ -936,7 +937,7 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
     return `${(b / 1024 ** 3).toFixed(2)} GB`
   }
 
-  const inputCls = 'w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400'
+  const inputCls = 'w-full border border-brand-300 bg-white rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors'
   const selectCls = inputCls
 
   return (
@@ -2150,11 +2151,11 @@ export function BookingRequestForm() {
             {/* Project name + scale */}
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
                   Project Name <span className="text-red-500">*</span>
                 </label>
                 <input type="text"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors"
                   placeholder="Name or title of your project / activity"
                   value={form.projectName} onChange={field('projectName')} autoFocus required />
                 {form.activityType === 'Video Editing' && (
@@ -2182,7 +2183,7 @@ export function BookingRequestForm() {
             {/* Department */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
                   Requesting Department <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -2193,17 +2194,17 @@ export function BookingRequestForm() {
                 </select>
                 {form.department === 'Other' && (
                   <input type="text"
-                    className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
+                    className="mt-2 w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors"
                     placeholder="Enter your department name"
                     value={form.departmentOther} onChange={field('departmentOther')} required />
                 )}
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
                   Department Local <span className="text-red-500">*</span>
                 </label>
                 <input type="text"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors"
                   placeholder="e.g. local 1234"
                   value={form.departmentLocal} onChange={field('departmentLocal')} required />
               </div>
@@ -2212,20 +2213,20 @@ export function BookingRequestForm() {
             {/* Requestor info */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
                   Requestor Name <span className="text-red-500">*</span>
                 </label>
                 <input type="text"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors"
                   placeholder="Full name of the requestor"
                   value={form.requestorName} onChange={field('requestorName')} required />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
                   Requestor Email <span className="text-red-500">*</span>
                 </label>
                 <input type="email"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors"
                   placeholder="requestor@company.com"
                   value={form.requestorEmail} onChange={field('requestorEmail')} required />
               </div>
@@ -2233,19 +2234,19 @@ export function BookingRequestForm() {
 
             {/* Prepared by */}
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
                 Prepared By <span className="text-red-500">*</span>
                 <span className="ml-1.5 text-[10px] font-normal normal-case text-slate-400">— name of the person encoding this form</span>
               </label>
               <input type="text"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
+                className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors"
                 placeholder="Full name of encoder"
                 value={form.preparedBy} onChange={field('preparedBy')} required />
             </div>
 
             {/* Approver */}
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
                 Approver <span className="text-red-500">*</span>
                 <span className="ml-1.5 text-[10px] font-normal normal-case text-slate-400">— must be selected from the official list</span>
               </label>
@@ -2282,11 +2283,11 @@ export function BookingRequestForm() {
             {/* Venue — shown only for Photo Shoot and Video Shoot */}
             {isShootService && (
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
                   Venue / Location <span className="text-red-500">*</span>
                 </label>
                 <input type="text"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors"
                   placeholder="Where will the activity be held?"
                   value={form.venue} onChange={field('venue')} required />
               </div>
@@ -2295,7 +2296,7 @@ export function BookingRequestForm() {
             {/* Type of Shoot — only for Video Shoot */}
             {form.activityType === 'Video Shoot' && (
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
                   Type of Shoot <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -2310,11 +2311,11 @@ export function BookingRequestForm() {
             {/* Notes — only shown for non-design services; design activities have this inside the specs form */}
             {!isDesignActivity && (
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
                   Additional Notes <span className="text-red-500">*</span>
                 </label>
                 <textarea rows={4}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors resize-none"
                   placeholder="Special requirements, expected deliverables, creative direction, reference materials, or any details the DAP team should know…"
                   value={form.notes} onChange={field('notes')} required />
                 <p className="text-[10px] text-slate-400 mt-1">Be as specific as possible to reduce clarification rounds.</p>

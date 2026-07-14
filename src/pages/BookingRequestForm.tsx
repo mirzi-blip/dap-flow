@@ -1341,7 +1341,7 @@ export function BookingRequestForm() {
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [attachedLinks, setAttachedLinks] = useState<string[]>([])
   const [departments, setDepartments] = useState<string[]>([...DEFAULT_DEPTS])
-  const { approvers, initApprovers, formOptions } = useAppStore()
+  const { approvers, initApprovers, initFormOptions, formOptions } = useAppStore()
 
   // Helper: get active option labels for a service + field combo, with static fallback
   const opts = (service: string, fieldKey: string, fallback: string[] = []): string[] => {
@@ -1372,6 +1372,10 @@ export function BookingRequestForm() {
 
       // Sync approvers from Supabase into the shared store so emails are always current
       await initApprovers()
+      // Load booking-form options (categories, materials, etc.) from Supabase.
+      // The public /request route skips App.tsx's init effect, so without this
+      // the form falls back to hardcoded defaults and misses options added in Settings.
+      await initFormOptions()
     }
     loadData()
   }, [])

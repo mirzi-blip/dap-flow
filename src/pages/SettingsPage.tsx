@@ -53,7 +53,7 @@ function initials(name: string) { return name.split(' ').map(w => w[0]).join('')
 
 interface EditForm { name: string; email: string; password: string; role: UserRole; team?: RequestingTeam }
 type ModalMode = 'add' | 'edit' | null
-type ConfirmAction = { type: 'terminate' | 'limit' | 'reinstate'; userId: string; userName: string } | null
+type ConfirmAction = { type: 'terminate' | 'limit' | 'reinstate' | 'remove'; userId: string; userName: string } | null
 
 // Default capacity limits per team
 const DEFAULT_CAPACITY = [
@@ -423,7 +423,7 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
 }
 
 export function SettingsPage() {
-  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, resources, updateResource, addResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, deactivateApprover, reactivateApprover, initApprovers, departments, addDepartment, removeDepartment, formOptions, addFormOption, updateFormOption, removeFormOption } = useAppStore()
+  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, removeManagedUser, resources, updateResource, addResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, deactivateApprover, reactivateApprover, initApprovers, departments, addDepartment, removeDepartment, formOptions, addFormOption, updateFormOption, removeFormOption } = useAppStore()
   const { can } = usePermissions()
 
   const EMOJI_OPTIONS = [
@@ -618,6 +618,7 @@ export function SettingsPage() {
     if (!confirm) return
     if (confirm.type === 'terminate') terminateUser(confirm.userId)
     else if (confirm.type === 'limit') limitUser(confirm.userId)
+    else if (confirm.type === 'remove') removeManagedUser(confirm.userId)
     else reinstateUser(confirm.userId)
     setConfirm(null)
   }
@@ -1210,6 +1211,11 @@ export function SettingsPage() {
                         {(u.status === 'limited' || u.status === 'terminated') && (
                           <button onClick={() => setConfirm({ type: 'reinstate', userId: u.id, userName: u.name })} title="Reinstate" className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors">
                             <RotateCcw size={13} />
+                          </button>
+                        )}
+                        {currentUser?.role === 'Super Admin' && (
+                          <button onClick={() => setConfirm({ type: 'remove', userId: u.id, userName: u.name })} title="Remove permanently" className="p-1.5 text-slate-400 hover:text-red-700 dark:hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">
+                            <Trash2 size={13} />
                           </button>
                         )}
                       </div>
@@ -2135,16 +2141,18 @@ export function SettingsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setConfirm(null)} />
           <div className="modal-card w-full max-w-sm p-6 z-10">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${confirm.type === 'terminate' ? 'bg-red-100 dark:bg-red-900/30' : confirm.type === 'limit' ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${confirm.type === 'terminate' || confirm.type === 'remove' ? 'bg-red-100 dark:bg-red-900/30' : confirm.type === 'limit' ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
               {confirm.type === 'terminate' && <ShieldOff size={20} className="text-red-600 dark:text-red-400" />}
+              {confirm.type === 'remove'    && <Trash2 size={20} className="text-red-600 dark:text-red-400" />}
               {confirm.type === 'limit'     && <ShieldAlert size={20} className="text-amber-600 dark:text-amber-400" />}
               {confirm.type === 'reinstate' && <Shield size={20} className="text-emerald-600 dark:text-emerald-400" />}
             </div>
             <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">
-              {confirm.type === 'terminate' ? 'Terminate User' : confirm.type === 'limit' ? 'Limit Access' : 'Reinstate User'}
+              {confirm.type === 'terminate' ? 'Terminate User' : confirm.type === 'remove' ? 'Remove User Permanently' : confirm.type === 'limit' ? 'Limit Access' : 'Reinstate User'}
             </h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
               {confirm.type === 'terminate' && `${confirm.userName} will no longer be able to log in.`}
+              {confirm.type === 'remove'    && <><strong className="text-slate-700 dark:text-slate-200">{confirm.userName}</strong> will be permanently deleted from the system. This cannot be undone. Use <strong>Terminate</strong> instead if you only want to block access.</>}
               {confirm.type === 'limit'     && `${confirm.userName} will have limited system access.`}
               {confirm.type === 'reinstate' && `${confirm.userName} will be restored to active status.`}
             </p>
@@ -2152,8 +2160,8 @@ export function SettingsPage() {
               <button onClick={() => setConfirm(null)} className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">
                 Cancel
               </button>
-              <button onClick={handleConfirm} className={`flex-1 px-4 py-2.5 text-sm font-semibold text-white rounded-xl transition-colors shadow-sm ${confirm.type === 'terminate' ? 'bg-red-600 hover:bg-red-700' : confirm.type === 'limit' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
-                Confirm
+              <button onClick={handleConfirm} className={`flex-1 px-4 py-2.5 text-sm font-semibold text-white rounded-xl transition-colors shadow-sm ${confirm.type === 'terminate' || confirm.type === 'remove' ? 'bg-red-600 hover:bg-red-700' : confirm.type === 'limit' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+                {confirm.type === 'remove' ? 'Delete Permanently' : 'Confirm'}
               </button>
             </div>
           </div>

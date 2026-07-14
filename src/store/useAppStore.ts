@@ -44,6 +44,7 @@ interface AppState {
   terminateUser: (id: string) => void
   limitUser: (id: string) => void
   reinstateUser: (id: string) => void
+  removeManagedUser: (id: string) => void
   initResources: () => Promise<void>
   updateResource: (r: Resource) => void
   addResource: (r: Resource) => void
@@ -217,6 +218,10 @@ export const useAppStore = create<AppState>()(
       reinstateUser(id) {
         set(s => ({ managedUsers: s.managedUsers.map(m => m.id === id ? { ...m, status: 'active' } : m) }))
         supabase.from('app_users').update({ status: 'active' }).eq('id', id).then(({ error }) => { if (error) console.error('User sync error:', error) })
+      },
+      removeManagedUser(id) {
+        set(s => ({ managedUsers: s.managedUsers.filter(m => m.id !== id) }))
+        supabase.from('app_users').delete().eq('id', id).then(({ error }) => { if (error) console.error('User delete error:', error) })
       },
       async initResources() {
         const { data, error } = await supabase.from('resources').select('*').order('name', { ascending: true })
@@ -440,6 +445,7 @@ interface DataState {
   setJobOrders: (jos: JobOrder[]) => void
   addJobOrder: (jo: JobOrder) => void
   updateJobOrder: (jo: JobOrder) => void
+  deleteJobOrder: (id: string) => void
 
   setCalendarEvents: (evs: CalendarEvent[]) => void
   addCalendarEvent: (ev: CalendarEvent) => void
@@ -472,6 +478,7 @@ export const useDataStore = create<DataState>()((set) => ({
   setJobOrders: jos => set({ jobOrders: jos }),
   addJobOrder: jo => set(s => ({ jobOrders: [jo, ...s.jobOrders] })),
   updateJobOrder: jo => set(s => ({ jobOrders: s.jobOrders.map(j => j.id === jo.id ? jo : j) })),
+  deleteJobOrder: id => set(s => ({ jobOrders: s.jobOrders.filter(j => j.id !== id) })),
 
   setCalendarEvents: evs => set({ calendarEvents: evs }),
   addCalendarEvent: ev => set(s => ({ calendarEvents: [...s.calendarEvents, ev] })),

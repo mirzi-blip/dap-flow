@@ -57,11 +57,12 @@ const STATUS_COLORS: Record<JOStatus, string> = {
 type SortCol = 'joNumber' | 'projectName' | 'activityType' | 'requestingTeam' | 'priority' | 'deadline' | 'status'
 
 export function JobOrdersPage() {
-  const { jobOrders, addJobOrder, updateJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest, deleteBookingRequest, addCalendarEvent } = useDataStore()
+  const { jobOrders, addJobOrder, updateJobOrder, deleteJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest, deleteBookingRequest, addCalendarEvent } = useDataStore()
   const { currentUser, globalSearch, setGlobalSearch, resources } = useAppStore()
   const { can } = usePermissions()
 
   const canSeeRequests = can('job_orders', 'view_requests')
+  const canRemoveJO = currentUser?.role === 'Super Admin'
 
   const [pageTab, setPageTab] = useState<PageTab>('list')
   const [search, setSearch] = useState(globalSearch)
@@ -98,6 +99,10 @@ export function JobOrdersPage() {
   // Confirmation modals state
   const [confirmAction, setConfirmAction] = useState<{ type: 'schedule' | 'cancel' | 'forReview' | 'general'; jo: JobOrder; newStatus?: JOStatus } | null>(null)
   const [confirmComment, setConfirmComment] = useState('')
+
+  // Permanent JO removal (Super Admin only)
+  const [removeJOTarget, setRemoveJOTarget] = useState<JobOrder | null>(null)
+  const [removeJOLoading, setRemoveJOLoading] = useState(false)
   const [deadlineChangeConfirm, setDeadlineChangeConfirm] = useState<string | null>(null)
 
   // Rejection modal state
@@ -733,6 +738,26 @@ export function JobOrdersPage() {
     setDeleteTarget(null)
     setDeleteNote('')
     setDeleteLoading(false)
+  }
+
+  async function handleRemoveJO() {
+    if (!removeJOTarget) return
+    setRemoveJOLoading(true)
+    const id = removeJOTarget.id
+    // Remove locally (Dexie + in-memory) and from Supabase
+    await db.jobOrders.delete(id)
+    await supabase.from('job_orders').delete().eq('id', id)
+    // Unlink any booking request that pointed at this JO
+    const srcReq = bookingRequests.find(r => r.joId === id)
+    if (srcReq) {
+      const unlinked: BookingRequest = { ...srcReq, joId: undefined }
+      await supabase.from('booking_requests').update({ jo_id: null }).eq('id', srcReq.id)
+      updateBookingRequest(unlinked)
+    }
+    deleteJobOrder(id)
+    if (selectedJO?.id === id) setSelectedJO(null)
+    setRemoveJOTarget(null)
+    setRemoveJOLoading(false)
   }
 
   function openRejectModal(req: BookingRequest) {
@@ -1384,6 +1409,15 @@ export function JobOrdersPage() {
                           {canApprove && jo.status !== 'Completed' && jo.status !== 'Cancelled' && (
                             <Button size="sm" variant="danger" onClick={() => handleStatusChangeWithConfirm(jo, 'Cancelled')} className="text-xs">Cancel</Button>
                           )}
+                          {canRemoveJO && (
+                            <button
+                              onClick={() => setRemoveJOTarget(jo)}
+                              title="Remove permanently"
+                              className="p-1.5 text-slate-400 hover:text-red-700 dark:hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1461,6 +1495,43 @@ export function JobOrdersPage() {
                 {confirmAction.type === 'cancel' && 'Yes, Cancel'}
                 {confirmAction.type === 'forReview' && 'Yes, Proceed'}
                 {confirmAction.type === 'general' && 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permanent JO Removal Confirmation (Super Admin only) */}
+      {removeJOTarget && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !removeJOLoading && setRemoveJOTarget(null)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                <Trash2 size={18} className="text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Remove Job Order?</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  <strong className="text-slate-700 dark:text-slate-200">{removeJOTarget.joNumber}</strong>
+                  {removeJOTarget.projectName ? ` — ${removeJOTarget.projectName}` : ''} will be permanently deleted. This cannot be undone. Use <strong>Cancel</strong> on the job order instead if you only want to close it out.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRemoveJOTarget(null)}
+                disabled={removeJOLoading}
+                className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRemoveJO}
+                disabled={removeJOLoading}
+                className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-sm disabled:opacity-50"
+              >
+                {removeJOLoading ? 'Removing…' : 'Delete Permanently'}
               </button>
             </div>
           </div>

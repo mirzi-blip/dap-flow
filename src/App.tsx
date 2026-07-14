@@ -19,13 +19,14 @@ import { ReportsPage } from './pages/ReportsPage'
 import { WorkloadPage } from './pages/WorkloadPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { BookingRequestForm } from './pages/BookingRequestForm'
+import { UpdateBanner } from './components/UpdateBanner'
 
 let _initStarted = false
 
 export default function App() {
   // Public route: show booking form without login
   if (window.location.pathname === '/request') {
-    return <BookingRequestForm />
+    return <><BookingRequestForm /><UpdateBanner /></>
   }
 
   const { currentUser, view, setOnline, setPendingSyncCount, theme, requestAlert, setRequestAlert, setView, showPasswordExpiry, setShowPasswordExpiry, setPasswordLastChanged } = useAppStore()
@@ -235,10 +236,11 @@ export default function App() {
     }
   }, [])
 
-  if (!currentUser) return <LoginPage />
+  if (!currentUser) return <><LoginPage /><UpdateBanner /></>
 
   return (
     <>
+    <UpdateBanner />
     {showPasswordExpiry && currentUser && (
       <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />

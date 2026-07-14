@@ -4,7 +4,7 @@ import type { AppUser, JobOrder, CalendarEvent, Notification, StatusLog, Resourc
 import { USERS, RESOURCES } from '../data/seed'
 import { DEFAULT_FORM_OPTIONS } from '../data/defaultFormOptions'
 import { supabase, rowToManagedUser, managedUserToRow, rowToApprover, approverToRow, rowToDepartment, departmentToRow, rowToResource, resourceToRow, rowToFormOption, formOptionToRow } from '../lib/supabase'
-import { DEFAULT_PERMISSIONS, type RolePermissions, type PermissionKey } from '../data/permissions'
+import { DEFAULT_PERMISSIONS, SUPER_ADMIN_ONLY, type RolePermissions, type PermissionKey } from '../data/permissions'
 import type { UserRole } from '../types'
 
 export type View = 'dashboard' | 'calendar' | 'joborders' | 'kanban' | 'workload' | 'reports' | 'settings'
@@ -409,6 +409,13 @@ export const useAppStore = create<AppState>()(
             if (!(role in state.rolePermissions)) {
               state.rolePermissions[role] = DEFAULT_PERMISSIONS[role]
             }
+          }
+          // Migration: reserve certain powers for Super Admin only.
+          // Admin was never editable before, so it's safe to strip these from a stored Admin role.
+          if (state.rolePermissions.Admin) {
+            state.rolePermissions.Admin = state.rolePermissions.Admin.filter(
+              p => !SUPER_ADMIN_ONLY.includes(p)
+            )
           }
         }
         // Backfill approvers/departments for users who upgraded from a version without them

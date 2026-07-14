@@ -1131,7 +1131,7 @@ export function SettingsPage() {
 
           {!can('settings', 'manage_users') && (
             <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
-              <AlertTriangle size={14} className="shrink-0" /> Read-only. Only Admins can manage users.
+              <AlertTriangle size={14} className="shrink-0" /> Read-only. Only Super Admins can add, edit, or terminate users.
             </div>
           )}
 

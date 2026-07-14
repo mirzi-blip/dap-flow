@@ -98,9 +98,20 @@ export type RolePermissions = Record<UserRole, PermissionKey[]>
 // Helper to build a full key
 export const perm = (module: string, action: string): PermissionKey => `${module}.${action}`
 
-// All possible permissions (for Admin)
+// All possible permissions (for Super Admin)
 export const ALL_PERMISSIONS: PermissionKey[] = PERMISSION_MODULES.flatMap(m =>
   m.actions.map(a => perm(m.key, a.key))
+)
+
+// Powers reserved for Super Admin — Admins do NOT get these
+export const SUPER_ADMIN_ONLY: PermissionKey[] = [
+  perm('settings', 'manage_permissions'), // configure RBAC for all roles
+  perm('settings', 'manage_users'),        // add / edit / terminate users
+]
+
+// Admin gets everything except the Super-Admin-only powers
+export const ADMIN_PERMISSIONS: PermissionKey[] = ALL_PERMISSIONS.filter(
+  p => !SUPER_ADMIN_ONLY.includes(p)
 )
 
 // ── Default permission matrix ─────────────────────────────────────────────────
@@ -108,7 +119,7 @@ export const ALL_PERMISSIONS: PermissionKey[] = PERMISSION_MODULES.flatMap(m =>
 export const DEFAULT_PERMISSIONS: RolePermissions = {
   'Super Admin': ALL_PERMISSIONS,
 
-  Admin: ALL_PERMISSIONS,
+  Admin: ADMIN_PERMISSIONS,
 
   'DAP Team': [
     perm('dashboard', 'view'),

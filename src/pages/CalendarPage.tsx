@@ -12,7 +12,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ActivityBadge, StatusBadge } from '../components/ui/Badge'
 import { formatDateTime, generateId } from '../utils/helpers'
-import type { ActivityType, CalendarEvent } from '../types'
+import type { ActivityType, CalendarEvent, JOStatus } from '../types'
 import { db } from '../db/database'
 
 const ACTIVITY_TYPES: ActivityType[] = [
@@ -48,9 +48,39 @@ export function CalendarPage() {
   const [showNewBooking, setShowNewBooking] = useState(false)
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
 
+  // Job orders that belong on the calendar. Derived directly from the synced
+  // jobOrders store so a JO scheduled on any device/account shows everywhere —
+  // calendar events themselves are only stored locally (not synced to Supabase).
+  const CALENDAR_JO_STATUSES: JOStatus[] = ['Scheduled', 'For Review', 'Needs Revision', 'Completed', 'Delayed']
+  const joEvents = useMemo<CalendarEvent[]>(() =>
+    jobOrders
+      .filter((jo) => CALENDAR_JO_STATUSES.includes(jo.status) && (jo.launchDate || jo.deadline))
+      .map((jo) => ({
+        id: `jo-${jo.id}`,
+        joId: jo.id,
+        title: jo.projectName,
+        activityType: jo.activityType,
+        startDate: jo.launchDate || jo.deadline,
+        endDate: jo.deadline || jo.launchDate,
+        assignedMemberIds: jo.assignedMemberIds,
+        location: '',
+        notes: jo.notes ?? '',
+        createdAt: jo.createdAt ?? new Date().toISOString(),
+      })),
+    [jobOrders]
+  )
+
+  // Merge synced JO events with local calendar events, dropping only the local
+  // events that duplicate a JO already shown here (keeps manual bookings and
+  // events linked to JOs not surfaced by joEvents).
+  const allEvents = useMemo<CalendarEvent[]>(() => {
+    const shownJoIds = new Set(joEvents.map((e) => e.joId))
+    return [...joEvents, ...calendarEvents.filter((e) => !shownJoIds.has(e.joId))]
+  }, [joEvents, calendarEvents])
+
   // Filter events
   const filteredEvents = useMemo(() => {
-    let events = calendarEvents
+    let events = allEvents
     if (filterMember) {
       events = events.filter((e) => e.assignedMemberIds.includes(filterMember))
     } else if (filterTeam !== 'All') {
@@ -58,7 +88,7 @@ export function CalendarPage() {
       events = events.filter((e) => e.assignedMemberIds.some((id) => teamResources.includes(id)))
     }
     return events
-  }, [calendarEvents, filterTeam, filterMember, resources])
+  }, [allEvents, filterTeam, filterMember, resources])
 
   function eventsOnDay(date: Date) {
     return filteredEvents.filter((e) => isSameDay(parseISO(e.startDate), date))

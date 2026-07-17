@@ -11,43 +11,42 @@ async function dbGet(id) {
   return rows[0] || null
 }
 
-// Read the configured booking coordinator (stored in booking_form_options)
-async function getCoordinator() {
+// Read the DAP Team Approver(s) responsible for a given service. A DAP
+// approver's service is stored in their `position` field.
+async function getServiceApprovers(activityType) {
   try {
     const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/booking_form_options?service=eq.__coordinator__&field_key=eq.coordinator&is_active=eq.true&select=option_value,option_label&limit=1`,
+      `${SUPABASE_URL}/rest/v1/approvers?approver_type=eq.dap&is_active=eq.true&position=eq.${encodeURIComponent(activityType)}&select=name,email`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
     )
     const rows = await r.json()
-    if (rows && rows[0] && rows[0].option_value) {
-      return { email: rows[0].option_value, name: rows[0].option_label || 'Coordinator' }
-    }
-  } catch (e) { /* ignore — no coordinator configured */ }
-  return null
+    return Array.isArray(rows) ? rows.filter((a) => a.email) : []
+  } catch (e) { return [] }
 }
 
-// Notify the coordinator that a request was approved and is ready to assign
-async function notifyCoordinator(data) {
-  const coord = await getCoordinator()
-  if (!coord) return
-  try {
-    await fetch(`${APP_URL}/api/send-email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        coordinatorNotification: true,
-        coordinatorEmail: coord.email,
-        coordinatorName: coord.name,
-        preparedBy: data.prepared_by,
-        activityType: data.activity_type,
-        projectName: data.project_name,
-        department: data.department,
-        neededDate: data.needed_date,
-        venue: data.venue,
-        refId: (data.id || '').slice(0, 8).toUpperCase(),
-      }),
-    })
-  } catch (e) { console.error('Coordinator notify failed:', e?.message || e) }
+// Notify the DAP approver(s) for this request's service that it's ready to assign
+async function notifyServiceApprovers(data) {
+  const approvers = await getServiceApprovers(data.activity_type)
+  for (const ap of approvers) {
+    try {
+      await fetch(`${APP_URL}/api/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          coordinatorNotification: true,
+          coordinatorEmail: ap.email,
+          coordinatorName: ap.name,
+          preparedBy: data.prepared_by,
+          activityType: data.activity_type,
+          projectName: data.project_name,
+          department: data.department,
+          neededDate: data.needed_date,
+          venue: data.venue,
+          refId: (data.id || '').slice(0, 8).toUpperCase(),
+        }),
+      })
+    } catch (e) { console.error('Service approver notify failed:', e?.message || e) }
+  }
 }
 
 async function dbUpdate(id, status) {
@@ -114,7 +113,7 @@ module.exports = async function handler(req, res) {
 
   if (action === 'approve') {
     await dbUpdate(id, 'Pending Review')
-    await notifyCoordinator(data)
+    await notifyServiceApprovers(data)
     return res.status(200).send(page('Approved', '✅', 'Request Approved!',
       `You have approved the booking request from <strong>${data.prepared_by}</strong> for <strong>${data.activity_type}</strong>.<br><br>The DAP team has been notified and will proceed with the job order.`,
       '#d1fae5'))

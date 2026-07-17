@@ -2,7 +2,7 @@
 import { useAppStore, useDataStore } from './store/useAppStore'
 import { db } from './db/database'
 import { supabase, rowToRequest, rowToJobOrder } from './lib/supabase'
-import { generateId, getCoordinator } from './utils/helpers'
+import { generateId, getServiceApprovers } from './utils/helpers'
 import {
   SEED_JOB_ORDERS,
   SEED_CALENDAR_EVENTS,
@@ -36,6 +36,7 @@ export default function App() {
     useAppStore.getState().initUsers()
     useAppStore.getState().initResources()
     useAppStore.getState().initFormOptions()
+    useAppStore.getState().initApprovers()
   }, [])
 
   // Sync theme class to <html> so Tailwind dark: variants work
@@ -225,9 +226,9 @@ export default function App() {
         // so only the coordinator's own session creates their notification.
         if (req.status === 'Pending Review' && prev && prev.status !== 'Pending Review') {
           const st = useAppStore.getState()
-          const coord = getCoordinator(st.formOptions)
           const cur = st.currentUser
-          if (coord && cur && cur.email.toLowerCase() === coord.email.toLowerCase()) {
+          const svcApprovers = getServiceApprovers(st.approvers, req.activityType)
+          if (cur && svcApprovers.some(a => a.email.toLowerCase() === cur.email.toLowerCase())) {
             const notif = {
               id: generateId(),
               type: 'approval_notification' as const,

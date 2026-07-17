@@ -1,22 +1,18 @@
 import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns'
-import type { JobOrder, JOStatus, FormOption } from '../types'
+import type { JobOrder, JOStatus, Approver } from '../types'
 
 export function generateId(): string {
   return crypto.randomUUID()
 }
 
-// ── Booking coordinator ──────────────────────────────────────────────────────
-// The coordinator notified when an approver approves a request. Stored as a
-// single entry in the booking_form_options table so both the app and the
-// serverless approval endpoint can read it, and it's editable in Settings.
-export const COORDINATOR_SERVICE = '__coordinator__'
-export const COORDINATOR_FIELD = 'coordinator'
-
-export function getCoordinator(formOptions: FormOption[]): { id: string; name: string; email: string } | null {
-  const row = formOptions.find(
-    (o) => o.service === COORDINATOR_SERVICE && o.fieldKey === COORDINATOR_FIELD && o.isActive
+// ── Per-service DAP routing ──────────────────────────────────────────────────
+// When an approver approves a request, the DAP Team Approver(s) responsible for
+// that service are notified. A DAP approver's service is stored in their
+// `position` field (repurposed as a Service picker in the DAP Approvers tab).
+export function getServiceApprovers(approvers: Approver[], activityType: string): Approver[] {
+  return approvers.filter(
+    (a) => a.approverType === 'dap' && a.isActive !== false && a.position === activityType && !!a.email
   )
-  return row ? { id: row.id, name: row.optionLabel, email: row.optionValue } : null
 }
 
 export function generateJONumber(existingCount: number): string {

@@ -221,6 +221,46 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // ── Coordinator notification: request approved, ready for assignment ───────
+  if (body.coordinatorNotification) {
+    const { coordinatorEmail, coordinatorName, preparedBy, activityType, projectName, department, neededDate, venue, refId } = body
+    if (!coordinatorEmail) return res.status(200).json({ ok: true })
+    const appUrl = 'https://dap-flow-tau.vercel.app'
+    const html = `<div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+      <div style="background:linear-gradient(135deg,#1B2F5E,#5164C0);padding:20px 24px;border-radius:8px;margin-bottom:24px">
+        <p style="color:#c7d2f7;font-size:11px;font-weight:700;letter-spacing:0.1em;margin:0 0 4px">DIGITAL &amp; ARTS PRODUCTION (DAP)</p>
+        <h2 style="color:#fff;margin:0;font-size:20px">Request Approved — Ready to Assign ✅</h2>
+      </div>
+      <p>Hi <strong>${coordinatorName || 'Coordinator'}</strong>,</p>
+      <p style="color:#475569">A booking request has been <strong style="color:#059669">approved by the approver</strong> and is now waiting for the DAP team to assign members. Please review and assign it in DAP Flow.</p>
+      <table style="margin:20px 0;border-collapse:collapse;width:100%;font-size:14px">
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;width:140px">Reference</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#5164C0">#${refId || '—'}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Service Type</td><td style="padding:8px 12px">${activityType || '—'}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Project</td><td style="padding:8px 12px">${projectName || '—'}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Department</td><td style="padding:8px 12px">${department || '—'}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Date Needed</td><td style="padding:8px 12px">${neededDate || '—'}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Venue</td><td style="padding:8px 12px">${venue || '—'}</td></tr>
+        <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Prepared By</td><td style="padding:8px 12px">${preparedBy || '—'}</td></tr>
+      </table>
+      <a href="${appUrl}" style="display:inline-block;background:linear-gradient(135deg,#1B2F5E,#5164C0);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;margin:8px 0">Open Requests in DAP Flow →</a>
+      <p style="color:#94a3b8;font-size:12px;margin:12px 0">Find it under <strong>Job Orders → Requests</strong> (status: Pending Review).</p>
+      <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px">— Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management</p>
+    </div>`
+    try {
+      await transporter.sendMail({
+        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
+        replyTo: 'no-reply@dap-flow.noreply',
+        to: coordinatorEmail,
+        subject: `[DAP] Approved — Ready to Assign: ${activityType || 'Request'} #${refId || ''}`.trim(),
+        html,
+      })
+      return res.status(200).json({ ok: true })
+    } catch (err) {
+      console.error('Coordinator email error:', err?.message || err)
+      return res.status(500).json({ error: err?.message || 'Failed to send coordinator email' })
+    }
+  }
+
   // ── Member notification ─────────────────────────────────────────────────────
   if (body.memberNotification) {
     const { mode, memberEmail, memberName, joNumber, projectName, activityType, priority, deadline, status } = body

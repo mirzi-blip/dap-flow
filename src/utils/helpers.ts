@@ -1,8 +1,22 @@
 import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns'
-import type { JobOrder, JOStatus } from '../types'
+import type { JobOrder, JOStatus, FormOption } from '../types'
 
 export function generateId(): string {
   return crypto.randomUUID()
+}
+
+// ── Booking coordinator ──────────────────────────────────────────────────────
+// The coordinator notified when an approver approves a request. Stored as a
+// single entry in the booking_form_options table so both the app and the
+// serverless approval endpoint can read it, and it's editable in Settings.
+export const COORDINATOR_SERVICE = '__coordinator__'
+export const COORDINATOR_FIELD = 'coordinator'
+
+export function getCoordinator(formOptions: FormOption[]): { id: string; name: string; email: string } | null {
+  const row = formOptions.find(
+    (o) => o.service === COORDINATOR_SERVICE && o.fieldKey === COORDINATOR_FIELD && o.isActive
+  )
+  return row ? { id: row.id, name: row.optionLabel, email: row.optionValue } : null
 }
 
 export function generateJONumber(existingCount: number): string {

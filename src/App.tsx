@@ -2,7 +2,7 @@
 import { useAppStore, useDataStore } from './store/useAppStore'
 import { db } from './db/database'
 import { supabase, rowToRequest, rowToJobOrder } from './lib/supabase'
-import { generateId } from './utils/helpers'
+import { generateId, getCoordinator } from './utils/helpers'
 import {
   SEED_JOB_ORDERS,
   SEED_CALENDAR_EVENTS,
@@ -217,7 +217,30 @@ export default function App() {
         useAppStore.getState().setRequestAlert(req)
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'booking_requests' }, payload => {
-        updateBookingRequest(rowToRequest(payload.new as Record<string, unknown>))
+        const req = rowToRequest(payload.new as Record<string, unknown>)
+        const prev = useDataStore.getState().bookingRequests.find(r => r.id === req.id)
+        updateBookingRequest(req)
+        // Approver just approved (Pending Approval → Pending Review): notify the
+        // configured coordinator in-app. Each client reacts to the synced event,
+        // so only the coordinator's own session creates their notification.
+        if (req.status === 'Pending Review' && prev && prev.status !== 'Pending Review') {
+          const st = useAppStore.getState()
+          const coord = getCoordinator(st.formOptions)
+          const cur = st.currentUser
+          if (coord && cur && cur.email.toLowerCase() === coord.email.toLowerCase()) {
+            const notif = {
+              id: generateId(),
+              type: 'approval_notification' as const,
+              title: 'Request Approved — Ready to Assign',
+              message: `${req.activityType} from ${req.preparedBy} (${req.department}) was approved and is ready to assign.`,
+              read: false,
+              createdAt: new Date().toISOString(),
+              targetUserId: cur.id,
+            }
+            db.notifications.add(notif)
+            useDataStore.getState().addNotification(notif)
+          }
+        }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'job_orders' }, payload => {
         addJobOrder(rowToJobOrder(payload.new as Record<string, unknown>))

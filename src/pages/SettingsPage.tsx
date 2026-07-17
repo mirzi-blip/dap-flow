@@ -11,6 +11,7 @@ import { useAppStore } from '../store/useAppStore'
 import { uploadAvatar } from '../lib/supabase'
 import { PERMISSION_MODULES, DEFAULT_PERMISSIONS, ALL_PERMISSIONS, perm } from '../data/permissions'
 import { usePermissions } from '../hooks/usePermissions'
+import { getCoordinator, COORDINATOR_SERVICE, COORDINATOR_FIELD } from '../utils/helpers'
 import type { ManagedUser, UserRole, RequestingTeam, UserStatus, Resource, DAPSubRole, DAPTeam, Approver, BookingDepartment, FormOption } from '../types'
 
 const ROLES: UserRole[] = ['Super Admin', 'Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']
@@ -718,6 +719,39 @@ export function SettingsPage() {
   const [approverDeleteConfirm, setApproverDeleteConfirm] = useState<Approver | null>(null)
   const [approverSaved, setApproverSaved] = useState('')
 
+  // ── Booking coordinator (notified when a request is approved) ────────────────
+  const coordinator = getCoordinator(formOptions)
+  const [coordName, setCoordName] = useState('')
+  const [coordEmail, setCoordEmail] = useState('')
+  const [coordSaved, setCoordSaved] = useState(false)
+  useEffect(() => {
+    setCoordName(coordinator?.name ?? '')
+    setCoordEmail(coordinator?.email ?? '')
+  }, [coordinator?.id, coordinator?.name, coordinator?.email])
+
+  function handleSaveCoordinator() {
+    const email = coordEmail.trim()
+    const name = coordName.trim()
+    const row = formOptions.find(o => o.service === COORDINATOR_SERVICE && o.fieldKey === COORDINATOR_FIELD)
+    if (row) {
+      updateFormOption({ ...row, optionValue: email, optionLabel: name, isActive: true })
+    } else {
+      addFormOption({
+        id: `fopt_${Date.now()}`,
+        service: COORDINATOR_SERVICE,
+        fieldKey: COORDINATOR_FIELD,
+        fieldLabel: 'Booking Coordinator',
+        optionValue: email,
+        optionLabel: name,
+        isActive: true,
+        sortOrder: 0,
+        createdAt: new Date().toISOString(),
+      })
+    }
+    setCoordSaved(true)
+    setTimeout(() => setCoordSaved(false), 2000)
+  }
+
   const currentApproverType = activeTab === 'dap-approvers' ? 'dap' : 'booking'
   const typeApprovers = approvers.filter(a => (a.approverType ?? 'booking') === currentApproverType)
   const activeCount   = typeApprovers.filter(a => a.isActive !== false).length
@@ -1331,6 +1365,46 @@ export function SettingsPage() {
               <button onClick={openAddApprover} className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-colors">
                 <Plus size={13} /> Add Approver
               </button>
+            </div>
+          </div>
+
+          {/* Booking Coordinator */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-9 h-9 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center shrink-0">
+                <UserCheck size={16} className="text-brand-600 dark:text-brand-300" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">Booking Coordinator</h3>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Notified by email and in-app whenever an approver approves a request (ready to assign).</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Coordinator Name</label>
+                <input type="text" value={coordName} onChange={e => setCoordName(e.target.value)} placeholder="e.g. Juan Dela Cruz" className="form-input" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">Coordinator Email</label>
+                <input type="email" value={coordEmail} onChange={e => setCoordEmail(e.target.value)} placeholder="coordinator@ipi.ph" className="form-input" />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 mt-3">
+              <button
+                onClick={handleSaveCoordinator}
+                disabled={!coordEmail.trim() || !coordName.trim()}
+                className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl transition-colors"
+              >
+                <Save size={13} /> Save Coordinator
+              </button>
+              {coordSaved && (
+                <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
+                  <Check size={13} /> Saved
+                </span>
+              )}
+              {coordinator && !coordSaved && (
+                <span className="text-xs text-slate-400 dark:text-slate-500">Current: <span className="font-semibold text-slate-600 dark:text-slate-300">{coordinator.name}</span> · {coordinator.email}</span>
+              )}
             </div>
           </div>
 

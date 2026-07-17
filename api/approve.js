@@ -4,11 +4,50 @@ const APP_URL = 'https://dap-flow-tau.vercel.app'
 
 async function dbGet(id) {
   const r = await fetch(
-    `${SUPABASE_URL}/rest/v1/booking_requests?id=eq.${id}&select=id,status,prepared_by,activity_type`,
+    `${SUPABASE_URL}/rest/v1/booking_requests?id=eq.${id}&select=id,status,prepared_by,activity_type,project_name,department,needed_date,venue`,
     { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
   )
   const rows = await r.json()
   return rows[0] || null
+}
+
+// Read the configured booking coordinator (stored in booking_form_options)
+async function getCoordinator() {
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/booking_form_options?service=eq.__coordinator__&field_key=eq.coordinator&is_active=eq.true&select=option_value,option_label&limit=1`,
+      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+    )
+    const rows = await r.json()
+    if (rows && rows[0] && rows[0].option_value) {
+      return { email: rows[0].option_value, name: rows[0].option_label || 'Coordinator' }
+    }
+  } catch (e) { /* ignore — no coordinator configured */ }
+  return null
+}
+
+// Notify the coordinator that a request was approved and is ready to assign
+async function notifyCoordinator(data) {
+  const coord = await getCoordinator()
+  if (!coord) return
+  try {
+    await fetch(`${APP_URL}/api/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        coordinatorNotification: true,
+        coordinatorEmail: coord.email,
+        coordinatorName: coord.name,
+        preparedBy: data.prepared_by,
+        activityType: data.activity_type,
+        projectName: data.project_name,
+        department: data.department,
+        neededDate: data.needed_date,
+        venue: data.venue,
+        refId: (data.id || '').slice(0, 8).toUpperCase(),
+      }),
+    })
+  } catch (e) { console.error('Coordinator notify failed:', e?.message || e) }
 }
 
 async function dbUpdate(id, status) {
@@ -75,6 +114,7 @@ module.exports = async function handler(req, res) {
 
   if (action === 'approve') {
     await dbUpdate(id, 'Pending Review')
+    await notifyCoordinator(data)
     return res.status(200).send(page('Approved', '✅', 'Request Approved!',
       `You have approved the booking request from <strong>${data.prepared_by}</strong> for <strong>${data.activity_type}</strong>.<br><br>The DAP team has been notified and will proceed with the job order.`,
       '#d1fae5'))

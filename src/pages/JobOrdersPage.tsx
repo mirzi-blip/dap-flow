@@ -10,7 +10,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus } from '../utils/helpers'
+import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, getCoordinator } from '../utils/helpers'
 import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus } from '../types'
 import { db } from '../db/database'
 import { supabase, requestToRow, jobOrderToRow, saveJOComment } from '../lib/supabase'
@@ -58,7 +58,7 @@ type SortCol = 'joNumber' | 'projectName' | 'activityType' | 'requestingTeam' | 
 
 export function JobOrdersPage() {
   const { jobOrders, addJobOrder, updateJobOrder, deleteJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest, deleteBookingRequest, addCalendarEvent } = useDataStore()
-  const { currentUser, globalSearch, setGlobalSearch, resources } = useAppStore()
+  const { currentUser, globalSearch, setGlobalSearch, resources, formOptions } = useAppStore()
   const { can } = usePermissions()
 
   const canSeeRequests = can('job_orders', 'view_requests')
@@ -778,6 +778,26 @@ export function JobOrdersPage() {
     const updated: BookingRequest = { ...req, status: 'Pending Review' }
     await supabase.from('booking_requests').update({ status: 'Pending Review' }).eq('id', req.id)
     updateBookingRequest(updated)
+    // Notify the booking coordinator that this request is ready to assign
+    const coord = getCoordinator(formOptions)
+    if (coord?.email) {
+      fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          coordinatorNotification: true,
+          coordinatorEmail: coord.email,
+          coordinatorName: coord.name,
+          preparedBy: req.preparedBy,
+          activityType: req.activityType,
+          projectName: req.projectName,
+          department: req.department,
+          neededDate: req.neededDate,
+          venue: req.venue,
+          refId: req.id.slice(0, 8).toUpperCase(),
+        }),
+      }).catch(console.error)
+    }
   }
 
   async function handleConvertToJO(req: BookingRequest) {

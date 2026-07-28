@@ -4,16 +4,18 @@ import {
   startOfWeek, addDays, addWeeks, format, isSameDay, parseISO, isToday,
 } from 'date-fns'
 import { useDataStore, useAppStore } from '../store/useAppStore'
-import { teamColors, activityCalendarColors } from '../utils/colors'
+import { teamColor, activityCalendarColors } from '../utils/colors'
+import { orderedTeams } from '../utils/helpers'
 import type { DAPTeam, JobOrder } from '../types'
 import { ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS, DAILY_CAPACITY_HRS, LOAD_OVERLOAD } from '../types'
-
-const TEAMS: DAPTeam[] = ['Photo', 'Video', 'Audio', 'Design']
 
 export function WorkloadPage() {
   const { jobOrders } = useDataStore()
   const { resources } = useAppStore()
   const [filterTeam, setFilterTeam] = useState<DAPTeam | 'All'>('All')
+
+  // Teams shown = the configured list plus any (legacy) team still assigned to a member
+  const TEAMS = useMemo<DAPTeam[]>(() => orderedTeams(resources), [resources])
 
   const displayResources = useMemo(() =>
     resources.filter(r => filterTeam === 'All' || r.team === filterTeam),
@@ -53,7 +55,7 @@ export function WorkloadPage() {
         : 0
       return { team, members: members.length, totalActive, totalNext4Weeks, avgLoad }
     }),
-    [jobOrders, resources]
+    [jobOrders, resources, TEAMS]
   )
 
   // ── Calendar visualization ──────────────────────────────────────────────────
@@ -103,7 +105,7 @@ export function WorkloadPage() {
       {/* Summary stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {teamSummary.map(t => {
-          const color = teamColors[t.team]
+          const color = teamColor(t.team)
           const isOverloaded = t.avgLoad >= LOAD_OVERLOAD
           return (
             <div key={t.team} className={`bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border ${isOverloaded ? 'border-red-200 dark:border-red-800' : 'border-slate-100 dark:border-slate-700'}`}>

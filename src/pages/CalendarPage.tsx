@@ -11,7 +11,7 @@ import { activityCalendarColors } from '../utils/colors'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ActivityBadge, StatusBadge } from '../components/ui/Badge'
-import { formatDateTime, generateId } from '../utils/helpers'
+import { formatDateTime, generateId, orderedTeams } from '../utils/helpers'
 import type { ActivityType, CalendarEvent, JOStatus } from '../types'
 import { db } from '../db/database'
 
@@ -21,7 +21,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
 ]
 
 type ViewMode = 'month' | 'week'
-type FilterTeam = 'All' | 'Photo' | 'Video' | 'Audio' | 'Design'
+type FilterTeam = string
 
 function EventChip({ event }: { event: CalendarEvent }) {
   const color = activityCalendarColors[event.activityType]
@@ -223,7 +223,7 @@ export function CalendarPage() {
         <div className="flex items-center gap-2">
           {/* Team filter */}
           <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
-            {(['All', 'Photo', 'Video', 'Audio', 'Design'] as FilterTeam[]).map((t) => (
+            {(['All', ...orderedTeams(resources)] as FilterTeam[]).map((t) => (
               <button key={t} onClick={() => { setFilterTeam(t); setFilterMember('') }}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${filterTeam === t && !filterMember ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
                 {t}

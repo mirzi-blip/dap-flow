@@ -12,6 +12,7 @@ import { uploadAvatar } from '../lib/supabase'
 import { PERMISSION_MODULES, DEFAULT_PERMISSIONS, ALL_PERMISSIONS, perm } from '../data/permissions'
 import { usePermissions } from '../hooks/usePermissions'
 import type { ManagedUser, UserRole, RequestingTeam, UserStatus, Resource, DAPSubRole, DAPTeam, Approver, BookingDepartment, FormOption, ActivityType } from '../types'
+import { DAP_MEMBER_ROLES, DAP_TEAM_LIST } from '../types'
 
 // Services a DAP Team Approver can be responsible for (matches booking activity types)
 const DAP_SERVICES: ActivityType[] = [
@@ -25,8 +26,8 @@ const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
 type SettingsTab = 'profile' | 'users' | 'team' | 'capacity' | 'activity' | 'integrations' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments' | 'booking-form'
 
 
-const SUB_ROLES: DAPSubRole[] = ['Photographer', 'Videographer', 'Video Editor', 'Audio Editor', 'Graphic Designer']
-const DAP_TEAMS: DAPTeam[] = ['Photo', 'Video', 'Audio', 'Design']
+const SUB_ROLES: DAPSubRole[] = [...DAP_MEMBER_ROLES]
+const DAP_TEAMS: DAPTeam[] = [...DAP_TEAM_LIST]
 
 interface Integration {
   id: string
@@ -521,7 +522,7 @@ export function SettingsPage() {
   // Team member editing state
   const [editingMember, setEditingMember] = useState<Resource | null>(null)
   const [addingMember, setAddingMember] = useState(false)
-  const [memberForm, setMemberForm] = useState<{ name: string; email: string; role: DAPSubRole; team: DAPTeam }>({ name: '', email: '', role: 'Photographer', team: 'Photo' })
+  const [memberForm, setMemberForm] = useState<{ name: string; email: string; role: DAPSubRole; team: DAPTeam }>({ name: '', email: '', role: DAP_MEMBER_ROLES[0], team: DAP_TEAM_LIST[0] })
   const [memberSaved, setMemberSaved] = useState('')
 
   const MEMBER_COLORS = ['bg-brand-500','bg-cyan-500','bg-purple-500','bg-red-500','bg-emerald-500','bg-teal-500','bg-amber-500','bg-pink-500','bg-brand-500','bg-orange-500']
@@ -535,7 +536,7 @@ export function SettingsPage() {
   function openAddMember() {
     setEditingMember(null)
     setAddingMember(true)
-    setMemberForm({ name: '', email: '', role: 'Photographer', team: 'Photo' })
+    setMemberForm({ name: '', email: '', role: DAP_MEMBER_ROLES[0], team: DAP_TEAM_LIST[0] })
   }
 
   function saveMember() {

@@ -10,7 +10,8 @@ import {
   ChevronLeft, ChevronRight, CalendarDays, Image, Printer, ShieldCheck,
 } from 'lucide-react'
 import { useAppStore, useDataStore } from '../store/useAppStore'
-import { activityCalendarColors, teamColors } from '../utils/colors'
+import { activityCalendarColors, teamColor } from '../utils/colors'
+import { orderedTeams } from '../utils/helpers'
 import type { JOStatus, ActivityType } from '../types'
 import { ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS, TEAM_TOTAL_CAPACITY, LOAD_OVERLOAD } from '../types'
 
@@ -116,7 +117,7 @@ export function DashboardPage() {
 
   // Team workload heatmap — uses 6.6 hr/day × 5 = 33 hr/week formula
   const teamWorkload = useMemo(() => {
-    const teams = ['Photo', 'Video', 'Audio', 'Design'] as const
+    const teams = orderedTeams(resources)
     return teams.map(team => {
       const members = resources.filter(r => r.team === team)
       const totalActive = filteredJOs.filter(j =>
@@ -134,7 +135,7 @@ export function DashboardPage() {
             return acc + Math.min(100, Math.round((estimatedHrs / WEEKLY_CAPACITY_HRS) * 100))
           }, 0) / members.length)
         : 0
-      const color = teamColors[team]
+      const color = teamColor(team)
       return { team, util: avgUtil, totalActive, members: members.length, color }
     })
   }, [filteredJOs, resources])
@@ -159,7 +160,7 @@ export function DashboardPage() {
 
   // Team capacity totals
   const teamCapacityTotals = useMemo(() => {
-    const teams = ['Photo', 'Video', 'Audio', 'Design'] as const
+    const teams = orderedTeams(resources)
     return teams.map(team => {
       const members = resources.filter(r => r.team === team)
       const usedHrs = members.reduce((sum, r) => {
@@ -171,7 +172,7 @@ export function DashboardPage() {
       }, 0)
       const totalCapacity = members.length * WEEKLY_CAPACITY_HRS
       const pct = totalCapacity > 0 ? Math.min(100, Math.round((usedHrs / totalCapacity) * 100)) : 0
-      return { team, usedHrs, totalCapacity, pct, members: members.length, color: teamColors[team] }
+      return { team, usedHrs, totalCapacity, pct, members: members.length, color: teamColor(team) }
     })
   }, [filteredJOs, resources])
 

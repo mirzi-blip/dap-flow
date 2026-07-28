@@ -101,14 +101,35 @@ export type RequestingTeam = 'BMG' | 'MOD' | 'MTO' | 'CBE'
 
 export type UserRole = 'Super Admin' | 'Admin' | 'DAP Team' | 'Brand Team' | 'Leadership' | 'End User'
 
-export type DAPSubRole =
-  | 'Photographer'
-  | 'Videographer'
-  | 'Video Editor'
-  | 'Audio Editor'
-  | 'Graphic Designer'
+// Team-member roles and teams shown in the Team Members add/edit form.
+export const DAP_MEMBER_ROLES = [
+  'Multimedia Designer',
+  'Graphic Designer',
+  'Video Editor',
+  'Production Assistant',
+  'Content Writer',
+  'Videographer',
+  'Photographer',
+  'Drone Pilot',
+  'Sound Engineer',
+  'ASC Compliance',
+  'Printing Operator',
+  'Livestream Operator',
+] as const
 
-export type DAPTeam = 'Photo' | 'Video' | 'Audio' | 'Design'
+export const DAP_TEAM_LIST = [
+  'Audio/Video',
+  'Multimedia',
+  'Graphics',
+  'Content Writer',
+  'ASC Compliance',
+  'Printing',
+] as const
+
+// Stored as free strings so existing records (old roles/teams) and future
+// additions both remain valid; the form constrains input to the lists above.
+export type DAPSubRole = string
+export type DAPTeam = string
 
 export interface Resource {
   id: string

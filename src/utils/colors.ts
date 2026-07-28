@@ -62,10 +62,23 @@ export const priorityColors: Record<Priority, { bg: string; text: string; dot: s
 }
 
 export const teamColors: Record<string, { hex: string; tailwind: string; light: string }> = {
+  // Current teams
+  'Audio/Video':    { hex: '#0EA5E9', tailwind: 'bg-sky-500',     light: 'bg-sky-50' },
+  'Multimedia':     { hex: '#5164C0', tailwind: 'bg-brand-500',   light: 'bg-brand-50' },
+  'Graphics':       { hex: '#F59E0B', tailwind: 'bg-amber-500',   light: 'bg-amber-50' },
+  'Content Writer': { hex: '#10B981', tailwind: 'bg-emerald-500', light: 'bg-emerald-50' },
+  'ASC Compliance': { hex: '#EC4899', tailwind: 'bg-pink-500',    light: 'bg-pink-50' },
+  'Printing':       { hex: '#14B8A6', tailwind: 'bg-teal-500',    light: 'bg-teal-50' },
+  // Legacy teams (kept so pre-existing members still render correctly)
   Photo:  { hex: '#3B82F6', tailwind: 'bg-brand-500',    light: 'bg-brand-50' },
   Video:  { hex: '#EF4444', tailwind: 'bg-red-500',     light: 'bg-red-50' },
   Audio:  { hex: '#8B9FE8', tailwind: 'bg-brand-500',  light: 'bg-brand-50' },
   Design: { hex: '#10B981', tailwind: 'bg-emerald-500', light: 'bg-emerald-50' },
+}
+
+// Safe lookup with a neutral fallback for any team not in the map
+export function teamColor(team: string) {
+  return teamColors[team] ?? { hex: '#6F84DB', tailwind: 'bg-brand-500', light: 'bg-brand-50' }
 }
 
 export const kpiGradients = [

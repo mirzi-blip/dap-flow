@@ -1,5 +1,16 @@
 import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns'
 import type { JobOrder, JOStatus, Approver } from '../types'
+import { DAP_TEAM_LIST } from '../types'
+
+// Teams to show in team views: the configured teams that have members, followed
+// by any other (legacy) team still assigned to a member. Keeps views in sync
+// with whatever teams actually exist, without hardcoding.
+export function orderedTeams(resources: { team: string }[]): string[] {
+  const present = new Set(resources.map((r) => r.team).filter(Boolean))
+  const configured = DAP_TEAM_LIST.filter((t) => present.has(t))
+  const extras = [...present].filter((t) => !(DAP_TEAM_LIST as readonly string[]).includes(t)).sort()
+  return [...configured, ...extras]
+}
 
 export function generateId(): string {
   return crypto.randomUUID()

@@ -13,6 +13,7 @@ import { generateId } from '../utils/helpers'
 const ACTIVITY_TYPES: ActivityType[] = [
   'ASC',
   'Audio Services',
+  'Content Writing',
   'Digital Design',
   'Graphics',
   'Photo Shoot',
@@ -24,7 +25,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
 
 const SHOOT_ACTIVITIES: ActivityType[]      = ['Photo Shoot', 'Video Shoot']
 const DESIGN_ACTIVITIES: ActivityType[]     = ['Static Artwork Design', 'Digital Design', 'Graphics', 'Printing', 'ASC', 'Video Editing', 'Audio Services']
-const DATE_ONLY_ACTIVITIES: ActivityType[]  = ['Static Artwork Design', 'Digital Design', 'Graphics', 'Printing', 'ASC', 'Audio Services', 'Audio Recording', 'Audio Editing', 'Video Editing']
+const DATE_ONLY_ACTIVITIES: ActivityType[]  = ['Static Artwork Design', 'Digital Design', 'Graphics', 'Printing', 'ASC', 'Audio Services', 'Audio Recording', 'Audio Editing', 'Video Editing', 'Content Writing']
 
 // ── Dropdown options (static fallbacks used before formOptions load) ───────────
 const PAPER_SIZES_FB    = ['A4', 'A3', 'A2', 'A1', 'A0', 'Letter (8.5"×11")', 'Legal (8.5"×14")', 'Tabloid (11"×17")', '4R (4"×6")', '5R (5"×7")', 'Custom']

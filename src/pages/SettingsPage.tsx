@@ -17,7 +17,7 @@ import { DAP_MEMBER_ROLES, DAP_TEAM_LIST } from '../types'
 // Services a DAP Team Approver can be responsible for (matches booking activity types)
 const DAP_SERVICES: ActivityType[] = [
   'Photo Shoot', 'Video Shoot', 'Static Artwork Design', 'Digital Design',
-  'Graphics', 'Printing', 'ASC', 'Video Editing', 'Audio Recording', 'Audio Editing', 'Audio Services',
+  'Graphics', 'Printing', 'ASC', 'Video Editing', 'Audio Recording', 'Audio Editing', 'Audio Services', 'Content Writing',
 ]
 
 const ROLES: UserRole[] = ['Super Admin', 'Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']

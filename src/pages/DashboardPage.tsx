@@ -7,7 +7,7 @@ import {
   AlertTriangle, CheckCircle2, Clock, Zap, ArrowRight,
   Plus, ClipboardList, Camera, Video, Mic, Palette, Scissors, Headphones,
   CalendarClock, TrendingUp, ArrowUpRight, Ban, Users,
-  ChevronLeft, ChevronRight, CalendarDays, Image, Printer, ShieldCheck,
+  ChevronLeft, ChevronRight, CalendarDays, Image, Printer, ShieldCheck, PenLine,
 } from 'lucide-react'
 import { useAppStore, useDataStore } from '../store/useAppStore'
 import { activityCalendarColors, teamColor } from '../utils/colors'
@@ -41,6 +41,7 @@ const activityIcon: Record<ActivityType, React.ElementType> = {
   'Audio Recording':       Mic,
   'Audio Editing':         Headphones,
   'Audio Services':        Mic,
+  'Content Writing':       PenLine,
 }
 
 export function DashboardPage() {

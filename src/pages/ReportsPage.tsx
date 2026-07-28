@@ -8,7 +8,7 @@ import {
   PieChart as PieIcon, Users, Target, Zap, Activity,
   Camera, Video, Palette, Scissors, Mic, Headphones,
   ArrowUpRight, ArrowDownRight, Minus, Filter, X,
-  Image, Printer, ShieldCheck,
+  Image, Printer, ShieldCheck, PenLine,
 } from 'lucide-react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
 import { activityCalendarColors } from '../utils/colors'
@@ -20,7 +20,7 @@ const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct
 const ACTIVITY_TYPES: ActivityType[] = [
   'Photo Shoot', 'Video Shoot', 'Static Artwork Design', 'Digital Design',
   'Graphics', 'Printing', 'ASC',
-  'Video Editing', 'Audio Services', 'Audio Recording', 'Audio Editing',
+  'Video Editing', 'Audio Services', 'Audio Recording', 'Audio Editing', 'Content Writing',
 ]
 
 const PREDEFINED_TEAMS = ['BMG', 'MOD', 'MTO', 'CBE']
@@ -37,6 +37,7 @@ const activityIcon: Record<ActivityType, React.ElementType> = {
   'Audio Recording':       Mic,
   'Audio Editing':         Headphones,
   'Audio Services':        Mic,
+  'Content Writing':       PenLine,
 }
 
 function KpiCard({

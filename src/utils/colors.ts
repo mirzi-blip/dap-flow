@@ -13,6 +13,7 @@ export const activityColors: Record<ActivityType, { bg: string; text: string; bo
   'Audio Recording':       { bg: 'bg-sky-50',     text: 'text-sky-700',    border: 'border-sky-200',    dot: 'bg-sky-500' },
   'Audio Editing':         { bg: 'bg-pink-50',    text: 'text-pink-700',   border: 'border-pink-200',   dot: 'bg-pink-500' },
   'Audio Services':        { bg: 'bg-sky-50',     text: 'text-sky-700',    border: 'border-sky-200',    dot: 'bg-sky-500' },
+  'Content Writing':       { bg: 'bg-cyan-50',    text: 'text-cyan-700',   border: 'border-cyan-200',   dot: 'bg-cyan-500' },
 }
 
 export const activityCalendarColors: Record<ActivityType, string> = {
@@ -27,6 +28,7 @@ export const activityCalendarColors: Record<ActivityType, string> = {
   'Audio Recording':       '#0EA5E9',
   'Audio Editing':         '#EC4899',
   'Audio Services':        '#0EA5E9',
+  'Content Writing':       '#06B6D4',
 }
 
 export const activityGradients: Record<ActivityType, string> = {
@@ -41,6 +43,7 @@ export const activityGradients: Record<ActivityType, string> = {
   'Audio Recording':       'from-sky-500 to-brand-600',
   'Audio Editing':         'from-pink-500 to-rose-500',
   'Audio Services':        'from-sky-500 to-brand-600',
+  'Content Writing':       'from-cyan-500 to-sky-600',
 }
 
 export const statusColors: Record<JOStatus, { bg: string; text: string; ring: string; glow: string }> = {

@@ -25,6 +25,7 @@ export type ActivityType =
   | 'Audio Recording'
   | 'Audio Editing'
   | 'Audio Services'
+  | 'Content Writing'
 
 /** Minor = partial crew, Major = full crew */
 export type ShootType = 'Minor' | 'Major'
@@ -60,6 +61,7 @@ export const ACTIVITY_HOURS: Record<ActivityType, number> = {
   'Audio Recording':       4,
   'Audio Editing':         3,
   'Audio Services':        4,
+  'Content Writing':       6,
 }
 
 /** Capacity constants */

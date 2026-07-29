@@ -106,6 +106,7 @@ const SERVICE_ICONS: Record<string, string> = {
   'Audio Recording':       '🎙️',
   'Audio Editing':         '🎧',
   'Audio Services':        '🎙️',
+  'Content Writing':       '✍️',
 }
 
 const SERVICE_DESC: Record<string, string> = {

@@ -11,7 +11,7 @@ import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badg
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus } from '../utils/helpers'
-import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus } from '../types'
+import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus, DesignSpecs } from '../types'
 import { db } from '../db/database'
 import { supabase, requestToRow, jobOrderToRow, saveJOComment } from '../lib/supabase'
 
@@ -1135,45 +1135,10 @@ export function JobOrdersPage() {
                   </div>
                 )}
 
-                {/* Request details (read-only) */}
+                {/* Request details (read-only) — everything the requestor submitted */}
                 <div>
                   <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Request Details</p>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <InfoBox label="Service Type" value={reviewRequest.activityType} />
-                    <InfoBox label="Status" value={reviewRequest.status} />
-                    <InfoBox label="Department" value={reviewRequest.department || '—'} />
-                    <InfoBox label="Department Local" value={reviewRequest.departmentLocal || '—'} />
-                    <InfoBox label="Prepared By" value={reviewRequest.preparedBy} />
-                    <InfoBox label="Requestor Email" value={reviewRequest.requestorEmail} />
-                    {reviewRequest.projectName && <div className="col-span-2"><InfoBox label="Project Name" value={reviewRequest.projectName} /></div>}
-                    <InfoBox label="Date Encoded" value={formatDate(reviewRequest.encodedAt)} />
-                    <InfoBox label="Date Needed" value={`${formatDate(reviewRequest.neededDate)}${(reviewRequest as any).endDate ? ` – ${formatDate((reviewRequest as any).endDate)}` : ''}`} />
-                    {(reviewRequest.startTime || reviewRequest.endTime) && (
-                      <InfoBox label="Time" value={`${reviewRequest.startTime || '?'} – ${reviewRequest.endTime || '?'}`} />
-                    )}
-                    {(reviewRequest as any).approverName && (
-                      <div className="col-span-2">
-                        <InfoBox label="Approver" value={`${(reviewRequest as any).approverName} (${(reviewRequest as any).approverEmail})`} />
-                      </div>
-                    )}
-                    <div className="col-span-2">
-                      <InfoBox label="Venue / Location" value={reviewRequest.venue || '—'} />
-                    </div>
-                    {reviewRequest.designSpecs?.platform && (
-                      <div className="col-span-2">
-                        <InfoBox label="Platform" value={reviewRequest.designSpecs.platform} />
-                      </div>
-                    )}
-                    {reviewRequest.designSpecs?.shootTypeDetail && (
-                      <div className="col-span-2">
-                        <InfoBox label="Type of Shoot" value={reviewRequest.designSpecs.shootTypeDetail} />
-                      </div>
-                    )}
-                    <div className="col-span-2 bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">Additional Notes</p>
-                      <p className="text-sm text-slate-700 dark:text-slate-300">{reviewRequest.notes || '—'}</p>
-                    </div>
-                  </div>
+                  <RequestorDetails req={reviewRequest} />
                 </div>
 
                 {/* Assign Team Members */}
@@ -1767,23 +1732,8 @@ export function JobOrdersPage() {
                             </span>
                           </div>
                         </div>
-                        <div className="mt-2 pt-2 border-t border-brand-100 dark:border-brand-800 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-                          <span className="text-slate-400 dark:text-slate-500">Requested by</span>
-                          <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.preparedBy}</span>
-                          <span className="text-slate-400 dark:text-slate-500">Department</span>
-                          <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.department} {srcReq.departmentLocal ? `· ${srcReq.departmentLocal}` : ''}</span>
-                          <span className="text-slate-400 dark:text-slate-500">Approver</span>
-                          <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.approverName || '—'}</span>
-                          <span className="text-slate-400 dark:text-slate-500">Venue</span>
-                          <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.venue || '—'}</span>
-                          {srcReq.designSpecs?.platform && (<>
-                            <span className="text-slate-400 dark:text-slate-500">Platform</span>
-                            <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.designSpecs.platform}</span>
-                          </>)}
-                          {srcReq.designSpecs?.shootTypeDetail && (<>
-                            <span className="text-slate-400 dark:text-slate-500">Type of Shoot</span>
-                            <span className="text-slate-700 dark:text-slate-300 font-medium">{srcReq.designSpecs.shootTypeDetail}</span>
-                          </>)}
+                        <div className="mt-3 pt-3 border-t border-brand-100 dark:border-brand-800">
+                          <RequestorDetails req={srcReq} />
                         </div>
                       </div>
                     )
@@ -2316,6 +2266,99 @@ function InfoBox({ label, value, highlight }: { label: string; value: string; hi
     <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
       <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">{label}</p>
       <p className={`text-sm font-semibold ${highlight ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>{value}</p>
+    </div>
+  )
+}
+
+// Per-service design-spec labels, matching exactly what the requestor sees on the booking form.
+const DESIGN_SPEC_LABELS: Record<string, [keyof DesignSpecs, string][]> = {
+  'Static Artwork Design': [['paperSize', 'Size'], ['orientation', 'Orientation'], ['material', 'Material Type']],
+  'Digital Design':        [['paperSize', 'Platform / Usage'], ['orientation', 'Asset Type'], ['dimensions', 'Output Dimensions']],
+  'Graphics':              [['paperSize', 'Project Category'], ['colorMode', 'Printing Process'], ['dimensions', 'Output Dimensions'], ['material', 'Material Type']],
+  'Printing':              [['paperSize', 'Paper Size'], ['colorMode', 'Color'], ['orientation', 'Orientation'], ['material', 'Material Type']],
+  'ASC':                   [['paperSize', 'Ad Type']],
+  'Video Editing':         [['platform', 'Platform'], ['dimensions', 'Resolution'], ['orientation', 'Orientation'], ['paperSize', 'Output Format'], ['colorMode', 'Duration'], ['material', 'Style / Tone']],
+  'Video Shoot':           [['shootTypeDetail', 'Type of Shoot']],
+}
+
+function designSpecRows(activityType: string, ds?: DesignSpecs): { label: string; value: string }[] {
+  if (!ds) return []
+  const rows: { label: string; value: string }[] = []
+  for (const [key, label] of (DESIGN_SPEC_LABELS[activityType] ?? [])) {
+    const v = ds[key]
+    if (typeof v === 'string' && v.trim()) rows.push({ label, value: v })
+  }
+  return rows
+}
+
+// Full read-only view of everything the requestor submitted. Shared by the
+// request-review modal and the job-order detail view.
+function RequestorDetails({ req }: { req: BookingRequest }) {
+  const specs = designSpecRows(req.activityType, req.designSpecs)
+  const specNotes = req.designSpecs?.additionalNotes?.trim()
+  const atts = req.designSpecs?.attachmentUrls ?? []
+  const links = req.designSpecs?.fileLinks ?? []
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2.5">
+        <InfoBox label="Service Type" value={req.activityType} />
+        <InfoBox label="Status" value={req.status} />
+        <InfoBox label="Requestor" value={req.requestorName || '—'} />
+        <InfoBox label="Requestor Email" value={req.requestorEmail || '—'} />
+        <InfoBox label="Prepared By" value={req.preparedBy || '—'} />
+        <InfoBox label="Department" value={`${req.department || '—'}${req.departmentLocal ? ` · ${req.departmentLocal}` : ''}`} />
+        {req.projectName && <div className="col-span-2"><InfoBox label="Project Name" value={req.projectName} /></div>}
+        {req.shootType && <InfoBox label="Shoot Type" value={req.shootType} />}
+        {req.projectScale && <InfoBox label="Project Scale" value={req.projectScale} />}
+        <InfoBox label="Date Encoded" value={formatDate(req.encodedAt)} />
+        <InfoBox label="Date Needed" value={`${formatDate(req.neededDate)}${req.endDate && req.endDate !== req.neededDate ? ` – ${formatDate(req.endDate)}` : ''}`} />
+        {(req.startTime || req.endTime) && <InfoBox label="Time" value={`${req.startTime || '?'} – ${req.endTime || '?'}`} />}
+        {req.approverName && <div className="col-span-2"><InfoBox label="Approver" value={`${req.approverName}${req.approverEmail ? ` (${req.approverEmail})` : ''}`} /></div>}
+        {req.venue && <div className="col-span-2"><InfoBox label="Venue / Location" value={req.venue} /></div>}
+      </div>
+
+      {specs.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">Design Specifications</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {specs.map(r => <InfoBox key={r.label} label={r.label} value={r.value} />)}
+          </div>
+        </div>
+      )}
+
+      {specNotes && (
+        <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">Specifications / Brief</p>
+          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{specNotes}</p>
+        </div>
+      )}
+
+      {req.notes?.trim() && (
+        <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">Additional Notes</p>
+          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{req.notes}</p>
+        </div>
+      )}
+
+      {(atts.length > 0 || links.length > 0) && (
+        <div>
+          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">Attachments &amp; Links</p>
+          <div className="space-y-1.5">
+            {atts.map((url, i) => (
+              <a key={`a${i}`} href={url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-800 rounded-lg px-3 py-2">
+                <Paperclip size={12} className="shrink-0" /><span className="truncate">Attachment {i + 1}</span>
+              </a>
+            ))}
+            {links.map((url, i) => (
+              <a key={`l${i}`} href={url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline bg-white dark:bg-slate-700/40 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2">
+                <Link2 size={12} className="shrink-0" /><span className="truncate">{url}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

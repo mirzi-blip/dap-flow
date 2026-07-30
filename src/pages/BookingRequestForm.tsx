@@ -121,6 +121,7 @@ const SERVICE_DESC: Record<string, string> = {
   'Audio Recording':       'Voice-over, podcast & recording sessions',
   'Audio Editing':         'Mixing, mastering & audio cleanup',
   'Audio Services':        'Voice-over, podcast, recording & audio post-production',
+  'Content Writing':       'Copywriting, scripts, captions & editorial content',
 }
 
 const MONTH_NAMES = [

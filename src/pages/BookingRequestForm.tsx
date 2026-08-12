@@ -24,8 +24,25 @@ const ACTIVITY_TYPES: ActivityType[] = [
 ]
 
 const SHOOT_ACTIVITIES: ActivityType[]      = ['Photo Shoot', 'Video Shoot']
-const DESIGN_ACTIVITIES: ActivityType[]     = ['Static Artwork Design', 'Digital Design', 'Graphics', 'Printing', 'ASC', 'Video Editing', 'Audio Services']
+const DESIGN_ACTIVITIES: ActivityType[]     = ['Static Artwork Design', 'Digital Design', 'Graphics', 'Printing', 'ASC', 'Video Editing', 'Audio Services', 'Content Writing']
 const DATE_ONLY_ACTIVITIES: ActivityType[]  = ['Static Artwork Design', 'Digital Design', 'Graphics', 'Printing', 'ASC', 'Audio Services', 'Audio Recording', 'Audio Editing', 'Video Editing', 'Content Writing']
+
+// Content Writing: content type → sub-type options (empty array = no sub-type)
+const CONTENT_WRITING_OPTIONS: Record<string, string[]> = {
+  'Articles': [
+    'Short-form article (300–500 words)',
+    'Long-form article (1,000–3,000 words)',
+  ],
+  'Text Description': ['Website', 'Youtube', 'Social Media Page', 'E-Commerce Page'],
+  'Social Media Caption': [
+    'Facebook',
+    'Instagram',
+    'TikTok (max 2,200 characters)',
+    'X / Twitter (max 280 characters)',
+  ],
+  'Script / Storyboard': ['Audio advertisement', 'Video advertisement', 'Program flow'],
+  'Layout Copy / Ad Copy': [],
+}
 
 // ── Dropdown options (static fallbacks used before formOptions load) ───────────
 const PAPER_SIZES_FB    = ['A4', 'A3', 'A2', 'A1', 'A0', 'Letter (8.5"×11")', 'Legal (8.5"×14")', 'Tabloid (11"×17")', '4R (4"×6")', '5R (5"×7")', 'Custom']
@@ -900,6 +917,7 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
   const isPrinting = activityType === 'Printing'
   const isASC          = activityType === 'ASC'
   const isVideoEditing = activityType === 'Video Editing'
+  const isContentWriting = activityType === 'Content Writing'
 
   const [activeTab,  setActiveTab]  = useState<'specs' | 'upload'>('specs')
   const [linkDraft,  setLinkDraft]  = useState('')
@@ -912,10 +930,11 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
     'ASC': 'ASC Submission Details',
     'Video Editing': 'Video Editing Specifications',
     'Audio Services': 'Audio Services — Script Upload',
+    'Content Writing': 'Content Writing Specifications',
   }
   const emojiMap: Record<string, string> = {
     'Static Artwork Design': '🎨', 'Digital Design': '💻',
-    'Graphics': '🖼️', 'Printing': '🖨️', 'ASC': '📋', 'Video Editing': '🎬', 'Audio Services': '🎙️',
+    'Graphics': '🖼️', 'Printing': '🖨️', 'ASC': '📋', 'Video Editing': '🎬', 'Audio Services': '🎙️', 'Content Writing': '✍️',
   }
   const title = titleMap[activityType] ?? 'Specifications'
   const emoji = emojiMap[activityType] ?? '📄'
@@ -1159,6 +1178,43 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                   <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Script / Production Brief <span className="text-red-500">*</span></label>
                   <textarea rows={4} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Describe the content: tone, target audience, key messages, reading style, estimated duration, and any special instructions for the voice talent or audio team…"
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
+                </div>
+              </div>
+            )}
+
+            {/* Content Writing */}
+            {isContentWriting && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Content Type <span className="text-red-500">*</span></label>
+                  <select
+                    value={values.dsw_paperSize}
+                    onChange={e => { onChange('dsw_paperSize', e.target.value); onChange('dsw_material', '') }}
+                    className={selectCls}>
+                    <option value="">Select content type…</option>
+                    {Object.keys(CONTENT_WRITING_OPTIONS).map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">
+                    Sub-type {(CONTENT_WRITING_OPTIONS[values.dsw_paperSize]?.length ?? 0) > 0 && <span className="text-red-500">*</span>}
+                  </label>
+                  {(CONTENT_WRITING_OPTIONS[values.dsw_paperSize]?.length ?? 0) > 0 ? (
+                    <select value={values.dsw_material} onChange={e => onChange('dsw_material', e.target.value)} className={selectCls}>
+                      <option value="">Select sub-type…</option>
+                      {CONTENT_WRITING_OPTIONS[values.dsw_paperSize].map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  ) : (
+                    <div className={`${selectCls} flex items-center text-slate-400`} style={{ cursor: 'default' }}>
+                      {values.dsw_paperSize ? 'No sub-type needed' : 'Select a content type first…'}
+                    </div>
+                  )}
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Content Brief / Details <span className="text-red-500">*</span></label>
+                  <textarea rows={4} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
+                    placeholder="Describe the content: topic, key messages, tone, target audience, word count, references, deadline notes…"
                     className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
                 </div>
               </div>
@@ -1432,6 +1488,10 @@ export function BookingRequestForm() {
         return f.dsw_platform !== '' && f.dsw_dimensions !== '' && f.dsw_orientation !== '' && f.dsw_paperSize !== '' && f.dsw_colorMode.trim() !== '' && f.dsw_additionalNotes.trim() !== ''
       case 'Audio Services':
         return f.dsw_additionalNotes.trim() !== ''
+      case 'Content Writing': {
+        const needsSub = (CONTENT_WRITING_OPTIONS[f.dsw_paperSize]?.length ?? 0) > 0
+        return f.dsw_paperSize !== '' && (!needsSub || f.dsw_material !== '') && f.dsw_additionalNotes.trim() !== ''
+      }
       default:
         return true
     }

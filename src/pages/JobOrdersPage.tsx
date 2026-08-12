@@ -2279,6 +2279,7 @@ const DESIGN_SPEC_LABELS: Record<string, [keyof DesignSpecs, string][]> = {
   'ASC':                   [['paperSize', 'Ad Type']],
   'Video Editing':         [['platform', 'Platform'], ['dimensions', 'Resolution'], ['orientation', 'Orientation'], ['paperSize', 'Output Format'], ['colorMode', 'Duration'], ['material', 'Style / Tone']],
   'Video Shoot':           [['shootTypeDetail', 'Type of Shoot']],
+  'Content Writing':       [['paperSize', 'Content Type'], ['material', 'Sub-type']],
 }
 
 function designSpecRows(activityType: string, ds?: DesignSpecs): { label: string; value: string }[] {

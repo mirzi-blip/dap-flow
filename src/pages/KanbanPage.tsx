@@ -4,7 +4,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, PriorityBadge, StatusBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, getNextStatus, isOverdue } from '../utils/helpers'
+import { formatDate, formatDateTime, generateId, getNextStatus, isOverdue, memberResourceId } from '../utils/helpers'
 import type { JOStatus, JobOrder } from '../types'
 import { db } from '../db/database'
 import {
@@ -17,20 +17,20 @@ import type { JOComment } from '../lib/supabase'
 import type { JOReview } from '../types'
 
 const COLUMNS: { status: JOStatus; label: string; hex: string }[] = [
-  { status: 'Pending',         label: 'Backlog',        hex: '#EAB308' },
-  { status: 'Approved',        label: 'Approved',       hex: '#3B82F6' },
-  { status: 'Scheduled',       label: 'Scheduled',      hex: '#6F84DB' },
-  { status: 'For Review',      label: 'For Review',     hex: '#F97316' },
+  { status: 'To Do',           label: 'To Do',          hex: '#94A3B8' },
+  { status: 'Ongoing',         label: 'Ongoing',        hex: '#5164C0' },
+  { status: 'For Review',      label: 'For Review',     hex: '#F59E0B' },
   { status: 'Needs Revision',  label: 'Needs Revision', hex: '#E11D48' },
+  { status: 'For Approval',    label: 'For Approval',   hex: '#8B5CF6' },
   { status: 'Completed',       label: 'Completed',      hex: '#10B981' },
 ]
 
 const STATUS_COLORS: Record<JOStatus, string> = {
-  'Pending':        'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
-  'Approved':       'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
-  'Scheduled':      'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
+  'To Do':          'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
+  'Ongoing':        'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
   'For Review':     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   'Needs Revision': 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
+  'For Approval':   'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300',
   'Completed':      'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
   'Delayed':        'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
   'Cancelled':      'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
@@ -155,11 +155,19 @@ export function KanbanPage() {
 
   const canProgress = can('pipeline', 'move_cards')
 
-  const columns = useMemo(
-    () => COLUMNS.map((col) => ({ ...col, items: jobOrders.filter((j) => j.status === col.status) })),
-    [jobOrders]
+  // DAP members see only the projects assigned to them (their Team Member profile).
+  const scopeToMe = currentUser?.role === 'DAP Team'
+  const myResourceId = memberResourceId(currentUser, resources)
+  const scopedJOs = useMemo(
+    () => (scopeToMe ? jobOrders.filter(j => myResourceId != null && j.assignedMemberIds.includes(myResourceId)) : jobOrders),
+    [jobOrders, scopeToMe, myResourceId]
   )
-  const delayed  = useMemo(() => jobOrders.filter((j) => j.status === 'Delayed'), [jobOrders])
+
+  const columns = useMemo(
+    () => COLUMNS.map((col) => ({ ...col, items: scopedJOs.filter((j) => j.status === col.status) })),
+    [scopedJOs]
+  )
+  const delayed  = useMemo(() => scopedJOs.filter((j) => j.status === 'Delayed'), [scopedJOs])
   const joLogs   = selectedJO ? statusLogs.filter(l => l.joId === selectedJO.id) : []
 
   // Load comments when detail modal opens / switches JO
@@ -322,7 +330,7 @@ export function KanbanPage() {
   }
 
   const moveNext    = moveTarget ? getNextStatus(moveTarget.status) : null
-  const isForReview = (moveTarget?.status === 'Scheduled' || moveTarget?.status === 'Needs Revision') && moveNext === 'For Review'
+  const isForReview = moveNext === 'For Review'
   const moveValid   = moveComment.trim() !== '' &&
     (!isForReview || (moveFile !== null && moveDapApproverEmail !== ''))
 
@@ -732,7 +740,7 @@ export function KanbanPage() {
           <div className="space-y-3">
             <p className="text-xs text-slate-500 dark:text-slate-400">Select the stage to move this job order to:</p>
             <div className="space-y-2">
-              {(['Pending', 'Approved', 'Scheduled', 'For Review', 'Needs Revision', 'Completed'] as JOStatus[]).map(status => {
+              {(['To Do', 'Ongoing', 'For Review', 'Needs Revision', 'For Approval', 'Completed'] as JOStatus[]).map(status => {
                 const col = COLUMNS.find(c => c.status === status)
                 const selected = reactivateStatus === status
                 return (

@@ -88,11 +88,11 @@ export interface DesignSpecs {
 }
 
 export type JOStatus =
-  | 'Pending'
-  | 'Approved'
-  | 'Scheduled'
+  | 'To Do'
+  | 'Ongoing'
   | 'For Review'
   | 'Needs Revision'
+  | 'For Approval'
   | 'Completed'
   | 'Delayed'
   | 'Cancelled'

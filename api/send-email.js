@@ -56,13 +56,18 @@ const STATUS_CONFIG = {
 const PRIORITY_COLOR = { High: '#dc2626', Medium: '#d97706', Low: '#16a34a' }
 
 const STATUS_LABEL = {
+  'To Do':          { color: '#64748b', icon: '🗒️' },
+  Ongoing:          { color: '#5164C0', icon: '⚙️' },
+  'For Review':     { color: '#d97706', icon: '🔍' },
+  'Needs Revision': { color: '#e11d48', icon: '↩️' },
+  'For Approval':   { color: '#8b5cf6', icon: '📝' },
+  Completed:        { color: '#059669', icon: '✓'  },
+  Delayed:          { color: '#d97706', icon: '⚠️' },
+  Cancelled:        { color: '#64748b', icon: '🚫' },
+  // legacy booking-request statuses still emailed via the webhook path
   Pending:    { color: '#64748b', icon: '🕐' },
   Approved:   { color: '#1d4ed8', icon: '✅' },
   Scheduled:  { color: '#4f46e5', icon: '📅' },
-  'For Review': { color: '#d97706', icon: '🔍' },
-  Completed:  { color: '#059669', icon: '✓'  },
-  Delayed:    { color: '#d97706', icon: '⚠️' },
-  Cancelled:  { color: '#64748b', icon: '🚫' },
 }
 
 function buildJOTable(joNumber, project, activity, priority, deadline, status, headingColor) {

@@ -1,5 +1,6 @@
 ﻿import { createClient } from '@supabase/supabase-js'
 import type { BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam, ManagedUser, Approver, BookingDepartment, ShootType, ProjectScale, DesignSpecs, JOReview, Resource, DAPSubRole, DAPTeam, FormOption } from '../types'
+import { normalizeJOStatus } from '../utils/helpers'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
@@ -58,7 +59,7 @@ export function rowToJobOrder(row: Record<string, unknown>): JobOrder {
     deadline: row.deadline as string,
     launchDate: (row.launch_date as string) || '',
     assignedMemberIds: (row.assigned_member_ids as string[]) || [],
-    status: row.status as JOStatus,
+    status: normalizeJOStatus(row.status as string),
     notes: (row.notes as string) || '',
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,

@@ -136,7 +136,7 @@ export function ReportsPage() {
     const completed = jos.filter((j) => j.status === 'Completed').length
     const delayed = jos.filter((j) => j.status === 'Delayed').length
     const cancelled = jos.filter((j) => j.status === 'Cancelled').length
-    const inFlight = jos.filter((j) => ['Scheduled', 'In Progress', 'For Review'].includes(j.status)).length
+    const inFlight = jos.filter((j) => ['To Do', 'Ongoing', 'For Review', 'Needs Revision', 'For Approval'].includes(j.status)).length
     const completionRate = total ? Math.round((completed / total) * 100) : 0
     const onTimeCompleted = jos.filter((j) => j.status === 'Completed' && !isOverdue(j.deadline)).length
     const onTimeRate = completed ? Math.round((onTimeCompleted / completed) * 100) : 0
@@ -188,8 +188,8 @@ export function ReportsPage() {
   }, [globalFilteredJOs])
 
   const statusColors2: Record<string, string> = {
-    Pending: '#eab308', Approved: '#3b82f6', Scheduled: '#6F84DB',
-    'In Progress': '#8B9FE8', 'For Review': '#f97316', Completed: '#10b981',
+    'To Do': '#94A3B8', 'Ongoing': '#5164C0', 'For Review': '#F59E0B',
+    'Needs Revision': '#E11D48', 'For Approval': '#8B5CF6', Completed: '#10b981',
     Delayed: '#ef4444', Cancelled: '#94a3b8',
   }
 

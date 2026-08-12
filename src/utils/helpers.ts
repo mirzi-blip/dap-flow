@@ -5,6 +5,19 @@ import { DAP_TEAM_LIST } from '../types'
 // Teams to show in team views: the configured teams that have members, followed
 // by any other (legacy) team still assigned to a member. Keeps views in sync
 // with whatever teams actually exist, without hardcoding.
+// Resolve a logged-in user to their Team Member (resource) id — matched by
+// email (the shared key with the Team Members tab), falling back to an explicit
+// resourceId link. Used to scope DAP-member views to their assigned work.
+export function memberResourceId(
+  currentUser: { email?: string; resourceId?: string } | null | undefined,
+  resources: { id: string; email?: string }[]
+): string | null {
+  if (!currentUser) return null
+  const email = currentUser.email?.toLowerCase()
+  const byEmail = email ? resources.find(r => r.email && r.email.toLowerCase() === email) : undefined
+  return byEmail?.id ?? currentUser.resourceId ?? null
+}
+
 export function orderedTeams(resources: { team: string }[]): string[] {
   const present = new Set(resources.map((r) => r.team).filter(Boolean))
   const configured = DAP_TEAM_LIST.filter((t) => present.has(t))
@@ -75,19 +88,42 @@ export function isDueSoon(deadline: string, daysThreshold = 3): boolean {
   }
 }
 
+// Work pipeline: To Do -> Ongoing -> For Review -> For Approval -> Completed.
+// Needs Revision sends the job order back to For Review.
+const WORK_FLOW: JOStatus[] = ['To Do', 'Ongoing', 'For Review', 'For Approval', 'Completed']
+
 export function getNextStatus(current: JOStatus): JOStatus | null {
   if (current === 'Needs Revision') return 'For Review'
-  const flow: JOStatus[] = ['Pending', 'Approved', 'Scheduled', 'For Review', 'Completed']
-  const idx = flow.indexOf(current)
-  if (idx === -1 || idx === flow.length - 1) return null
-  return flow[idx + 1]
+  const idx = WORK_FLOW.indexOf(current)
+  if (idx === -1 || idx === WORK_FLOW.length - 1) return null
+  return WORK_FLOW[idx + 1]
 }
 
 export function getPrevStatus(current: JOStatus): JOStatus | null {
-  const flow: JOStatus[] = ['Pending', 'Approved', 'Scheduled', 'For Review', 'Completed']
-  const idx = flow.indexOf(current)
+  if (current === 'Needs Revision') return 'For Review'
+  const idx = WORK_FLOW.indexOf(current)
   if (idx <= 0) return null
-  return flow[idx - 1]
+  return WORK_FLOW[idx - 1]
+}
+
+// Maps legacy statuses (and any stray value) onto the current work-stage set,
+// so existing job orders keep working after the pipeline redesign.
+export function normalizeJOStatus(raw: string | null | undefined): JOStatus {
+  switch (raw) {
+    case 'Pending':
+    case 'Approved':
+    case 'Scheduled':
+    case 'To Do':        return 'To Do'
+    case 'In Progress':
+    case 'Ongoing':      return 'Ongoing'
+    case 'For Review':   return 'For Review'
+    case 'Needs Revision': return 'Needs Revision'
+    case 'For Approval': return 'For Approval'
+    case 'Completed':    return 'Completed'
+    case 'Delayed':      return 'Delayed'
+    case 'Cancelled':    return 'Cancelled'
+    default:             return 'To Do'
+  }
 }
 
 export function computeCompletionRate(jos: JobOrder[]): number {

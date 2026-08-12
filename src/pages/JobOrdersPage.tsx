@@ -10,7 +10,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus } from '../utils/helpers'
+import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, memberResourceId } from '../utils/helpers'
 import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus, DesignSpecs } from '../types'
 import { db } from '../db/database'
 import { supabase, requestToRow, jobOrderToRow, saveJOComment } from '../lib/supabase'
@@ -21,7 +21,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
   'Photo Shoot', 'Video Shoot', 'Static Artwork Design',
   'Video Editing', 'Audio Recording', 'Audio Editing',
 ]
-const STATUSES: JOStatus[] = ['Pending', 'Approved', 'Scheduled', 'For Review', 'Completed', 'Delayed', 'Cancelled']
+const STATUSES: JOStatus[] = ['To Do', 'Ongoing', 'For Review', 'Needs Revision', 'For Approval', 'Completed', 'Delayed', 'Cancelled']
 const PRIORITIES: Priority[] = ['High', 'Medium', 'Low']
 const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
 
@@ -44,11 +44,11 @@ interface FileRef { id: string; label: string; url: string; addedAt: string; add
 interface Comment { id: string; text: string; author: string; createdAt: string }
 
 const STATUS_COLORS: Record<JOStatus, string> = {
-  'Pending':     'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
-  'Approved':    'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
-  'Scheduled':   'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
+  'To Do':       'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
+  'Ongoing':     'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
   'For Review':     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   'Needs Revision': 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
+  'For Approval':   'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300',
   'Completed':      'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
   'Delayed':        'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
   'Cancelled':      'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
@@ -63,6 +63,9 @@ export function JobOrdersPage() {
 
   const canSeeRequests = can('job_orders', 'view_requests')
   const canRemoveJO = currentUser?.role === 'Super Admin'
+  // DAP members see only job orders assigned to their Team Member profile
+  const scopeToMe = currentUser?.role === 'DAP Team'
+  const myResourceId = memberResourceId(currentUser, resources)
 
   const [pageTab, setPageTab] = useState<PageTab>('list')
   const [search, setSearch] = useState(globalSearch)
@@ -142,6 +145,8 @@ export function JobOrdersPage() {
 
   const filtered = useMemo(() => {
     const base = jobOrders.filter((j) => {
+      // DAP members only see the job orders assigned to them
+      if (scopeToMe && !(myResourceId != null && j.assignedMemberIds.includes(myResourceId))) return false
       if (search && !j.projectName.toLowerCase().includes(search.toLowerCase()) &&
           !j.joNumber.toLowerCase().includes(search.toLowerCase()) &&
           !j.campaign.toLowerCase().includes(search.toLowerCase())) return false
@@ -170,7 +175,7 @@ export function JobOrdersPage() {
       if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
       return 0
     })
-  }, [jobOrders, search, filterStatus, filterActivity, filterPriority, filterTeam, sortCol, sortDir])
+  }, [jobOrders, search, filterStatus, filterActivity, filterPriority, filterTeam, sortCol, sortDir, scopeToMe, myResourceId])
 
   function handleSortCol(col: SortCol) {
     if (sortCol === col) {
@@ -191,7 +196,7 @@ export function JobOrdersPage() {
       joNumber: generateJONumber(jobOrders.length),
       ...form,
       requesterId: currentUser!.id,
-      status: 'Pending',
+      status: 'To Do',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       createdBy: currentUser!.id,
@@ -264,26 +269,11 @@ export function JobOrdersPage() {
 
     if (selectedJO?.id === jo.id) setSelectedJO(updated)
 
-    // Auto-create calendar event when scheduled
-    if (newStatus === 'Scheduled') {
-      const ev = {
-        id: generateId(),
-        joId: jo.id,
-        title: jo.projectName,
-        activityType: jo.activityType,
-        startDate: jo.launchDate || jo.deadline,
-        endDate: jo.deadline,
-        assignedMemberIds: jo.assignedMemberIds,
-        location: '',
-        notes: jo.notes ?? '',
-        createdAt: new Date().toISOString(),
-      }
-      await db.calendarEvents.add(ev)
-      addCalendarEvent(ev)
-    }
+    // The calendar derives its entries from job orders directly, so no manual
+    // calendar event is created here on status change.
 
     // Notify ALL assigned members of the status change
-    const memberMode = newStatus === 'Scheduled' ? 'scheduled' : 'status_update'
+    const memberMode = 'status_update'
     for (const memberId of jo.assignedMemberIds) {
       const member = resources.find(r => r.id === memberId)
       if (member?.email) {
@@ -331,9 +321,7 @@ export function JobOrdersPage() {
   // Intercept status changes — all require a comment
   function handleStatusChangeWithConfirm(jo: JobOrder, newStatus: JOStatus) {
     setConfirmComment('')
-    if (newStatus === 'Scheduled') {
-      setConfirmAction({ type: 'schedule', jo })
-    } else if (newStatus === 'Cancelled') {
+    if (newStatus === 'Cancelled') {
       setConfirmAction({ type: 'cancel', jo })
     } else if (newStatus === 'For Review') {
       setConfirmAction({ type: 'forReview', jo })
@@ -348,8 +336,7 @@ export function JobOrdersPage() {
     const comment = confirmComment.trim()
     setConfirmAction(null)
     setConfirmComment('')
-    if (type === 'schedule') await handleStatusChange(jo, 'Scheduled', comment)
-    else if (type === 'cancel') await handleStatusChange(jo, 'Cancelled', comment)
+    if (type === 'cancel') await handleStatusChange(jo, 'Cancelled', comment)
     else if (type === 'forReview') await handleStatusChange(jo, 'For Review', comment)
     else if (type === 'general' && confirmAction.newStatus) await handleStatusChange(jo, confirmAction.newStatus, comment)
   }
@@ -823,7 +810,7 @@ export function JobOrdersPage() {
       deadline: req.neededDate,
       launchDate: req.neededDate,
       assignedMemberIds: selectedMemberIds,
-      status: 'Pending',
+      status: 'To Do',
       notes: `Source Request: REF#${req.id.slice(0, 8).toUpperCase()} — submitted by ${req.preparedBy} (${req.requestorEmail}). Venue: ${req.venue}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

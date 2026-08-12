@@ -51,7 +51,7 @@ export function CalendarPage() {
   // Job orders that belong on the calendar. Derived directly from the synced
   // jobOrders store so a JO scheduled on any device/account shows everywhere —
   // calendar events themselves are only stored locally (not synced to Supabase).
-  const CALENDAR_JO_STATUSES: JOStatus[] = ['Scheduled', 'For Review', 'Needs Revision', 'Completed', 'Delayed']
+  const CALENDAR_JO_STATUSES: JOStatus[] = ['To Do', 'Ongoing', 'For Review', 'Needs Revision', 'For Approval', 'Completed', 'Delayed']
   const joEvents = useMemo<CalendarEvent[]>(() =>
     jobOrders
       .filter((jo) => CALENDAR_JO_STATUSES.includes(jo.status) && (jo.launchDate || jo.deadline))

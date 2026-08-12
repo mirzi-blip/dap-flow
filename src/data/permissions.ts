@@ -121,6 +121,8 @@ export const DEFAULT_PERMISSIONS: RolePermissions = {
 
   Admin: ADMIN_PERMISSIONS,
 
+  // DAP Team members only get: Dashboard, Calendar, Job Orders, Pipeline
+  // (all scoped to the work assigned to them), plus their own profile.
   'DAP Team': [
     perm('dashboard', 'view'),
     perm('calendar',  'view'),
@@ -133,11 +135,7 @@ export const DEFAULT_PERMISSIONS: RolePermissions = {
     perm('job_orders','manage_requests'),
     perm('pipeline',  'view'),
     perm('pipeline',  'move_cards'),
-    perm('workload',  'view'),
-    perm('reports',   'view'),
     perm('settings',  'view_profile'),
-    perm('settings',  'view_users'),
-    perm('settings',  'manage_team'),
   ],
 
   'Brand Team': [

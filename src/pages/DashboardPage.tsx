@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { useAppStore, useDataStore } from '../store/useAppStore'
 import { activityCalendarColors, teamColor } from '../utils/colors'
-import { orderedTeams } from '../utils/helpers'
+import { orderedTeams, memberResourceId } from '../utils/helpers'
 import type { JOStatus, ActivityType } from '../types'
 import { ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS, TEAM_TOTAL_CAPACITY, LOAD_OVERLOAD } from '../types'
 
@@ -19,11 +19,11 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
 const statusBadge: Record<JOStatus, string> = {
-  'Pending':     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
-  'Approved':    'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
-  'Scheduled':   'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
-  'For Review':     'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
+  'To Do':       'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
+  'Ongoing':     'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300',
+  'For Review':     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   'Needs Revision': 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
+  'For Approval':   'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300',
   'Completed':      'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
   'Delayed':        'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400',
   'Cancelled':      'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
@@ -45,8 +45,13 @@ const activityIcon: Record<ActivityType, React.ElementType> = {
 }
 
 export function DashboardPage() {
-  const { setView, theme, resources } = useAppStore()
+  const { setView, theme, resources, currentUser } = useAppStore()
   const { jobOrders, calendarEvents, bookingRequests } = useDataStore()
+
+  // DAP members get a dashboard scoped to the projects assigned to them;
+  // Admin / Super Admin see the overall dashboard.
+  const scopeToMe = currentUser?.role === 'DAP Team'
+  const myResourceId = memberResourceId(currentUser, resources)
   const isDark = theme === 'dark'
 
   const now = new Date()
@@ -88,32 +93,35 @@ export function DashboardPage() {
   // Filtered job orders within the from–to range
   const filteredJOs = useMemo(() => {
     return jobOrders.filter(j => {
+      if (scopeToMe && !(myResourceId != null && j.assignedMemberIds.includes(myResourceId))) return false
       const d = new Date(j.createdAt)
       const key = d.getFullYear() * 100 + d.getMonth()
       return key >= effectiveFromKey && key <= effectiveToKey
     })
-  }, [jobOrders, effectiveFromKey, effectiveToKey])
+  }, [jobOrders, effectiveFromKey, effectiveToKey, scopeToMe, myResourceId])
 
   // ── KPI counts — scoped to the selected year/month ──────────────────────
   const totalJOs      = filteredJOs.length
   const activeJOs     = filteredJOs.filter(j => !['Completed','Cancelled','Delayed'].includes(j.status)).length
-  const pendingJOs    = filteredJOs.filter(j => j.status === 'Pending').length
-  const approvedJOs   = filteredJOs.filter(j => j.status === 'Approved').length
-  const scheduledJOs  = filteredJOs.filter(j => j.status === 'Scheduled').length
+  const toDoJOs       = filteredJOs.filter(j => j.status === 'To Do').length
+  const ongoingJOs    = filteredJOs.filter(j => j.status === 'Ongoing').length
   const forReviewJOs  = filteredJOs.filter(j => j.status === 'For Review').length
+  const needsRevisionJOs = filteredJOs.filter(j => j.status === 'Needs Revision').length
+  const forApprovalJOs = filteredJOs.filter(j => j.status === 'For Approval').length
   const completedJOs  = filteredJOs.filter(j => j.status === 'Completed').length
   const delayedJOs    = filteredJOs.filter(j => j.status === 'Delayed').length
   const cancelledJOs  = filteredJOs.filter(j => j.status === 'Cancelled').length
 
   // Status breakdown config
   const STATUS_BREAKDOWN = [
-    { label: 'Pending',     count: pendingJOs,    color: '#F59E0B' },
-    { label: 'Approved',    count: approvedJOs,   color: '#3B82F6' },
-    { label: 'Scheduled',   count: scheduledJOs,  color: '#6F84DB' },
-    { label: 'For Review',  count: forReviewJOs,  color: '#F97316' },
-    { label: 'Completed',   count: completedJOs,  color: '#10B981' },
-    { label: 'Delayed',     count: delayedJOs,    color: '#EF4444' },
-    { label: 'Cancelled',   count: cancelledJOs,  color: '#94A3B8' },
+    { label: 'To Do',          count: toDoJOs,          color: '#94A3B8' },
+    { label: 'Ongoing',        count: ongoingJOs,       color: '#5164C0' },
+    { label: 'For Review',     count: forReviewJOs,     color: '#F59E0B' },
+    { label: 'Needs Revision', count: needsRevisionJOs, color: '#E11D48' },
+    { label: 'For Approval',   count: forApprovalJOs,   color: '#8B5CF6' },
+    { label: 'Completed',      count: completedJOs,     color: '#10B981' },
+    { label: 'Delayed',        count: delayedJOs,       color: '#EF4444' },
+    { label: 'Cancelled',      count: cancelledJOs,     color: '#94A3B8' },
   ]
 
   // Team workload heatmap — uses 6.6 hr/day × 5 = 33 hr/week formula
@@ -814,8 +822,8 @@ export function DashboardPage() {
             { step: 1, label: 'Request\nSubmitted',  count: bookingRequests.length,                                                    color: '#5164C0', phase: 'Discern' },
             { step: 2, label: 'Pending\nReview',     count: bookingRequests.filter(r => r.status === 'Pending Review').length,         color: '#6F84DB', phase: 'Discern' },
             { step: 3, label: 'Members\nAssigned',   count: bookingRequests.filter(r => r.status === 'Assigned').length,               color: '#3B82F6', phase: 'Decide' },
-            { step: 4, label: 'JO\nScheduled',       count: scheduledJOs,  color: '#0EA5E9', phase: 'Delegate' },
-            { step: 5, label: 'For\nReview',         count: forReviewJOs,  color: '#F97316', phase: 'Deliver' },
+            { step: 4, label: 'To Do /\nOngoing',    count: toDoJOs + ongoingJOs, color: '#0EA5E9', phase: 'Delegate' },
+            { step: 5, label: 'For\nReview',         count: forReviewJOs,  color: '#F59E0B', phase: 'Deliver' },
             { step: 6, label: 'Completed\n& Closed', count: completedJOs,  color: '#10B981', phase: 'Deliver' },
           ]).map((s, i, arr) => (
             <div key={s.step} className="flex items-center gap-1 flex-1 min-w-[90px]">

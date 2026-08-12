@@ -47,12 +47,12 @@ export const activityGradients: Record<ActivityType, string> = {
 }
 
 export const statusColors: Record<JOStatus, { bg: string; text: string; ring: string; glow: string }> = {
-  Pending:      { bg: 'bg-amber-50',   text: 'text-amber-700',  ring: 'ring-amber-200',  glow: '#F59E0B' },
-  Approved:     { bg: 'bg-sky-50',     text: 'text-sky-700',    ring: 'ring-sky-200',    glow: '#0EA5E9' },
-  Scheduled:    { bg: 'bg-brand-50',  text: 'text-brand-700', ring: 'ring-brand-200', glow: '#6F84DB' },
+  'To Do':      { bg: 'bg-slate-100',  text: 'text-slate-600',  ring: 'ring-slate-200',  glow: '#94A3B8' },
+  Ongoing:      { bg: 'bg-brand-50',   text: 'text-brand-700',  ring: 'ring-brand-200',  glow: '#5164C0' },
 
-  'For Review':     { bg: 'bg-orange-50',  text: 'text-orange-700', ring: 'ring-orange-200', glow: '#F97316' },
+  'For Review':     { bg: 'bg-amber-50',   text: 'text-amber-700',  ring: 'ring-amber-200',  glow: '#F59E0B' },
   'Needs Revision': { bg: 'bg-rose-50',    text: 'text-rose-700',   ring: 'ring-rose-200',   glow: '#E11D48' },
+  'For Approval':   { bg: 'bg-violet-50',  text: 'text-violet-700', ring: 'ring-violet-200', glow: '#8B5CF6' },
   Completed:        { bg: 'bg-emerald-50', text: 'text-emerald-700',ring: 'ring-emerald-200',glow: '#10B981' },
   Delayed:      { bg: 'bg-red-50',     text: 'text-red-700',    ring: 'ring-red-200',    glow: '#EF4444' },
   Cancelled:    { bg: 'bg-slate-100',  text: 'text-slate-500',  ring: 'ring-slate-200',  glow: '#94A3B8' },

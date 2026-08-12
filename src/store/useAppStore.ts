@@ -422,6 +422,14 @@ export const useAppStore = create<AppState>()(
               p => !SUPER_ADMIN_ONLY.includes(p)
             )
           }
+          // Migration: DAP Team is restricted to Dashboard, Calendar, Job Orders,
+          // Pipeline (+ own profile). Strip the tabs they should no longer see.
+          if (state.rolePermissions['DAP Team']) {
+            const DAP_REMOVED = ['workload.view', 'reports.view', 'settings.view_users', 'settings.manage_team']
+            state.rolePermissions['DAP Team'] = state.rolePermissions['DAP Team'].filter(
+              p => !DAP_REMOVED.includes(p)
+            )
+          }
         }
         // Backfill approvers/departments for users who upgraded from a version without them
         if (!state?.approvers) state!.approvers = []

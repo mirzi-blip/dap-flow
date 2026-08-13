@@ -1743,6 +1743,7 @@ export function JobOrdersPage() {
 
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <InfoBox label="Requesting Team" value={selectedJO.requestingTeam} />
+                    <InfoBox label="Brand" value={bookingRequests.find(r => r.joId === selectedJO.id)?.designSpecs?.brand || '—'} />
                     <InfoBox label="Campaign" value={selectedJO.campaign || '—'} />
                     <InfoBox label="Deadline" value={formatDate(selectedJO.deadline)} highlight={isOverdue(selectedJO.deadline) && selectedJO.status !== 'Completed'} />
                     <InfoBox label="Launch Date" value={selectedJO.launchDate ? formatDate(selectedJO.launchDate) : '—'} />

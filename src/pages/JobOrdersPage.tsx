@@ -25,6 +25,23 @@ const STATUSES: JOStatus[] = ['To Do', 'Ongoing', 'For Review', 'Needs Revision'
 const PRIORITIES: Priority[] = ['High', 'Medium', 'Low']
 const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
 
+// Which DAP section (Team Members team) handles each service. Assignment lists
+// are limited to that section so only relevant people can be assigned.
+const SERVICE_TO_SECTION: Record<string, string> = {
+  'Content Writing': 'Content Writer',
+  'Graphics': 'Graphics',
+  'Digital Design': 'Graphics',
+  'Static Artwork Design': 'Graphics',
+  'Printing': 'Graphics',
+  'ASC': 'ASC Compliance',
+  'Video Editing': 'Audio/Video',
+  'Video Shoot': 'Audio/Video',
+  'Audio Recording': 'Audio/Video',
+  'Audio Editing': 'Audio/Video',
+  'Audio Services': 'Audio/Video',
+  'Photo Shoot': 'Multimedia',
+}
+
 const emptyForm = {
   requestingTeam: 'BMG' as RequestingTeam,
   projectName: '',
@@ -68,6 +85,20 @@ export function JobOrdersPage() {
     () => scopeJobOrders(jobOrders, currentUser, resources, approvers),
     [jobOrders, currentUser, resources, approvers]
   )
+
+  // Members who can be assigned to a service = the section that handles it,
+  // de-duped by person (someone with several roles appears once).
+  function assignableResources(activityType: string) {
+    const section = SERVICE_TO_SECTION[activityType]
+    const pool = section ? resources.filter(r => r.team === section) : resources
+    const seen = new Set<string>()
+    return pool.filter(r => {
+      const key = (r.email || r.id).toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
 
   const [pageTab, setPageTab] = useState<PageTab>('list')
   const [search, setSearch] = useState(globalSearch)
@@ -1150,7 +1181,7 @@ export function JobOrdersPage() {
                       Assign Team Members
                     </p>
                     <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
-                      {resources.map((r) => {
+                      {assignableResources(reviewRequest.activityType).map((r) => {
                         const activeJOs = memberActiveJOs(r.id)
                         const utilPct = Math.min(Math.round((activeJOs / 5) * 100), 100)
                         const overloaded = utilPct > 90
@@ -1688,7 +1719,7 @@ export function JobOrdersPage() {
                   <div>
                     <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-2">Assigned Members</label>
                     <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2">
-                      {resources.map(r => (
+                      {assignableResources(selectedJO.activityType).map(r => (
                         <label key={r.id} className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors">
                           <input type="checkbox" checked={editForm.assignedMemberIds.includes(r.id)}
                             onChange={e => setEditForm(f => ({
@@ -2012,7 +2043,7 @@ export function JobOrdersPage() {
           <div>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">Assign Team Members</label>
             <div className="grid grid-cols-2 gap-1.5 max-h-44 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2">
-              {resources.map((r) => (
+              {assignableResources(form.activityType).map((r) => (
                 <label key={r.id} className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors">
                   <input type="checkbox" checked={form.assignedMemberIds.includes(r.id)}
                     onChange={(e) => setForm((f) => ({

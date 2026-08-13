@@ -425,7 +425,7 @@ export const useAppStore = create<AppState>()(
           // Migration: DAP Team is restricted to Dashboard, Calendar, Job Orders,
           // Pipeline (+ own profile). Strip the tabs they should no longer see.
           if (state.rolePermissions['DAP Team']) {
-            const DAP_REMOVED = ['workload.view', 'reports.view', 'settings.view_users', 'settings.manage_team']
+            const DAP_REMOVED = ['workload.view', 'reports.view', 'settings.view_users', 'settings.manage_team', 'job_orders.view_requests', 'job_orders.manage_requests']
             state.rolePermissions['DAP Team'] = state.rolePermissions['DAP Team'].filter(
               p => !DAP_REMOVED.includes(p)
             )

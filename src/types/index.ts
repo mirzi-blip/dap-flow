@@ -83,6 +83,7 @@ export interface DesignSpecs {
   additionalNotes:  string
   platform?:        string   // Video Editing — output platform
   shootTypeDetail?: string   // Video Shoot — stream/BTS
+  brand?:           string   // Brand this request is for (all services)
   attachmentUrls?:  string[]
   fileLinks?:       string[]
 }

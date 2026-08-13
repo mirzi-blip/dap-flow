@@ -80,6 +80,7 @@ interface FormState {
   approverName:        string
   approverEmail:       string
   approverPosition:    string
+  brand:               string
   projectName:         string
   neededDate:          string
   endDate:             string
@@ -103,6 +104,7 @@ const EMPTY: FormState = {
   department: '', departmentOther: '', departmentLocal: '',
   requestorName: '', requestorEmail: '', preparedBy: '',
   selectedApproverId: '', approverName: '', approverEmail: '', approverPosition: '',
+  brand: '',
   projectName: '', neededDate: '', endDate: '', startTime: '', endTime: '',
   venue: '', notes: '',
   dsw_paperSize: '', dsw_orientation: '', dsw_colorMode: '',
@@ -1508,6 +1510,7 @@ export function BookingRequestForm() {
     form.approverName.trim()      !== '' &&
     form.approverEmail.trim()     !== '' &&
     form.projectName.trim()       !== '' &&
+    form.brand.trim()             !== '' &&
     (isShootService ? form.venue.trim() !== '' : true) &&
     (form.activityType === 'Video Shoot' ? form.dsw_shootTypeDetail !== '' : true) &&
     (!isDesignActivity ? form.notes.trim() !== '' : true) &&
@@ -1589,7 +1592,7 @@ export function BookingRequestForm() {
       }
 
       // Build design specs if applicable
-      const designSpecs: DesignSpecs | undefined = isDesignActivity
+      const baseSpecs: DesignSpecs = isDesignActivity
         ? {
             paperSize:       form.dsw_paperSize,
             orientation:     form.dsw_orientation,
@@ -1603,7 +1606,9 @@ export function BookingRequestForm() {
           }
         : form.activityType === 'Video Shoot' && form.dsw_shootTypeDetail
           ? { paperSize: '', orientation: '', colorMode: '', dimensions: '', material: '', additionalNotes: '', shootTypeDetail: form.dsw_shootTypeDetail }
-          : undefined
+          : { paperSize: '', orientation: '', colorMode: '', dimensions: '', material: '', additionalNotes: '' }
+      // Brand applies to every service, so it always rides along in design_specs
+      const designSpecs: DesignSpecs = { ...baseSpecs, ...(form.brand.trim() ? { brand: form.brand.trim() } : {}) }
 
       const req: BookingRequest = {
         id,
@@ -2226,6 +2231,17 @@ export function BookingRequestForm() {
                     <span className="font-semibold">Note:</span> If this is a same-day edit, please indicate it in the Project Name (e.g., &ldquo;Same-Day Edit – Product Launch&rdquo;).
                   </p>
                 )}
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
+                  Brand <span className="text-red-500">*</span>
+                </label>
+                <input type="text"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors"
+                  placeholder="Which brand is this for? (e.g. Bioderm, BMD…)"
+                  value={form.brand} onChange={field('brand')} required />
+                <p className="mt-1 text-[11px] text-slate-400">Helps the DAP team know which brand team they're working with.</p>
               </div>
 
             </div>

@@ -131,8 +131,6 @@ export const DEFAULT_PERMISSIONS: RolePermissions = {
     perm('job_orders','view'),
     perm('job_orders','edit'),
     perm('job_orders','change_status'),
-    perm('job_orders','view_requests'),
-    perm('job_orders','manage_requests'),
     perm('pipeline',  'view'),
     perm('pipeline',  'move_cards'),
     perm('settings',  'view_profile'),

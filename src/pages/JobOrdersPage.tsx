@@ -58,7 +58,7 @@ type SortCol = 'joNumber' | 'projectName' | 'activityType' | 'requestingTeam' | 
 
 export function JobOrdersPage() {
   const { jobOrders, addJobOrder, updateJobOrder, deleteJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest, deleteBookingRequest, addCalendarEvent } = useDataStore()
-  const { currentUser, globalSearch, setGlobalSearch, resources } = useAppStore()
+  const { currentUser, globalSearch, setGlobalSearch, resources, approvers } = useAppStore()
   const { can } = usePermissions()
 
   const canSeeRequests = can('job_orders', 'view_requests')
@@ -677,15 +677,30 @@ export function JobOrdersPage() {
   const joFiles = selectedJO ? (fileRefs[selectedJO.id] ?? []) : []
   const joComments = selectedJO ? (comments[selectedJO.id] ?? []) : []
 
-  // Requests tab helpers
-  const pendingApprovalForUser = bookingRequests.filter(r =>
+  // Requests tab: an admin only sees requests for the service(s) they handle
+  // (their DAP Team Approver assignments, matched by email). An admin with no
+  // service assignment sees all requests (top-level oversight).
+  const myDapServices = useMemo(() =>
+    approvers
+      .filter(a => a.approverType === 'dap' && a.isActive !== false && a.email && currentUser?.email &&
+        a.email.toLowerCase() === currentUser.email.toLowerCase())
+      .map(a => a.position),
+    [approvers, currentUser]
+  )
+  const scopedRequests = useMemo(() =>
+    myDapServices.length > 0 ? bookingRequests.filter(r => myDapServices.includes(r.activityType)) : bookingRequests,
+    [bookingRequests, myDapServices]
+  )
+
+  // Requests tab helpers (all scoped to this admin's service)
+  const pendingApprovalForUser = scopedRequests.filter(r =>
     r.status === 'Pending Approval' &&
     (canApprove || r.approverEmail?.toLowerCase() === currentUser?.email?.toLowerCase())
   )
-  const pendingReviewRequests = bookingRequests.filter(r =>
+  const pendingReviewRequests = scopedRequests.filter(r =>
     r.status === 'Pending Review'
   )
-  const pendingCount = pendingApprovalForUser.length + bookingRequests.filter(r => r.status === 'Pending Review').length
+  const pendingCount = pendingApprovalForUser.length + scopedRequests.filter(r => r.status === 'Pending Review').length
 
   function openReview(req: BookingRequest) {
     setReviewRequest(req)
@@ -949,8 +964,8 @@ export function JobOrdersPage() {
           {canSeeRequests && (
             <div className="grid grid-cols-2 gap-3">
               {([
-                ['Pending Approval', bookingRequests.filter(r => r.status === 'Pending Approval').length, 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'],
-                ['Pending Review', bookingRequests.filter(r => r.status === 'Pending Review').length, 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800'],
+                ['Pending Approval', scopedRequests.filter(r => r.status === 'Pending Approval').length, 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'],
+                ['Pending Review', scopedRequests.filter(r => r.status === 'Pending Review').length, 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800'],
               ] as [string, number, string][]).map(([label, count, cls]) => (
                 <div key={label} className={`rounded-2xl px-4 py-3 ${cls}`}>
                   <p className="text-[11px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">{label}</p>
@@ -2296,6 +2311,7 @@ function RequestorDetails({ req }: { req: BookingRequest }) {
         <InfoBox label="Prepared By" value={req.preparedBy || '—'} />
         <InfoBox label="Department" value={`${req.department || '—'}${req.departmentLocal ? ` · ${req.departmentLocal}` : ''}`} />
         {req.projectName && <div className="col-span-2"><InfoBox label="Project Name" value={req.projectName} /></div>}
+        {req.designSpecs?.brand && <InfoBox label="Brand" value={req.designSpecs.brand} />}
         {req.shootType && <InfoBox label="Shoot Type" value={req.shootType} />}
         {req.projectScale && <InfoBox label="Project Scale" value={req.projectScale} />}
         <InfoBox label="Date Encoded" value={formatDate(req.encodedAt)} />

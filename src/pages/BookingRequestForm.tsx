@@ -27,6 +27,18 @@ const SHOOT_ACTIVITIES: ActivityType[]      = ['Photo Shoot', 'Video Shoot']
 const DESIGN_ACTIVITIES: ActivityType[]     = ['Static Artwork Design', 'Digital Design', 'Graphics', 'Printing', 'ASC', 'Video Editing', 'Audio Services', 'Content Writing']
 const DATE_ONLY_ACTIVITIES: ActivityType[]  = ['Static Artwork Design', 'Digital Design', 'Graphics', 'Printing', 'ASC', 'Audio Services', 'Audio Recording', 'Audio Editing', 'Video Editing', 'Content Writing']
 
+// IPI brands, grouped — shown as a dropdown for BMG requestors
+const BRAND_GROUPS: { group: string; brands: string[] }[] = [
+  { group: 'Personal Care', brands: ['Bioderm Omnibus', 'Bioderm Bloom', 'Bioderm Coolness', 'Bioderm Intense Coolness', 'Bioderm Clean White', 'Bioderm Freshen'] },
+  { group: 'Health Care', brands: ['Efficascent Omnibus', 'Efficascent Oil Regular', 'Efficascent Oil Extra Strength', 'Efficascent Oil Extreme', 'Efficascent Boost', 'Efficascent Relaxscent Oil', 'Efficascent Ointment', 'Omega Omnibus', 'Omega Pain Killer Regular', 'Omega Pain Killer Pro', 'Omega Advance Spray', 'Megascent Herbascent', 'Herbycin Syrup', 'Lecit-E 200'] },
+  { group: 'Home Care & Affiliates', brands: ['Casino Omnibus', 'Casino Regular', 'Casino Femme w/ Dual Moisturizer', 'Casino Active', 'Casino Sanitizer Spray', 'Vaporin', 'Winner', 'IPI Business Solutions'] },
+  { group: 'Beauty & Well-Being', brands: ["Dr. Wong's Lightening System Omnibus", "Dr. Wong's Lightening System Soap", "Dr. Wong's Lightening System Face Cream", "Dr. Wong's Lightening System Lotion", "Dr. Wong's Sulfur Soap Regular", "Dr. Wong's Sulfur Soap with Moisturizer", 'Bioderm Ointment', "Dr. Wong's Papaya Bright"] },
+  { group: 'General Care', brands: ['IPI Aceite de Manzanilla', 'Megascent Oil'] },
+  { group: 'Go-to-Market', brands: ['Herbycin Cooling Mouth Spray', "Dr. Wong's Lightening System Plus", "Dr. Wong's Acne Free System", "Mama's Love"] },
+  { group: 'Corporate Branding', brands: ['Corporate Branding', 'IPI Run', 'Bida Talks'] },
+  { group: 'IPI Export', brands: ["Personal Care (Casino, Dr. Wong's, and Bioderm)", 'Health Care (OPK and EO)'] },
+]
+
 // Content Writing: content type → sub-type options (empty array = no sub-type)
 const CONTENT_WRITING_OPTIONS: Record<string, string[]> = {
   'Articles': [
@@ -2233,17 +2245,6 @@ export function BookingRequestForm() {
                 )}
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
-                  Brand <span className="text-red-500">*</span>
-                </label>
-                <input type="text"
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors"
-                  placeholder="Which brand is this for? (e.g. Bioderm, BMD…)"
-                  value={form.brand} onChange={field('brand')} required />
-                <p className="mt-1 text-[11px] text-slate-400">Helps the DAP team know which brand team they're working with.</p>
-              </div>
-
             </div>
 
             {/* Design specs — only for design activities */}
@@ -2287,6 +2288,33 @@ export function BookingRequestForm() {
                   placeholder="e.g. local 1234"
                   value={form.departmentLocal} onChange={field('departmentLocal')} required />
               </div>
+            </div>
+
+            {/* Brand */}
+            <div>
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
+                Brand <span className="text-red-500">*</span>
+              </label>
+              {form.department === 'BMG' ? (
+                <select
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 bg-white transition-colors"
+                  value={form.brand} onChange={field('brand')} required>
+                  <option value="">Select a brand…</option>
+                  {BRAND_GROUPS.map(g => (
+                    <optgroup key={g.group} label={g.group}>
+                      {g.brands.map(b => <option key={b} value={b}>{b}</option>)}
+                    </optgroup>
+                  ))}
+                </select>
+              ) : (
+                <input type="text"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors"
+                  placeholder="Which brand is this for? (e.g. Bioderm, BMD…)"
+                  value={form.brand} onChange={field('brand')} required />
+              )}
+              <p className="mt-1 text-[11px] text-slate-400">
+                {form.department === 'BMG' ? 'Select the brand this request is for.' : "Helps the DAP team know which brand team they're working with."}
+              </p>
             </div>
 
             {/* Requestor info */}

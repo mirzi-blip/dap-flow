@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { useAppStore, useDataStore } from '../store/useAppStore'
 import { activityCalendarColors, teamColor } from '../utils/colors'
-import { orderedTeams, memberResourceId } from '../utils/helpers'
+import { orderedTeams, scopeJobOrders } from '../utils/helpers'
 import type { JOStatus, ActivityType } from '../types'
 import { ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS, TEAM_TOTAL_CAPACITY, LOAD_OVERLOAD } from '../types'
 
@@ -45,13 +45,15 @@ const activityIcon: Record<ActivityType, React.ElementType> = {
 }
 
 export function DashboardPage() {
-  const { setView, theme, resources, currentUser } = useAppStore()
+  const { setView, theme, resources, currentUser, approvers } = useAppStore()
   const { jobOrders, calendarEvents, bookingRequests } = useDataStore()
 
-  // DAP members get a dashboard scoped to the projects assigned to them;
-  // Admin / Super Admin see the overall dashboard.
-  const scopeToMe = currentUser?.role === 'DAP Team'
-  const myResourceId = memberResourceId(currentUser, resources)
+  // Super Admin: overall dashboard. Admin (supervisor): their service only.
+  // DAP member: only the projects assigned to them.
+  const scopedJOsAll = useMemo(
+    () => scopeJobOrders(jobOrders, currentUser, resources, approvers),
+    [jobOrders, currentUser, resources, approvers]
+  )
   const isDark = theme === 'dark'
 
   const now = new Date()
@@ -92,13 +94,12 @@ export function DashboardPage() {
 
   // Filtered job orders within the from–to range
   const filteredJOs = useMemo(() => {
-    return jobOrders.filter(j => {
-      if (scopeToMe && !(myResourceId != null && j.assignedMemberIds.includes(myResourceId))) return false
+    return scopedJOsAll.filter(j => {
       const d = new Date(j.createdAt)
       const key = d.getFullYear() * 100 + d.getMonth()
       return key >= effectiveFromKey && key <= effectiveToKey
     })
-  }, [jobOrders, effectiveFromKey, effectiveToKey, scopeToMe, myResourceId])
+  }, [scopedJOsAll, effectiveFromKey, effectiveToKey])
 
   // ── KPI counts — scoped to the selected year/month ──────────────────────
   const totalJOs      = filteredJOs.length

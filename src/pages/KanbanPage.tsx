@@ -4,7 +4,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, PriorityBadge, StatusBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, getNextStatus, isOverdue, memberResourceId } from '../utils/helpers'
+import { formatDate, formatDateTime, generateId, getNextStatus, isOverdue, scopeJobOrders } from '../utils/helpers'
 import type { JOStatus, JobOrder } from '../types'
 import { db } from '../db/database'
 import {
@@ -155,12 +155,10 @@ export function KanbanPage() {
 
   const canProgress = can('pipeline', 'move_cards')
 
-  // DAP members see only the projects assigned to them (their Team Member profile).
-  const scopeToMe = currentUser?.role === 'DAP Team'
-  const myResourceId = memberResourceId(currentUser, resources)
+  // Super Admin sees all; Admin (supervisor) sees their service; DAP member sees their assignments.
   const scopedJOs = useMemo(
-    () => (scopeToMe ? jobOrders.filter(j => myResourceId != null && j.assignedMemberIds.includes(myResourceId)) : jobOrders),
-    [jobOrders, scopeToMe, myResourceId]
+    () => scopeJobOrders(jobOrders, currentUser, resources, approvers),
+    [jobOrders, currentUser, resources, approvers]
   )
 
   const columns = useMemo(

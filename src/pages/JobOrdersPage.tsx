@@ -10,7 +10,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, memberResourceId } from '../utils/helpers'
+import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders } from '../utils/helpers'
 import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus, DesignSpecs } from '../types'
 import { db } from '../db/database'
 import { supabase, requestToRow, jobOrderToRow, saveJOComment } from '../lib/supabase'
@@ -63,9 +63,11 @@ export function JobOrdersPage() {
 
   const canSeeRequests = can('job_orders', 'view_requests')
   const canRemoveJO = currentUser?.role === 'Super Admin'
-  // DAP members see only job orders assigned to their Team Member profile
-  const scopeToMe = currentUser?.role === 'DAP Team'
-  const myResourceId = memberResourceId(currentUser, resources)
+  // Role-based scope: Super Admin all, Admin their service, DAP Team their assignments
+  const scopedJobOrders = useMemo(
+    () => scopeJobOrders(jobOrders, currentUser, resources, approvers),
+    [jobOrders, currentUser, resources, approvers]
+  )
 
   const [pageTab, setPageTab] = useState<PageTab>('list')
   const [search, setSearch] = useState(globalSearch)
@@ -144,9 +146,7 @@ export function JobOrdersPage() {
   const PRIORITY_ORDER: Record<Priority, number> = { 'High': 0, 'Medium': 1, 'Low': 2 }
 
   const filtered = useMemo(() => {
-    const base = jobOrders.filter((j) => {
-      // DAP members only see the job orders assigned to them
-      if (scopeToMe && !(myResourceId != null && j.assignedMemberIds.includes(myResourceId))) return false
+    const base = scopedJobOrders.filter((j) => {
       if (search && !j.projectName.toLowerCase().includes(search.toLowerCase()) &&
           !j.joNumber.toLowerCase().includes(search.toLowerCase()) &&
           !j.campaign.toLowerCase().includes(search.toLowerCase())) return false
@@ -175,7 +175,7 @@ export function JobOrdersPage() {
       if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
       return 0
     })
-  }, [jobOrders, search, filterStatus, filterActivity, filterPriority, filterTeam, sortCol, sortDir, scopeToMe, myResourceId])
+  }, [scopedJobOrders, search, filterStatus, filterActivity, filterPriority, filterTeam, sortCol, sortDir])
 
   function handleSortCol(col: SortCol) {
     if (sortCol === col) {

@@ -18,6 +18,53 @@ export function memberResourceId(
   return byEmail?.id ?? currentUser.resourceId ?? null
 }
 
+// All Team Member (resource) ids that belong to a user (a person may hold
+// several roles = several resource rows, all sharing their email).
+export function memberResourceIds(
+  currentUser: { email?: string; resourceId?: string } | null | undefined,
+  resources: { id: string; email?: string }[]
+): string[] {
+  if (!currentUser) return []
+  const email = currentUser.email?.toLowerCase()
+  const byEmail = email ? resources.filter(r => r.email && r.email.toLowerCase() === email).map(r => r.id) : []
+  if (byEmail.length) return byEmail
+  return currentUser.resourceId ? [currentUser.resourceId] : []
+}
+
+// The services a user handles, from their DAP Team Approver assignments (by email).
+export function userDapServices(
+  currentUser: { email?: string } | null | undefined,
+  approvers: { approverType?: string; isActive?: boolean; email?: string; position: string }[]
+): string[] {
+  const email = currentUser?.email?.toLowerCase()
+  if (!email) return []
+  return approvers
+    .filter(a => a.approverType === 'dap' && a.isActive !== false && a.email && a.email.toLowerCase() === email)
+    .map(a => a.position)
+}
+
+// Role-based job-order scope:
+//  • Super Admin (or an Admin with no service assignment) → everything
+//  • Admin (supervisor) → only job orders for the service(s) they handle
+//  • DAP Team → only job orders assigned to them
+export function scopeJobOrders<T extends { activityType: string; assignedMemberIds: string[] }>(
+  jos: T[],
+  currentUser: { role?: string; email?: string; resourceId?: string } | null | undefined,
+  resources: { id: string; email?: string }[],
+  approvers: { approverType?: string; isActive?: boolean; email?: string; position: string }[]
+): T[] {
+  const role = currentUser?.role
+  if (role === 'DAP Team') {
+    const ids = memberResourceIds(currentUser, resources)
+    return jos.filter(j => ids.some(id => j.assignedMemberIds.includes(id)))
+  }
+  if (role === 'Admin') {
+    const services = userDapServices(currentUser, approvers)
+    if (services.length > 0) return jos.filter(j => services.includes(j.activityType))
+  }
+  return jos
+}
+
 export function orderedTeams(resources: { team: string }[]): string[] {
   const present = new Set(resources.map((r) => r.team).filter(Boolean))
   const configured = DAP_TEAM_LIST.filter((t) => present.has(t))

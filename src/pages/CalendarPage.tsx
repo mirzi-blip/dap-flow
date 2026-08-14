@@ -11,7 +11,7 @@ import { activityCalendarColors } from '../utils/colors'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ActivityBadge, StatusBadge } from '../components/ui/Badge'
-import { formatDateTime, generateId, orderedTeams } from '../utils/helpers'
+import { formatDateTime, generateId, orderedTeams, scopeJobOrders } from '../utils/helpers'
 import type { ActivityType, CalendarEvent, JOStatus } from '../types'
 import { db } from '../db/database'
 
@@ -38,7 +38,7 @@ function EventChip({ event }: { event: CalendarEvent }) {
 
 export function CalendarPage() {
   const { calendarEvents, jobOrders, addCalendarEvent } = useDataStore()
-  const { currentUser, resources } = useAppStore()
+  const { currentUser, resources, approvers } = useAppStore()
   const { can } = usePermissions()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('month')
@@ -75,8 +75,10 @@ export function CalendarPage() {
   // events linked to JOs not surfaced by joEvents).
   const allEvents = useMemo<CalendarEvent[]>(() => {
     const shownJoIds = new Set(joEvents.map((e) => e.joId))
-    return [...joEvents, ...calendarEvents.filter((e) => !shownJoIds.has(e.joId))]
-  }, [joEvents, calendarEvents])
+    const merged = [...joEvents, ...calendarEvents.filter((e) => !shownJoIds.has(e.joId))]
+    // Role scope: Super Admin all, Admin their service, DAP member only their own
+    return scopeJobOrders(merged, currentUser, resources, approvers)
+  }, [joEvents, calendarEvents, currentUser, resources, approvers])
 
   // Filter events
   const filteredEvents = useMemo(() => {

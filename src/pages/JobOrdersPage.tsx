@@ -25,23 +25,6 @@ const STATUSES: JOStatus[] = ['To Do', 'Ongoing', 'For Review', 'Needs Revision'
 const PRIORITIES: Priority[] = ['High', 'Medium', 'Low']
 const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
 
-// Which DAP section (Team Members team) handles each service. Assignment lists
-// are limited to that section so only relevant people can be assigned.
-const SERVICE_TO_SECTION: Record<string, string> = {
-  'Content Writing': 'Content Writer',
-  'Graphics': 'Graphics',
-  'Digital Design': 'Graphics',
-  'Static Artwork Design': 'Graphics',
-  'Printing': 'Graphics',
-  'ASC': 'ASC Compliance',
-  'Video Editing': 'Audio/Video',
-  'Video Shoot': 'Audio/Video',
-  'Audio Recording': 'Audio/Video',
-  'Audio Editing': 'Audio/Video',
-  'Audio Services': 'Audio/Video',
-  'Photo Shoot': 'Multimedia',
-}
-
 const emptyForm = {
   requestingTeam: 'BMG' as RequestingTeam,
   projectName: '',
@@ -86,13 +69,11 @@ export function JobOrdersPage() {
     [jobOrders, currentUser, resources, approvers]
   )
 
-  // Members who can be assigned to a service = the section that handles it,
-  // de-duped by person (someone with several roles appears once).
-  function assignableResources(activityType: string) {
-    const section = SERVICE_TO_SECTION[activityType]
-    const pool = section ? resources.filter(r => r.team === section) : resources
+  // Members who can be assigned = everyone, regardless of section, de-duped by
+  // person (someone with several roles appears once).
+  function assignableResources(_activityType: string) {
     const seen = new Set<string>()
-    return pool.filter(r => {
+    return resources.filter(r => {
       const key = (r.email || r.id).toLowerCase()
       if (seen.has(key)) return false
       seen.add(key)

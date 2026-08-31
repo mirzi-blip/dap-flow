@@ -247,7 +247,7 @@ module.exports = async function handler(req, res) {
         <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Venue</td><td style="padding:8px 12px">${venue || '—'}</td></tr>
         <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Prepared By</td><td style="padding:8px 12px">${preparedBy || '—'}</td></tr>
       </table>
-      <a href="${appUrl}" style="display:inline-block;background:linear-gradient(135deg,#1B2F5E,#5164C0);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;margin:8px 0">Open Requests in DAP Flow →</a>
+      <a href="${appUrl}/?view=requests" style="display:inline-block;background:linear-gradient(135deg,#1B2F5E,#5164C0);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;margin:8px 0">Open Requests in DAP Flow →</a>
       <p style="color:#94a3b8;font-size:12px;margin:12px 0">Find it under <strong>Job Orders → Requests</strong> (status: Pending Review).</p>
       <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px">— Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management</p>
     </div>`

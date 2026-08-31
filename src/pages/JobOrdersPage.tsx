@@ -81,7 +81,15 @@ export function JobOrdersPage() {
     })
   }
 
-  const [pageTab, setPageTab] = useState<PageTab>('list')
+  const [pageTab, setPageTab] = useState<PageTab>(
+    () => new URLSearchParams(window.location.search).get('view') === 'requests' ? 'requests' : 'list'
+  )
+  // Strip the deep-link param after using it, so a later refresh doesn't force the tab.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('view')) {
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
   const [search, setSearch] = useState(globalSearch)
   const [filterStatus, setFilterStatus] = useState<JOStatus | 'All'>('All')
   const [filterActivity, setFilterActivity] = useState<ActivityType | 'All'>('All')

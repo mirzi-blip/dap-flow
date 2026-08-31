@@ -39,6 +39,14 @@ export default function App() {
     useAppStore.getState().initApprovers()
   }, [])
 
+  // Deep-link from coordinator emails: "/?view=requests" lands on Job Orders →
+  // Requests (the Requests tab is selected by JobOrdersPage from the same param).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('view') === 'requests') {
+      setView('joborders')
+    }
+  }, [])
+
   // Sync theme class to <html> so Tailwind dark: variants work
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')

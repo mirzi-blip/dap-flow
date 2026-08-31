@@ -61,6 +61,7 @@ export function rowToJobOrder(row: Record<string, unknown>): JobOrder {
     assignedMemberIds: (row.assigned_member_ids as string[]) || [],
     status: normalizeJOStatus(row.status as string),
     notes: (row.notes as string) || '',
+    estimatedHours: row.estimated_hours == null ? undefined : Number(row.estimated_hours),
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     createdBy: (row.created_by as string) || '',
@@ -71,8 +72,19 @@ export function rowToJobOrder(row: Record<string, unknown>): JobOrder {
   }
 }
 
+// Whether job_orders has the estimated_hours column yet. Probed once at
+// startup so a deploy that lands before the capacity migration still writes
+// job orders successfully (the hours simply don't persist until it is run).
+let hasEstimatedHoursColumn = false
+
+export async function probeEstimatedHoursColumn(): Promise<void> {
+  const { error } = await supabase.from('job_orders').select('estimated_hours').limit(1)
+  hasEstimatedHoursColumn = !error
+}
+
 export function jobOrderToRow(jo: JobOrder) {
   return {
+    ...(hasEstimatedHoursColumn ? { estimated_hours: jo.estimatedHours ?? null } : {}),
     id: jo.id,
     jo_number: jo.joNumber,
     requesting_team: jo.requestingTeam,

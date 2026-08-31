@@ -10,10 +10,10 @@ import {
   ChevronLeft, ChevronRight, CalendarDays, Image, Printer, ShieldCheck, PenLine,
 } from 'lucide-react'
 import { useAppStore, useDataStore } from '../store/useAppStore'
-import { activityCalendarColors, teamColor } from '../utils/colors'
-import { orderedTeams, scopeJobOrders } from '../utils/helpers'
+import { activityCalendarColors, teamColor, loadColor } from '../utils/colors'
+import { orderedTeams, scopeJobOrders, memberLoad, isLoadBearing } from '../utils/helpers'
 import type { JOStatus, ActivityType } from '../types'
-import { ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS, TEAM_TOTAL_CAPACITY, LOAD_OVERLOAD } from '../types'
+import { WEEKLY_CAPACITY_HRS, HOURS_PER_DAY, WORKING_DAYS_PER_WEEK, NON_PROJECT_HRS_PER_DAY, FOCUS_FACTOR, LOAD_OVERLOAD } from '../types'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -125,7 +125,7 @@ export function DashboardPage() {
     { label: 'Cancelled',      count: cancelledJOs,     color: '#94A3B8' },
   ]
 
-  // Team workload heatmap — uses 6.6 hr/day × 5 = 33 hr/week formula
+  // Team workload heatmap — average of each member's Load Ratio
   const teamWorkload = useMemo(() => {
     const teams = orderedTeams(resources)
     return teams.map(team => {
@@ -135,35 +135,23 @@ export function DashboardPage() {
         members.some(m => j.assignedMemberIds.includes(m.id))
       ).length
       const avgUtil = members.length
-        ? Math.round(members.reduce((acc, r) => {
-            const activeJOs = filteredJOs.filter(jo =>
-              jo.assignedMemberIds.includes(r.id) &&
-              !['Completed','Delayed','Cancelled'].includes(jo.status)
-            )
-            const estimatedHrs = activeJOs.reduce((s, jo) =>
-              s + (ACTIVITY_HOURS[jo.activityType] ?? 4), 0)
-            return acc + Math.min(100, Math.round((estimatedHrs / WEEKLY_CAPACITY_HRS) * 100))
-          }, 0) / members.length)
+        ? Math.round(members.reduce((acc, r) => acc + memberLoad(filteredJOs, r.id).pct, 0) / members.length)
         : 0
       const color = teamColor(team)
       return { team, util: avgUtil, totalActive, members: members.length, color }
     })
   }, [filteredJOs, resources])
 
-  // Individual resource load data for capacity monitoring section
+  // Individual resource load — Load Ratio per the DAP capacity methodology
   const resourceLoadData = useMemo(() => {
     return resources.map(r => {
       const activeJOs = filteredJOs.filter(jo =>
-        jo.assignedMemberIds.includes(r.id) &&
-        !['Completed','Cancelled'].includes(jo.status)
+        jo.assignedMemberIds.includes(r.id) && isLoadBearing(jo.status)
       )
-      const estimatedHrs = activeJOs.reduce((s, jo) =>
-        s + (ACTIVITY_HOURS[jo.activityType] ?? 4), 0)
-      const loadPct = Math.min(100, Math.round((estimatedHrs / WEEKLY_CAPACITY_HRS) * 100))
+      const { hours: estimatedHrs, pct: loadPct, status } = memberLoad(filteredJOs, r.id)
       return {
         id: r.id, name: r.name, team: r.team, role: r.role, initials: r.initials,
-        activeJOs: activeJOs.length, estimatedHrs, loadPct,
-        status: loadPct >= LOAD_OVERLOAD ? 'overload' : loadPct >= 50 ? 'optimal' : 'underload',
+        activeJOs: activeJOs.length, estimatedHrs, loadPct, status,
       }
     }).sort((a, b) => b.loadPct - a.loadPct)
   }, [filteredJOs, resources])
@@ -173,21 +161,18 @@ export function DashboardPage() {
     const teams = orderedTeams(resources)
     return teams.map(team => {
       const members = resources.filter(r => r.team === team)
-      const usedHrs = members.reduce((sum, r) => {
-        const activeJOs = filteredJOs.filter(jo =>
-          jo.assignedMemberIds.includes(r.id) &&
-          !['Completed','Cancelled'].includes(jo.status)
-        )
-        return sum + activeJOs.reduce((s, jo) => s + (ACTIVITY_HOURS[jo.activityType] ?? 4), 0)
-      }, 0)
+      const usedHrs = members.reduce((sum, r) => sum + memberLoad(filteredJOs, r.id).hours, 0)
       const totalCapacity = members.length * WEEKLY_CAPACITY_HRS
-      const pct = totalCapacity > 0 ? Math.min(100, Math.round((usedHrs / totalCapacity) * 100)) : 0
+      const pct = totalCapacity > 0 ? Math.round((usedHrs / totalCapacity) * 100) : 0
       return { team, usedHrs, totalCapacity, pct, members: members.length, color: teamColor(team) }
     })
   }, [filteredJOs, resources])
 
+  // Total team capacity = headcount × per-person weekly capacity
+  const teamTotalCapacity = resources.length * WEEKLY_CAPACITY_HRS
+
   const totalUsedHrs = resourceLoadData.reduce((s, r) => s + r.estimatedHrs, 0)
-  const overloadedResources = resourceLoadData.filter(r => r.status === 'overload')
+  const overloadedResources = resourceLoadData.filter(r => r.status === 'Peak')
 
   // Today's schedule snapshot (per wireframe ROW 3)
   const todaySchedule = useMemo(() => {
@@ -552,7 +537,7 @@ export function DashboardPage() {
               Capacity &amp; Resource Load
             </h3>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-              6.6 hrs/day · 33 hrs/week per person · {TEAM_TOTAL_CAPACITY} hrs total team · ≥{LOAD_OVERLOAD}% = Overload
+              {HOURS_PER_DAY} hrs/day × {WORKING_DAYS_PER_WEEK} − {NON_PROJECT_HRS_PER_DAY} hrs/day non-project × {FOCUS_FACTOR * 100}% focus = ~{Math.round(WEEKLY_CAPACITY_HRS)} hrs/week per person · {Math.round(teamTotalCapacity)} hrs total team · ≥{LOAD_OVERLOAD}% = Peak
             </p>
           </div>
           <button onClick={() => setView('workload')} className="btn-ghost">
@@ -589,14 +574,14 @@ export function DashboardPage() {
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-bold text-slate-600 dark:text-slate-300">Overall Team Capacity</p>
             <p className="text-xs font-black text-slate-700 dark:text-slate-200">
-              {Math.round(totalUsedHrs)}h used · {Math.max(0, TEAM_TOTAL_CAPACITY - Math.round(totalUsedHrs))}h remaining
+              {Math.round(totalUsedHrs)}h used · {Math.max(0, teamTotalCapacity - Math.round(totalUsedHrs))}h remaining
             </p>
           </div>
           <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all duration-700"
               style={{
-                width: `${Math.min(100, (totalUsedHrs / TEAM_TOTAL_CAPACITY) * 100)}%`,
-                background: totalUsedHrs / TEAM_TOTAL_CAPACITY >= LOAD_OVERLOAD / 100
+                width: `${Math.min(100, (totalUsedHrs / teamTotalCapacity) * 100)}%`,
+                background: totalUsedHrs / teamTotalCapacity >= LOAD_OVERLOAD / 100
                   ? 'linear-gradient(90deg,#EF4444,#DC2626)'
                   : 'linear-gradient(90deg,#5164C0,#6F84DB)',
               }} />

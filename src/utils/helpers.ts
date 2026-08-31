@@ -1,6 +1,9 @@
 import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns'
-import type { JobOrder, JOStatus, Approver } from '../types'
-import { DAP_TEAM_LIST } from '../types'
+import type { JobOrder, JOStatus, Approver, ActivityType } from '../types'
+import {
+  DAP_TEAM_LIST, ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS,
+  LOAD_OPTIMAL, LOAD_THRESHOLD, LOAD_PEAK,
+} from '../types'
 
 // Teams to show in team views: the configured teams that have members, followed
 // by any other (legacy) team still assigned to a member. Keeps views in sync
@@ -171,6 +174,62 @@ export function normalizeJOStatus(raw: string | null | undefined): JOStatus {
     case 'Cancelled':    return 'Cancelled'
     default:             return 'To Do'
   }
+}
+
+// ── Individual load capacity ────────────────────────────────────────────────
+// Single source of truth for workload, capacity monitoring, resource
+// assignment and reports, per the DAP Manager's methodology (see the capacity
+// constants in types/index.ts).
+
+export type LoadStatus = 'Underload' | 'Optimal' | 'Threshold' | 'Peak'
+
+/** A job order consumes capacity until it is finished or cancelled. */
+export function isLoadBearing(status: JOStatus): boolean {
+  return status !== 'Completed' && status !== 'Cancelled'
+}
+
+/** Estimated work hours for one job order: the per-JO value when set,
+ *  otherwise the per-service default. */
+export function joEstimatedHours(jo: { activityType: string; estimatedHours?: number }): number {
+  if (typeof jo.estimatedHours === 'number' && Number.isFinite(jo.estimatedHours) && jo.estimatedHours >= 0) {
+    return jo.estimatedHours
+  }
+  return ACTIVITY_HOURS[jo.activityType as ActivityType] ?? 4
+}
+
+/** Total assigned work hours = estimated hours of a member's active work. */
+export function memberAssignedHours<T extends { assignedMemberIds: string[]; status: JOStatus; activityType: string; estimatedHours?: number }>(
+  jos: T[],
+  memberId: string
+): number {
+  return jos
+    .filter(j => j.assignedMemberIds.includes(memberId) && isLoadBearing(j.status))
+    .reduce((sum, j) => sum + joEstimatedHours(j), 0)
+}
+
+/** Load Ratio = (Total Assigned Work Hours ÷ Load Capacity) × 100.
+ *  Left uncapped so genuine overload stays visible; cap bar widths, not this. */
+export function loadRatio(assignedHours: number, capacity = WEEKLY_CAPACITY_HRS): number {
+  if (capacity <= 0) return 0
+  return Math.round((assignedHours / capacity) * 100)
+}
+
+export function loadStatus(pct: number): LoadStatus {
+  if (pct >= LOAD_PEAK) return 'Peak'
+  if (pct >= LOAD_THRESHOLD) return 'Threshold'
+  if (pct >= LOAD_OPTIMAL) return 'Optimal'
+  return 'Underload'
+}
+
+/** Everything the UI needs about one member's load, in one call. */
+export function memberLoad<T extends { assignedMemberIds: string[]; status: JOStatus; activityType: string; estimatedHours?: number }>(
+  jos: T[],
+  memberId: string
+): { hours: number; pct: number; status: LoadStatus; capacity: number; overloaded: boolean } {
+  const hours = memberAssignedHours(jos, memberId)
+  const pct = loadRatio(hours)
+  const status = loadStatus(pct)
+  return { hours, pct, status, capacity: WEEKLY_CAPACITY_HRS, overloaded: status === 'Peak' }
 }
 
 export function computeCompletionRate(jos: JobOrder[]): number {

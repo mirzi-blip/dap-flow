@@ -1,7 +1,7 @@
 ﻿import { useEffect } from 'react'
 import { useAppStore, useDataStore } from './store/useAppStore'
 import { db } from './db/database'
-import { supabase, rowToRequest, rowToJobOrder } from './lib/supabase'
+import { supabase, rowToRequest, rowToJobOrder, probeEstimatedHoursColumn } from './lib/supabase'
 import { generateId, getServiceApprovers } from './utils/helpers'
 import {
   SEED_JOB_ORDERS,
@@ -37,6 +37,7 @@ export default function App() {
     useAppStore.getState().initResources()
     useAppStore.getState().initFormOptions()
     useAppStore.getState().initApprovers()
+    probeEstimatedHoursColumn()
   }, [])
 
   // Deep-link from coordinator emails: "/?view=requests" lands on Job Orders →

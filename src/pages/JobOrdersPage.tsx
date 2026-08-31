@@ -10,8 +10,10 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders } from '../utils/helpers'
+import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders, memberLoad, joEstimatedHours } from '../utils/helpers'
+import { loadColor } from '../utils/colors'
 import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus, DesignSpecs } from '../types'
+import { ACTIVITY_HOURS } from '../types'
 import { db } from '../db/database'
 import { supabase, requestToRow, jobOrderToRow, saveJOComment } from '../lib/supabase'
 
@@ -36,6 +38,7 @@ const emptyForm = {
   launchDate: '',
   assignedMemberIds: [] as string[],
   notes: '',
+  estimatedHours: '' as string,   // blank = use the per-service default
 }
 
 type DetailTab = 'overview' | 'activity' | 'files' | 'comments'
@@ -211,10 +214,13 @@ export function JobOrdersPage() {
       setFormError('Project name and deadline are required.')
       return
     }
+    const { estimatedHours: estHrsRaw, ...formFields } = form
     const jo: JobOrder = {
       id: generateId(),
       joNumber: generateJONumber(jobOrders.length),
-      ...form,
+      ...formFields,
+      // Blank keeps the per-service default; a number overrides it.
+      estimatedHours: estHrsRaw.trim() === '' ? undefined : Number(estHrsRaw),
       requesterId: currentUser!.id,
       status: 'To Do',
       createdAt: new Date().toISOString(),
@@ -520,9 +526,12 @@ export function JobOrdersPage() {
 
   async function handleEditSave() {
     if (!selectedJO || !editForm.projectName || !editForm.deadline) return
+    const { estimatedHours: estHrsRaw, ...editFields } = editForm
     const updated: JobOrder = {
       ...selectedJO,
-      ...editForm,
+      ...editFields,
+      // Blank keeps the per-service default; a number overrides it.
+      estimatedHours: estHrsRaw.trim() === '' ? undefined : Number(estHrsRaw),
       updatedAt: new Date().toISOString(),
     }
     await db.jobOrders.put(updated)
@@ -632,6 +641,7 @@ export function JobOrdersPage() {
       launchDate: jo.launchDate ?? '',
       assignedMemberIds: [...jo.assignedMemberIds],
       notes: jo.notes ?? '',
+      estimatedHours: jo.estimatedHours == null ? '' : String(jo.estimatedHours),
     })
     setNewLink({ label: '', url: '' })
     setNewComment('')
@@ -1172,8 +1182,9 @@ export function JobOrdersPage() {
                     <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
                       {assignableResources(reviewRequest.activityType).map((r) => {
                         const activeJOs = memberActiveJOs(r.id)
-                        const utilPct = Math.min(Math.round((activeJOs / 5) * 100), 100)
-                        const overloaded = utilPct > 90
+                        const load = memberLoad(jobOrders, r.id)
+                        const utilPct = load.pct
+                        const overloaded = load.overloaded
                         const selected = selectedMemberIds.includes(r.id)
                         return (
                           <label
@@ -1196,23 +1207,22 @@ export function JobOrdersPage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-1">
                                 <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{r.name}</p>
-                                {overloaded && (
-                                  <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-600 dark:text-red-400 shrink-0">
-                                    <AlertTriangle size={10} /> Overloaded
-                                  </span>
-                                )}
+                                <span className={`flex items-center gap-0.5 text-[10px] font-bold shrink-0 ${loadColor(load.status).text}`}>
+                                  {overloaded && <AlertTriangle size={10} />}{load.status}
+                                </span>
                               </div>
                               <p className="text-[10px] text-slate-400 dark:text-slate-500">{r.role} · {r.team}</p>
                               <div className="mt-1.5 flex items-center gap-2">
                                 <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
                                   <div
-                                    className={`h-full rounded-full transition-all ${
-                                      overloaded ? 'bg-red-500' : utilPct > 60 ? 'bg-amber-400' : 'bg-emerald-500'
-                                    }`}
-                                    style={{ width: `${utilPct}%` }}
+                                    className="h-full rounded-full transition-all"
+                                    style={{ width: `${Math.min(100, utilPct)}%`, background: loadColor(load.status).bar }}
                                   />
                                 </div>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">{activeJOs} active JOs</span>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap"
+                                  title={`${load.hours.toFixed(1)}h of ~${Math.round(load.capacity)}h weekly capacity · ${activeJOs} active JOs`}>
+                                  {utilPct}% · {load.hours.toFixed(1)}h
+                                </span>
                               </div>
                             </div>
                           </label>
@@ -1704,6 +1714,15 @@ export function JobOrdersPage() {
                       <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Launch Date</label>
                       <input type="date" className="form-input" value={editForm.launchDate} onChange={e => setEditForm(f => ({ ...f, launchDate: e.target.value }))} />
                     </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Estimated Hours</label>
+                      <input
+                        type="number" min="0" step="0.5" className="form-input"
+                        value={editForm.estimatedHours}
+                        onChange={e => setEditForm(f => ({ ...f, estimatedHours: e.target.value }))}
+                        placeholder={`Default: ${ACTIVITY_HOURS[editForm.activityType] ?? 4}h`}
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-2">Assigned Members</label>
@@ -1764,6 +1783,10 @@ export function JobOrdersPage() {
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <InfoBox label="Requesting Team" value={selectedJO.requestingTeam} />
                     <InfoBox label="Brand" value={bookingRequests.find(r => r.joId === selectedJO.id)?.designSpecs?.brand || '—'} />
+                    <InfoBox
+                      label="Estimated Hours"
+                      value={`${joEstimatedHours(selectedJO)}h${selectedJO.estimatedHours == null ? ' (default)' : ''}`}
+                    />
                     <InfoBox label="Campaign" value={selectedJO.campaign || '—'} />
                     <InfoBox label="Deadline" value={formatDate(selectedJO.deadline)} highlight={isOverdue(selectedJO.deadline) && selectedJO.status !== 'Completed'} />
                     <InfoBox label="Launch Date" value={selectedJO.launchDate ? formatDate(selectedJO.launchDate) : '—'} />
@@ -2028,6 +2051,18 @@ export function JobOrdersPage() {
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Launch Date</label>
               <input type="date" className="form-input" value={form.launchDate} onChange={(e) => setForm((f) => ({ ...f, launchDate: e.target.value }))} />
             </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Estimated Hours</label>
+            <input
+              type="number" min="0" step="0.5" className="form-input"
+              value={form.estimatedHours}
+              onChange={(e) => setForm((f) => ({ ...f, estimatedHours: e.target.value }))}
+              placeholder={`Default for ${form.activityType}: ${ACTIVITY_HOURS[form.activityType] ?? 4}h`}
+            />
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+              Drives each assignee's Load Ratio. Leave blank to use the {form.activityType} default of {ACTIVITY_HOURS[form.activityType] ?? 4}h.
+            </p>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">Assign Team Members</label>

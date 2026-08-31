@@ -64,14 +64,30 @@ export const ACTIVITY_HOURS: Record<ActivityType, number> = {
   'Content Writing':       6,
 }
 
-/** Capacity constants */
-export const DAILY_CAPACITY_HRS  = 6.6
-export const WEEKLY_CAPACITY_HRS = DAILY_CAPACITY_HRS * 5   // 33 hrs
-export const TEAM_TOTAL_CAPACITY  = 150                       // hrs total team
+/** ── Individual load capacity — DAP Manager methodology ────────────────────
+ *   1. Gross hours       = 5 working days × 9.6 hrs/day  = 48.0 hrs/week
+ *   2. Less non-project  = 1.5 hrs/day × 5 days          =  7.5 hrs/week
+ *   3. Net available     = 48 − 7.5                      = 40.5 hrs/week
+ *   4. Load capacity     = 40.5 × 95% focus factor       = 38.475 hrs/week
+ *  The exact 38.475 is kept for every calculation to avoid rounding drift;
+ *  the UI rounds to ~38 for display only. */
+export const WORKING_DAYS_PER_WEEK   = 5
+export const HOURS_PER_DAY           = 9.6
+export const NON_PROJECT_HRS_PER_DAY = 1.5
+export const FOCUS_FACTOR            = 0.95
 
-/** Load thresholds */
-export const LOAD_OPTIMAL  = 75   // %
-export const LOAD_OVERLOAD = 75   // % — warn at / above this
+export const GROSS_WEEKLY_HRS       = WORKING_DAYS_PER_WEEK * HOURS_PER_DAY            // 48
+export const NON_PROJECT_WEEKLY_HRS = NON_PROJECT_HRS_PER_DAY * WORKING_DAYS_PER_WEEK  // 7.5
+export const NET_AVAILABLE_HRS      = GROSS_WEEKLY_HRS - NON_PROJECT_WEEKLY_HRS        // 40.5
+/** Load capacity per person per week — 38.475 hrs (exact). */
+export const WEEKLY_CAPACITY_HRS    = NET_AVAILABLE_HRS * FOCUS_FACTOR                 // 38.475
+export const DAILY_CAPACITY_HRS     = WEEKLY_CAPACITY_HRS / WORKING_DAYS_PER_WEEK      // 7.695
+
+/** Load Ratio bands (%) — Load Ratio = (assigned hrs ÷ capacity) × 100 */
+export const LOAD_OPTIMAL   = 50   // ≥ 50  → Optimal
+export const LOAD_THRESHOLD = 80   // ≥ 80  → Threshold
+export const LOAD_PEAK      = 90   // ≥ 90  → Peak (overloaded)
+export const LOAD_OVERLOAD  = LOAD_PEAK  // warn at / above Peak
 
 /** Design specification details for Static / Digital artwork requests */
 export interface DesignSpecs {
@@ -172,6 +188,9 @@ export interface JobOrder {
   assignedMemberIds: string[]
   status: JOStatus
   notes: string
+  /** Estimated work hours for this job. Overrides the per-service default in
+   *  ACTIVITY_HOURS when set; drives the individual Load Ratio. */
+  estimatedHours?: number
   createdAt: string
   updatedAt: string
   createdBy: string

@@ -91,3 +91,16 @@ export const kpiGradients = [
   { from: '#10B981', to: '#0EA5E9', icon: 'bg-gradient-to-br from-emerald-500 to-sky-500' },
 ]
 
+
+// Load Ratio bands — one palette for workload, dashboard, reports and the
+// assignment picker so a member reads the same everywhere.
+export const loadStatusColors: Record<string, { hex: string; text: string; bar: string }> = {
+  Underload: { hex: '#94A3B8', text: 'text-slate-500 dark:text-slate-400',     bar: '#94A3B8' },
+  Optimal:   { hex: '#10B981', text: 'text-emerald-600 dark:text-emerald-400', bar: '#10B981' },
+  Threshold: { hex: '#F59E0B', text: 'text-amber-600 dark:text-amber-400',     bar: '#F59E0B' },
+  Peak:      { hex: '#EF4444', text: 'text-red-600 dark:text-red-400',         bar: '#EF4444' },
+}
+
+export function loadColor(status: string) {
+  return loadStatusColors[status] ?? loadStatusColors.Underload
+}

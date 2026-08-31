@@ -11,8 +11,8 @@ import {
   Image, Printer, ShieldCheck, PenLine,
 } from 'lucide-react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
-import { activityCalendarColors } from '../utils/colors'
-import { isOverdue } from '../utils/helpers'
+import { activityCalendarColors, loadColor } from '../utils/colors'
+import { isOverdue, memberLoad } from '../utils/helpers'
 import type { ActivityType } from '../types'
 
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -214,11 +214,9 @@ export function ReportsPage() {
   // ── Individual Resource Load — uses globalFilteredJOs ──
   const resourceData = useMemo(() => {
     return resources.map((r) => {
-      const assigned = globalFilteredJOs.filter((j) =>
-        j.assignedMemberIds.includes(r.id) && !['Completed', 'Cancelled'].includes(j.status)
-      ).length
-      const util = Math.min(100, Math.round((assigned / 5) * 100))
-      return { name: r.initials, fullName: r.name, role: r.role, util, color: r.color, team: r.team }
+      // Load Ratio = (total assigned work hours ÷ load capacity) × 100
+      const { hours, pct: util, status } = memberLoad(globalFilteredJOs, r.id)
+      return { name: r.initials, fullName: r.name, role: r.role, util, hours, status, color: r.color, team: r.team }
     })
   }, [globalFilteredJOs, resources])
 
@@ -550,14 +548,14 @@ export function ReportsPage() {
                       <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{r.fullName}</p>
                       <p className="text-[10px] text-slate-400 dark:text-slate-500">{r.role}</p>
                     </div>
-                    <span className={`text-sm font-black ml-2 ${r.util > 90 ? 'text-red-600 dark:text-red-400' : r.util >= 70 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <span className={`text-sm font-black ml-2 ${loadColor(r.status).text}`} title={`${r.hours.toFixed(1)}h assigned · ${r.status}`}>
                       {r.util}%
                     </span>
                   </div>
                   <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all" style={{
-                      width: `${r.util}%`,
-                      background: r.util > 90 ? '#ef4444' : r.util >= 70 ? '#10b981' : '#5164C0',
+                      width: `${Math.min(100, r.util)}%`,
+                      background: loadColor(r.status).bar,
                     }} />
                   </div>
                 </div>

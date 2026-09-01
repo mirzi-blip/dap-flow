@@ -5,7 +5,7 @@ import {
 } from 'date-fns'
 import { useDataStore, useAppStore } from '../store/useAppStore'
 import { teamColor, activityCalendarColors, loadColor } from '../utils/colors'
-import { orderedTeams, memberLoad, isLoadBearing } from '../utils/helpers'
+import { orderedTeams, memberLoad, isLoadBearing, memberWeekLoad, loadRatio } from '../utils/helpers'
 import type { DAPTeam, JobOrder } from '../types'
 import {
   WEEKLY_CAPACITY_HRS, HOURS_PER_DAY, WORKING_DAYS_PER_WEEK, NON_PROJECT_HRS_PER_DAY,
@@ -40,8 +40,10 @@ export function WorkloadPage() {
 
     // Load Ratio = (total assigned work hours ÷ load capacity) × 100
     const { hours: estimatedHrs, pct: loadPct, status, overloaded } = memberLoad(jobOrders, resourceId)
+    // Actual hours logged against this week (confirmed + in-progress accrual)
+    const week = memberWeekLoad(jobOrders, resourceId)
 
-    return { assigned: assigned.length, active, completed: completed.length, next4Weeks, overloaded, estimatedHrs, loadPct, status }
+    return { assigned: assigned.length, active, completed: completed.length, next4Weeks, overloaded, estimatedHrs, loadPct, status, week }
   }
 
   const teamSummary = useMemo(() =>
@@ -190,14 +192,44 @@ export function WorkloadPage() {
                     </div>
                   </div>
 
-                  {/* Load bar */}
-                  <div className="mt-2 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-700"
-                      style={{ width: `${Math.min(100, stats.loadPct)}%`, background: loadColor(stats.status).bar }} />
+                  {/* Planned load — from estimates */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 w-12 shrink-0">Planned</span>
+                    <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${Math.min(100, stats.loadPct)}%`, background: loadColor(stats.status).bar }} />
+                    </div>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 w-24 text-right shrink-0 tabular-nums">
+                      {stats.estimatedHrs.toFixed(1)}h / ~{Math.round(WEEKLY_CAPACITY_HRS)}h
+                    </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
-                    {stats.estimatedHrs.toFixed(1)}h assigned / ~{Math.round(WEEKLY_CAPACITY_HRS)}h capacity
-                  </p>
+
+                  {/* Actual load — this week, from logged hours */}
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 w-12 shrink-0">Actual</span>
+                    <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden flex">
+                      <div className="h-full transition-all duration-700"
+                        style={{ width: `${Math.min(100, loadRatio(stats.week.confirmed))}%`, background: loadColor(stats.week.status).bar }} />
+                      {/* Provisional accrual for work still Ongoing — striped, not settled */}
+                      <div className="h-full transition-all duration-700"
+                        style={{
+                          width: `${Math.min(100 - Math.min(100, loadRatio(stats.week.confirmed)), loadRatio(stats.week.provisional))}%`,
+                          backgroundImage: `repeating-linear-gradient(45deg, ${loadColor(stats.week.status).bar}, ${loadColor(stats.week.status).bar} 3px, transparent 3px, transparent 6px)`,
+                        }} />
+                    </div>
+                    <span className="text-[10px] w-24 text-right shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
+                      {stats.week.total > 0
+                        ? <>{stats.week.total.toFixed(1)}h · <span className={loadColor(stats.week.status).text}>{stats.week.pct}%</span></>
+                        : <span className="text-slate-300 dark:text-slate-600">none logged</span>}
+                    </span>
+                  </div>
+                  {(stats.week.provisional > 0 || stats.week.overtime > 0) && (
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                      {stats.week.provisional > 0 && <>{stats.week.provisional.toFixed(1)}h still in progress (unconfirmed)</>}
+                      {stats.week.provisional > 0 && stats.week.overtime > 0 && ' · '}
+                      {stats.week.overtime > 0 && <span className="text-amber-600 dark:text-amber-400">{stats.week.overtime.toFixed(1)}h overtime</span>}
+                    </p>
+                  )}
 
                   <div className="flex items-center gap-4 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                     <span className="font-semibold text-slate-700 dark:text-slate-300">{stats.active.length}</span> active JOs

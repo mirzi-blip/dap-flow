@@ -1,4 +1,4 @@
-import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns'
+import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay, startOfWeek } from 'date-fns'
 import type { JobOrder, JOStatus, Approver, ActivityType, JOWorkSegment } from '../types'
 import {
   DAP_TEAM_LIST, ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS,
@@ -322,4 +322,115 @@ export function actualHoursForMember(
   if (done.length === 0) return { hours: 0, confirmed: false }
   const hours = done.reduce((sum, s) => sum + (s.confirmedHours ?? 0) + (s.overtimeHours ?? 0), 0)
   return { hours: Math.round(hours * 100) / 100, confirmed: true }
+}
+
+// ── Weekly allocation ───────────────────────────────────────────────────────
+// Actual hours belong to the week(s) the work actually spanned, not to the week
+// it happened to be closed in. Hours are spread across the working days covered,
+// in proportion to the working time available on each day, so a job started on
+// Thursday and finished on Tuesday lands partly in each week.
+
+/** The week a date belongs to, as a stable key. */
+export function weekKeyOf(d: Date): string {
+  return format(startOfWeek(d), 'yyyy-MM-dd')
+}
+
+/** Working-window hours available on one day within a span. */
+function dayWindowHours(day: Date, start: Date, end: Date): number {
+  if (!isWorkingDay(day)) return 0
+  const open = at(day, WORK_START_H, WORK_START_M)
+  const close = at(day, WORK_END_H, WORK_END_M)
+  const from = start > open ? start : open
+  const to = end < close ? end : close
+  return to.getTime() > from.getTime() ? (to.getTime() - from.getTime()) / 3_600_000 : 0
+}
+
+/** Spread hours across the weeks a stretch of work spans, proportional to the
+ *  working time available on each day it covered. */
+export function allocateHoursToWeeks(startISO: string, endISO: string, hours: number): Record<string, number> {
+  const out: Record<string, number> = {}
+  if (!(hours > 0)) return out
+  const start = new Date(startISO)
+  const end = new Date(endISO)
+  if (!(end.getTime() > start.getTime())) {
+    out[weekKeyOf(start)] = hours
+    return out
+  }
+  const days: { day: Date; window: number }[] = []
+  let totalWindow = 0
+  const cursor = new Date(start)
+  cursor.setHours(0, 0, 0, 0)
+  const lastDay = new Date(end)
+  lastDay.setHours(0, 0, 0, 0)
+  while (cursor.getTime() <= lastDay.getTime()) {
+    const w = dayWindowHours(cursor, start, end)
+    if (w > 0) { days.push({ day: new Date(cursor), window: w }); totalWindow += w }
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  // A span entirely outside working time (e.g. one evening) still has to land
+  // somewhere — attribute it to the week it started in.
+  if (totalWindow <= 0) { out[weekKeyOf(start)] = hours; return out }
+  for (const { day, window } of days) {
+    const k = weekKeyOf(day)
+    out[k] = (out[k] ?? 0) + hours * (window / totalWindow)
+  }
+  return out
+}
+
+export interface WeekLoad {
+  /** Hours from segments the member has closed and confirmed. */
+  confirmed: number
+  /** Accrued-to-date estimate for work still Ongoing, capped at the estimate. */
+  provisional: number
+  total: number
+  pct: number
+  status: LoadStatus
+  overtime: number
+}
+
+/** A member's actual hours for one week: confirmed work plus a provisional
+ *  accrual for anything still Ongoing, so a week in progress still reflects the
+ *  work already done. */
+export function memberWeekLoad<T extends {
+  status: JOStatus; activityType: string; estimatedHours?: number; workSegments?: JOWorkSegment[]
+}>(jos: T[], memberId: string, week: Date = new Date()): WeekLoad {
+  const key = weekKeyOf(week)
+  const nowISO = new Date().toISOString()
+  let confirmed = 0, provisional = 0, overtime = 0
+
+  for (const jo of jos) {
+    for (const seg of (jo.workSegments ?? [])) {
+      if (seg.memberId !== memberId) continue
+      const isConfirmed = typeof seg.confirmedHours === 'number' && !!seg.endedAt
+      if (isConfirmed) {
+        const ot = seg.overtimeHours ?? 0
+        const hrs = (seg.confirmedHours ?? 0) + ot
+        const share = allocateHoursToWeeks(seg.startedAt, seg.endedAt!, hrs)[key] ?? 0
+        confirmed += share
+        if (ot > 0 && hrs > 0) overtime += share * (ot / hrs)
+      } else if (!seg.endedAt && isLoadBearing(jo.status)) {
+        // Still Ongoing: accrue what has elapsed, capped at the estimate so a
+        // job left Ongoing for weeks cannot inflate the figure indefinitely.
+        const accrued = Math.min(workingHoursBetween(seg.startedAt, nowISO), joEstimatedHours(jo))
+        provisional += allocateHoursToWeeks(seg.startedAt, nowISO, accrued)[key] ?? 0
+      }
+    }
+  }
+
+  const r2 = (n: number) => Math.round(n * 100) / 100
+  const total = confirmed + provisional
+  return {
+    confirmed: r2(confirmed),
+    provisional: r2(provisional),
+    total: r2(total),
+    overtime: r2(overtime),
+    pct: loadRatio(total),
+    status: loadStatus(loadRatio(total)),
+  }
+}
+
+/** True once any actual hours exist, so the UI can stay on planned figures
+ *  until the team starts logging. */
+export function hasActualHours<T extends { workSegments?: JOWorkSegment[] }>(jos: T[]): boolean {
+  return jos.some(jo => (jo.workSegments ?? []).length > 0)
 }

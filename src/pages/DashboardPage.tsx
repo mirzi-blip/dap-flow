@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { useAppStore, useDataStore } from '../store/useAppStore'
 import { activityCalendarColors, teamColor, loadColor } from '../utils/colors'
-import { orderedTeams, scopeJobOrders, memberLoad, isLoadBearing } from '../utils/helpers'
+import { orderedTeams, scopeJobOrders, memberLoad, isLoadBearing, memberWeekLoad } from '../utils/helpers'
 import type { JOStatus, ActivityType } from '../types'
 import { WEEKLY_CAPACITY_HRS, HOURS_PER_DAY, WORKING_DAYS_PER_WEEK, NON_PROJECT_HRS_PER_DAY, FOCUS_FACTOR, LOAD_OVERLOAD } from '../types'
 
@@ -149,9 +149,11 @@ export function DashboardPage() {
         jo.assignedMemberIds.includes(r.id) && isLoadBearing(jo.status)
       )
       const { hours: estimatedHrs, pct: loadPct, status } = memberLoad(filteredJOs, r.id)
+      // Actual hours logged against the current week
+      const week = memberWeekLoad(filteredJOs, r.id)
       return {
         id: r.id, name: r.name, team: r.team, role: r.role, initials: r.initials,
-        activeJOs: activeJOs.length, estimatedHrs, loadPct, status,
+        activeJOs: activeJOs.length, estimatedHrs, loadPct, status, week,
       }
     }).sort((a, b) => b.loadPct - a.loadPct)
   }, [filteredJOs, resources])
@@ -614,7 +616,9 @@ export function DashboardPage() {
                     <div className="h-full rounded-full bg-red-500 transition-all" style={{ width: `${r.loadPct}%` }} />
                   </div>
                   <span className="text-[10px] font-black text-red-600 dark:text-red-400 w-10 text-right shrink-0">{r.loadPct}%</span>
-                  <span className="text-[10px] text-slate-400 shrink-0">{r.activeJOs} JOs</span>
+                  <span className="text-[10px] text-slate-400 shrink-0 w-24 text-right tabular-nums">
+                    {r.week.total > 0 ? `${r.week.total.toFixed(1)}h actual` : `${r.activeJOs} JOs`}
+                  </span>
                 </div>
               ))}
             </div>

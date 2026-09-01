@@ -414,8 +414,9 @@ export function JobOrdersPage() {
     const draft: Record<string, { regular: string; overtime: string }> = {}
     for (const sg of rows) {
       draft[sg.id] = {
+        // Overtime is never pre-filled: it counts only when the member says so.
         regular: String(workingHoursBetween(sg.startedAt, endedAt)),
-        overtime: String(overtimeSuggestion(endedAt) || ''),
+        overtime: '',
       }
     }
     setHoursDraft(draft)
@@ -1615,6 +1616,12 @@ export function JobOrdersPage() {
                   <p className="text-[12px] text-slate-400 dark:text-slate-500 mb-3">
                     Pre-filled from the working hours between the stamps. Correct it if you were also working on other job orders.
                   </p>
+                  {overtimeSuggestion(hoursModal.endedAt) > 0 && (
+                    <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-2.5 py-2 mb-3">
+                      <Clock size={11} className="mt-px shrink-0" />
+                      Finished after 5:30 PM. Enter overtime in the OT box only if you actually worked late — it is not counted otherwise.
+                    </p>
+                  )}
                   <div className="space-y-2">
                     {rows.map(sg => {
                       const r = resources.find(x => x.id === sg.memberId)

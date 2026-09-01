@@ -129,7 +129,7 @@ export function JobOrdersPage() {
   const [confirmAction, setConfirmAction] = useState<{ type: 'schedule' | 'cancel' | 'forReview' | 'general'; jo: JobOrder; newStatus?: JOStatus } | null>(null)
   const [confirmComment, setConfirmComment] = useState('')
   // Actual-hours capture on the Ongoing -> For Review boundary
-  const [hoursModal, setHoursModal] = useState<{ jo: JobOrder; endedAt: string } | null>(null)
+  const [hoursModal, setHoursModal] = useState<{ jo: JobOrder; endedAt: string; rows: JOWorkSegment[] } | null>(null)
   const [hoursDraft, setHoursDraft] = useState<Record<string, { regular: string; overtime: string }>>({})
   const [hoursComment, setHoursComment] = useState('')
   const [hoursError, setHoursError] = useState('')
@@ -406,7 +406,9 @@ export function JobOrdersPage() {
   function openHoursModal(jo: JobOrder) {
     const endedAt = new Date().toISOString()
     const open = (jo.workSegments ?? []).filter(sg => !sg.endedAt)
-    const rows = open.length > 0
+    // Job orders that were already Ongoing before actual hours existed have no
+    // open segment, so synthesise one per assigned member from the last update.
+    const rows: JOWorkSegment[] = open.length > 0
       ? open
       : jo.assignedMemberIds.map(memberId => ({ id: generateId(), memberId, startedAt: jo.updatedAt }))
     const draft: Record<string, { regular: string; overtime: string }> = {}
@@ -419,23 +421,15 @@ export function JobOrdersPage() {
     setHoursDraft(draft)
     setHoursComment('')
     setHoursError('')
-    setHoursModal({ jo, endedAt })
-  }
-
-  /** The open segments being confirmed — falls back to synthesising one per
-   *  assigned member for job orders that were already Ongoing before actual
-   *  hours existed. */
-  function hoursRows(jo: JobOrder): JOWorkSegment[] {
-    const open = (jo.workSegments ?? []).filter(sg => !sg.endedAt)
-    if (open.length > 0) return open
-    return jo.assignedMemberIds.map(memberId => ({ id: generateId(), memberId, startedAt: jo.updatedAt }))
+    // Rows are held in state: regenerating them per render would mint new ids
+    // and lose the pre-filled hours.
+    setHoursModal({ jo, endedAt, rows })
   }
 
   async function submitHours() {
     if (!hoursModal) return
-    const { jo, endedAt } = hoursModal
+    const { jo, endedAt, rows } = hoursModal
     if (!hoursComment.trim()) { setHoursError('Add a short note for the reviewer.'); return }
-    const rows = hoursRows(jo)
     for (const sg of rows) {
       const d = hoursDraft[sg.id]
       const reg = Number(d?.regular)
@@ -1551,7 +1545,7 @@ export function JobOrdersPage() {
       {/* ── Log Actual Hours — Ongoing → For Review ───────────────────────── */}
       {hoursModal && (() => {
         const jo = hoursModal.jo
-        const rows = hoursRows(jo)
+        const rows = hoursModal.rows
         const total = rows.reduce((sum, sg) => {
           const d = hoursDraft[sg.id]
           return sum + (Number(d?.regular) || 0) + (Number(d?.overtime) || 0)

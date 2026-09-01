@@ -3,16 +3,17 @@ import {
   Plus, Search, X, Paperclip, Link2, MessageSquare,
   Clock, LayoutList, ChevronRight, Send, Trash2, Pencil, Check,
   ClipboardList, Copy, CheckCircle2, Users, AlertTriangle, ChevronUp, ChevronDown, Upload,
-  CheckCheck,
+  CheckCheck, Lock, Timer, Moon,
 } from 'lucide-react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
 import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders, memberLoad, joEstimatedHours } from '../utils/helpers'
+import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders, memberLoad, joEstimatedHours, workingHoursBetween, overtimeSuggestion } from '../utils/helpers'
 import { loadColor } from '../utils/colors'
-import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus, DesignSpecs } from '../types'
+import { designSpecRows, emailSpecRows } from '../utils/designSpecs'
+import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus, DesignSpecs, JOWorkSegment } from '../types'
 import { ACTIVITY_HOURS } from '../types'
 import { db } from '../db/database'
 import { supabase, requestToRow, jobOrderToRow, saveJOComment } from '../lib/supabase'
@@ -127,6 +128,11 @@ export function JobOrdersPage() {
   // Confirmation modals state
   const [confirmAction, setConfirmAction] = useState<{ type: 'schedule' | 'cancel' | 'forReview' | 'general'; jo: JobOrder; newStatus?: JOStatus } | null>(null)
   const [confirmComment, setConfirmComment] = useState('')
+  // Actual-hours capture on the Ongoing -> For Review boundary
+  const [hoursModal, setHoursModal] = useState<{ jo: JobOrder; endedAt: string } | null>(null)
+  const [hoursDraft, setHoursDraft] = useState<Record<string, { regular: string; overtime: string }>>({})
+  const [hoursComment, setHoursComment] = useState('')
+  const [hoursError, setHoursError] = useState('')
 
   // Permanent JO removal (Super Admin only)
   const [removeJOTarget, setRemoveJOTarget] = useState<JobOrder | null>(null)
@@ -249,11 +255,32 @@ export function JobOrdersPage() {
     setFormError('')
   }
 
-  async function handleStatusChange(jo: JobOrder, newStatus: JOStatus, comment = '') {
-    const updated: JobOrder = { ...jo, status: newStatus, updatedAt: new Date().toISOString() }
+  // Work segments are stamped by the system on the Ongoing boundary. Members
+  // never type or edit a timestamp; the only thing they supply is the hours.
+  function stampSegments(jo: JobOrder, from: JOStatus, to: JOStatus, at: string): JOWorkSegment[] | undefined {
+    const segments = [...(jo.workSegments ?? [])]
+    if (to === 'Ongoing' && from !== 'Ongoing') {
+      // Opening: one open segment per assigned member (re-entry after Needs
+      // Revision simply appends another, so rework is captured).
+      for (const memberId of jo.assignedMemberIds) {
+        if (segments.some(sg => sg.memberId === memberId && !sg.endedAt)) continue
+        segments.push({ id: generateId(), memberId, startedAt: at })
+      }
+      return segments
+    }
+    if (from === 'Ongoing' && to !== 'Ongoing') {
+      return segments.map(sg => (sg.endedAt ? sg : { ...sg, endedAt: at }))
+    }
+    return jo.workSegments
+  }
+
+  async function handleStatusChange(jo: JobOrder, newStatus: JOStatus, comment = '', segmentOverride?: JOWorkSegment[]) {
+    const stampedAt = new Date().toISOString()
+    const workSegments = segmentOverride ?? stampSegments(jo, jo.status, newStatus, stampedAt)
+    const updated: JobOrder = { ...jo, status: newStatus, workSegments, updatedAt: new Date().toISOString() }
     await db.jobOrders.put(updated)
     updateJobOrder(updated)
-    supabase.from('job_orders').update({ status: newStatus, updated_at: updated.updatedAt }).eq('id', jo.id).then(({ error }) => { if (error) console.error('JO sync error:', error) })
+    supabase.from('job_orders').update(jobOrderToRow(updated)).eq('id', jo.id).then(({ error }) => { if (error) console.error('JO sync error:', error) })
 
     const now = new Date().toISOString()
     const log = {
@@ -347,6 +374,11 @@ export function JobOrdersPage() {
   // Intercept status changes — all require a comment
   function handleStatusChangeWithConfirm(jo: JobOrder, newStatus: JOStatus) {
     setConfirmComment('')
+    // Leaving Ongoing means the work is done — capture the actual hours first.
+    if (newStatus === 'For Review' && jo.status === 'Ongoing') {
+      openHoursModal(jo)
+      return
+    }
     if (newStatus === 'Cancelled') {
       setConfirmAction({ type: 'cancel', jo })
     } else if (newStatus === 'For Review') {
@@ -365,6 +397,65 @@ export function JobOrdersPage() {
     if (type === 'cancel') await handleStatusChange(jo, 'Cancelled', comment)
     else if (type === 'forReview') await handleStatusChange(jo, 'For Review', comment)
     else if (type === 'general' && confirmAction.newStatus) await handleStatusChange(jo, confirmAction.newStatus, comment)
+  }
+
+  // ── Actual hours ──────────────────────────────────────────────────────────
+  // Start and finish are stamped by the system and shown read-only. The only
+  // input is how many hours each member actually spent, pre-filled with the
+  // regular working hours between the two stamps (7:30-5:30, Mon-Fri).
+  function openHoursModal(jo: JobOrder) {
+    const endedAt = new Date().toISOString()
+    const open = (jo.workSegments ?? []).filter(sg => !sg.endedAt)
+    const rows = open.length > 0
+      ? open
+      : jo.assignedMemberIds.map(memberId => ({ id: generateId(), memberId, startedAt: jo.updatedAt }))
+    const draft: Record<string, { regular: string; overtime: string }> = {}
+    for (const sg of rows) {
+      draft[sg.id] = {
+        regular: String(workingHoursBetween(sg.startedAt, endedAt)),
+        overtime: String(overtimeSuggestion(endedAt) || ''),
+      }
+    }
+    setHoursDraft(draft)
+    setHoursComment('')
+    setHoursError('')
+    setHoursModal({ jo, endedAt })
+  }
+
+  /** The open segments being confirmed — falls back to synthesising one per
+   *  assigned member for job orders that were already Ongoing before actual
+   *  hours existed. */
+  function hoursRows(jo: JobOrder): JOWorkSegment[] {
+    const open = (jo.workSegments ?? []).filter(sg => !sg.endedAt)
+    if (open.length > 0) return open
+    return jo.assignedMemberIds.map(memberId => ({ id: generateId(), memberId, startedAt: jo.updatedAt }))
+  }
+
+  async function submitHours() {
+    if (!hoursModal) return
+    const { jo, endedAt } = hoursModal
+    if (!hoursComment.trim()) { setHoursError('Add a short note for the reviewer.'); return }
+    const rows = hoursRows(jo)
+    for (const sg of rows) {
+      const d = hoursDraft[sg.id]
+      const reg = Number(d?.regular)
+      if (!Number.isFinite(reg) || reg < 0) { setHoursError('Enter valid hours for every member.'); return }
+    }
+    const closed: JOWorkSegment[] = rows.map(sg => {
+      const d = hoursDraft[sg.id]
+      const ot = Number(d?.overtime)
+      return {
+        ...sg,
+        endedAt,
+        confirmedHours: Number(d?.regular) || 0,
+        overtimeHours: Number.isFinite(ot) && ot > 0 ? ot : undefined,
+        confirmedBy: currentUser?.name ?? '',
+        confirmedAt: endedAt,
+      }
+    })
+    const kept = (jo.workSegments ?? []).filter(sg => sg.endedAt)
+    setHoursModal(null)
+    await handleStatusChange(jo, 'For Review', hoursComment.trim(), [...kept, ...closed])
   }
 
   function openCompletionModal(jo: JobOrder) {
@@ -835,6 +926,7 @@ export function JobOrdersPage() {
             neededDate: req.neededDate,
             venue: req.venue,
             refId: req.id.slice(0, 8).toUpperCase(),
+            specRows: emailSpecRows(req.activityType, req.designSpecs),
           }),
         }).catch(console.error)
       }
@@ -1456,6 +1548,166 @@ export function JobOrdersPage() {
       </div>
 
       {/* ── Confirmation Modals ─────────────────────────────────── */}
+      {/* ── Log Actual Hours — Ongoing → For Review ───────────────────────── */}
+      {hoursModal && (() => {
+        const jo = hoursModal.jo
+        const rows = hoursRows(jo)
+        const total = rows.reduce((sum, sg) => {
+          const d = hoursDraft[sg.id]
+          return sum + (Number(d?.regular) || 0) + (Number(d?.overtime) || 0)
+        }, 0)
+        const spansNight = rows.some(sg => new Date(sg.startedAt).toDateString() !== new Date(hoursModal.endedAt).toDateString())
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setHoursModal(null)} />
+            <div className="relative w-full max-w-lg bg-white dark:bg-slate-800 rounded-2xl shadow-2xl ring-1 ring-slate-900/5 dark:ring-white/10 max-h-[92vh] flex flex-col overflow-hidden">
+
+              {/* Header */}
+              <div className="px-6 pt-6 pb-5 border-b border-slate-100 dark:border-slate-700">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
+                    <Timer size={20} className="text-brand-600 dark:text-brand-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 leading-tight">Log actual hours</h3>
+                    <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1">
+                      {jo.joNumber} · {jo.projectName}
+                    </p>
+                  </div>
+                  <button onClick={() => setHoursModal(null)}
+                    className="p-1.5 -mr-1 -mt-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+
+                {/* Auto-stamped, locked */}
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Lock size={11} className="text-slate-400 dark:text-slate-500" />
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                      Recorded by the system
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-px bg-slate-200 dark:bg-slate-700 rounded-xl overflow-hidden ring-1 ring-slate-200 dark:ring-slate-700">
+                    <div className="bg-slate-50 dark:bg-slate-900/40 px-3.5 py-3">
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Started</p>
+                      <p className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 mt-1 tabular-nums">
+                        {formatDateTime(rows[0]?.startedAt ?? hoursModal.endedAt)}
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 dark:bg-slate-900/40 px-3.5 py-3">
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Finished</p>
+                      <p className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 mt-1 tabular-nums">
+                        {formatDateTime(hoursModal.endedAt)}
+                      </p>
+                    </div>
+                  </div>
+                  {spansNight && (
+                    <p className="flex items-start gap-1.5 text-[11px] text-slate-400 dark:text-slate-500 mt-2">
+                      <Moon size={11} className="mt-px shrink-0" />
+                      Overnight hours are excluded — counting stops at 5:30 PM and resumes at 7:30 AM, Mon–Fri.
+                    </p>
+                  )}
+                </div>
+
+                {/* Hours per member */}
+                <div>
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                    Hours actually spent
+                  </p>
+                  <p className="text-[12px] text-slate-400 dark:text-slate-500 mb-3">
+                    Pre-filled from the working hours between the stamps. Correct it if you were also working on other job orders.
+                  </p>
+                  <div className="space-y-2">
+                    {rows.map(sg => {
+                      const r = resources.find(x => x.id === sg.memberId)
+                      const d = hoursDraft[sg.id] ?? { regular: '', overtime: '' }
+                      return (
+                        <div key={sg.id} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl px-3 py-2.5 ring-1 ring-slate-100 dark:ring-slate-700">
+                          <span className={`w-8 h-8 rounded-full ${r?.color ?? 'bg-slate-400'} flex items-center justify-center text-white text-[11px] font-bold shrink-0`}>
+                            {r?.initials ?? '—'}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate">{r?.name ?? 'Unassigned'}</p>
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{r?.role ?? ''}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="relative">
+                              <input
+                                type="number" min="0" step="0.5" inputMode="decimal"
+                                value={d.regular}
+                                onChange={e => setHoursDraft(prev => ({ ...prev, [sg.id]: { ...prev[sg.id], regular: e.target.value } }))}
+                                className="w-[74px] text-right tabular-nums text-sm font-semibold pr-7 pl-2.5 py-2 rounded-lg
+                                  bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100
+                                  border border-slate-200 dark:border-slate-600
+                                  focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition"
+                              />
+                              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400 pointer-events-none">h</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="number" min="0" step="0.5" inputMode="decimal" placeholder="0"
+                                value={d.overtime}
+                                onChange={e => setHoursDraft(prev => ({ ...prev, [sg.id]: { ...prev[sg.id], overtime: e.target.value } }))}
+                                title="Overtime beyond 5:30 PM"
+                                className="w-[74px] text-right tabular-nums text-sm font-semibold pr-9 pl-2.5 py-2 rounded-lg
+                                  bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 placeholder:text-slate-300
+                                  border border-slate-200 dark:border-slate-600
+                                  focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition"
+                              />
+                              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-500 pointer-events-none">OT</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                    <span className="text-[12px] font-semibold text-slate-500 dark:text-slate-400">Total logged</span>
+                    <span className="text-lg font-black text-slate-900 dark:text-slate-100 tabular-nums">
+                      {total.toFixed(1)}<span className="text-xs font-bold text-slate-400 ml-0.5">h</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Note */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+                    Note for the reviewer
+                  </label>
+                  <textarea
+                    rows={2} value={hoursComment}
+                    onChange={e => { setHoursComment(e.target.value); setHoursError('') }}
+                    placeholder="What was delivered?"
+                    className="w-full text-sm px-3.5 py-2.5 rounded-xl resize-none
+                      bg-white dark:bg-slate-900/40 text-slate-900 dark:text-slate-100
+                      border border-slate-200 dark:border-slate-600 placeholder:text-slate-300 dark:placeholder:text-slate-600
+                      focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition"
+                  />
+                </div>
+
+                {hoursError && (
+                  <p className="flex items-center gap-1.5 text-[12px] font-medium text-red-600 dark:text-red-400">
+                    <AlertTriangle size={13} /> {hoursError}
+                  </p>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 flex gap-2.5">
+                <Button variant="secondary" onClick={() => setHoursModal(null)} className="flex-1">Cancel</Button>
+                <Button onClick={submitHours} className="flex-1">
+                  <CheckCheck size={15} /> Submit for review
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {confirmAction && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setConfirmAction(null); setConfirmComment('') }} />
@@ -1786,6 +2038,16 @@ export function JobOrdersPage() {
                     <InfoBox
                       label="Estimated Hours"
                       value={`${joEstimatedHours(selectedJO)}h${selectedJO.estimatedHours == null ? ' (default)' : ''}`}
+                    />
+                    <InfoBox
+                      label="Actual Hours"
+                      value={(() => {
+                        const done = (selectedJO.workSegments ?? []).filter(sg => typeof sg.confirmedHours === 'number')
+                        if (done.length === 0) return 'Not yet logged'
+                        const reg = done.reduce((n, sg) => n + (sg.confirmedHours ?? 0), 0)
+                        const ot = done.reduce((n, sg) => n + (sg.overtimeHours ?? 0), 0)
+                        return ot > 0 ? `${(reg + ot).toFixed(1)}h (${ot.toFixed(1)}h OT)` : `${reg.toFixed(1)}h`
+                      })()}
                     />
                     <InfoBox label="Campaign" value={selectedJO.campaign || '—'} />
                     <InfoBox label="Deadline" value={formatDate(selectedJO.deadline)} highlight={isOverdue(selectedJO.deadline) && selectedJO.status !== 'Completed'} />
@@ -2326,28 +2588,6 @@ function InfoBox({ label, value, highlight }: { label: string; value: string; hi
       <p className={`text-sm font-semibold ${highlight ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>{value}</p>
     </div>
   )
-}
-
-// Per-service design-spec labels, matching exactly what the requestor sees on the booking form.
-const DESIGN_SPEC_LABELS: Record<string, [keyof DesignSpecs, string][]> = {
-  'Static Artwork Design': [['paperSize', 'Size'], ['orientation', 'Orientation'], ['material', 'Material Type']],
-  'Digital Design':        [['paperSize', 'Platform / Usage'], ['orientation', 'Asset Type'], ['dimensions', 'Output Dimensions']],
-  'Graphics':              [['paperSize', 'Project Category'], ['colorMode', 'Printing Process'], ['dimensions', 'Output Dimensions'], ['material', 'Material Type']],
-  'Printing':              [['paperSize', 'Paper Size'], ['colorMode', 'Color'], ['orientation', 'Orientation'], ['material', 'Material Type']],
-  'ASC':                   [['paperSize', 'Ad Type']],
-  'Video Editing':         [['platform', 'Platform'], ['dimensions', 'Resolution'], ['orientation', 'Orientation'], ['paperSize', 'Output Format'], ['colorMode', 'Duration'], ['material', 'Style / Tone']],
-  'Video Shoot':           [['shootTypeDetail', 'Type of Shoot']],
-  'Content Writing':       [['paperSize', 'Content Type'], ['material', 'Sub-type']],
-}
-
-function designSpecRows(activityType: string, ds?: DesignSpecs): { label: string; value: string }[] {
-  if (!ds) return []
-  const rows: { label: string; value: string }[] = []
-  for (const [key, label] of (DESIGN_SPEC_LABELS[activityType] ?? [])) {
-    const v = ds[key]
-    if (typeof v === 'string' && v.trim()) rows.push({ label, value: v })
-  }
-  return rows
 }
 
 // Full read-only view of everything the requestor submitted. Shared by the

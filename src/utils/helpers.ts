@@ -1,5 +1,5 @@
 import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns'
-import type { JobOrder, JOStatus, Approver, ActivityType } from '../types'
+import type { JobOrder, JOStatus, Approver, ActivityType, JOWorkSegment } from '../types'
 import {
   DAP_TEAM_LIST, ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS,
   LOAD_OPTIMAL, LOAD_THRESHOLD, LOAD_PEAK,
@@ -247,4 +247,79 @@ export function computeOnTimeRate(jos: JobOrder[]): number {
 
 export function clsx(...classes: (string | undefined | false | null)[]): string {
   return classes.filter(Boolean).join(' ')
+}
+
+// ── Actual working hours ────────────────────────────────────────────────────
+// Regular schedule: 7:30 AM – 5:30 PM, Monday to Friday. Saturdays and Sundays
+// never count. Overnight time is never counted: the clock stops at 5:30 PM and
+// resumes at 7:30 AM the next working day.
+
+export const WORK_START_H = 7,  WORK_START_M = 30   // 07:30
+export const WORK_END_H   = 17, WORK_END_M   = 30   // 17:30
+/** Length of one regular working day, in hours. */
+export const WORK_DAY_HOURS =
+  (WORK_END_H * 60 + WORK_END_M - (WORK_START_H * 60 + WORK_START_M)) / 60   // 10
+
+/** Monday–Friday only. Weekend work is not counted. */
+export function isWorkingDay(d: Date): boolean {
+  const day = d.getDay()
+  return day >= 1 && day <= 5
+}
+
+function at(day: Date, h: number, m: number): Date {
+  const d = new Date(day)
+  d.setHours(h, m, 0, 0)
+  return d
+}
+
+/** Regular working hours between two instants, counting only the overlap with
+ *  07:30–17:30 on Mon–Fri. Walks day by day rather than subtracting the two
+ *  timestamps, so overnight and weekend gaps are excluded. */
+export function workingHoursBetween(startISO: string, endISO: string): number {
+  const start = new Date(startISO)
+  const end = new Date(endISO)
+  if (!(end.getTime() > start.getTime())) return 0
+
+  let total = 0
+  const cursor = new Date(start)
+  cursor.setHours(0, 0, 0, 0)
+  const lastDay = new Date(end)
+  lastDay.setHours(0, 0, 0, 0)
+
+  while (cursor.getTime() <= lastDay.getTime()) {
+    if (isWorkingDay(cursor)) {
+      const open = at(cursor, WORK_START_H, WORK_START_M)
+      const close = at(cursor, WORK_END_H, WORK_END_M)
+      const from = start > open ? start : open
+      const to = end < close ? end : close
+      if (to.getTime() > from.getTime()) total += (to.getTime() - from.getTime()) / 3_600_000
+    }
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return Math.round(total * 100) / 100
+}
+
+/** Overtime implied by finishing after 5:30 PM on a working day. Only ever a
+ *  suggestion — overtime is confirmed by the member, never inferred silently
+ *  from an overnight gap. */
+export function overtimeSuggestion(endISO: string): number {
+  const end = new Date(endISO)
+  if (!isWorkingDay(end)) return 0
+  const close = at(end, WORK_END_H, WORK_END_M)
+  if (end.getTime() <= close.getTime()) return 0
+  return Math.round(((end.getTime() - close.getTime()) / 3_600_000) * 100) / 100
+}
+
+/** The hours a member actually worked on a job order: the sum of their
+ *  confirmed work segments (regular + overtime). Falls back to the estimate
+ *  when no segment has been confirmed yet. */
+export function actualHoursForMember(
+  jo: { workSegments?: JOWorkSegment[]; activityType: string; estimatedHours?: number },
+  memberId: string
+): { hours: number; confirmed: boolean } {
+  const mine = (jo.workSegments ?? []).filter(s => s.memberId === memberId)
+  const done = mine.filter(s => typeof s.confirmedHours === 'number')
+  if (done.length === 0) return { hours: 0, confirmed: false }
+  const hours = done.reduce((sum, s) => sum + (s.confirmedHours ?? 0) + (s.overtimeHours ?? 0), 0)
+  return { hours: Math.round(hours * 100) / 100, confirmed: true }
 }

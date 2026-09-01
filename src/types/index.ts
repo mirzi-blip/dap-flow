@@ -173,6 +173,25 @@ export interface AppUser {
   passwordChangedAt?: string
 }
 
+/** One stretch of work by one member on one job order. A job order that
+ *  goes back through Needs Revision simply gains another segment, so rework is
+ *  captured rather than lost. Timestamps are stamped by the system and are not
+ *  editable; only the confirmed hours come from the member. */
+export interface JOWorkSegment {
+  id: string
+  memberId: string
+  /** Stamped when the job order entered Ongoing. */
+  startedAt: string
+  /** Stamped when it left Ongoing for For Review. */
+  endedAt?: string
+  /** The member's answer: hours actually spent within 7:30-5:30, Mon-Fri. */
+  confirmedHours?: number
+  /** Explicitly claimed overtime beyond 5:30 PM. Never inferred. */
+  overtimeHours?: number
+  confirmedBy?: string
+  confirmedAt?: string
+}
+
 export interface JobOrder {
   id: string
   joNumber: string
@@ -191,6 +210,8 @@ export interface JobOrder {
   /** Estimated work hours for this job. Overrides the per-service default in
    *  ACTIVITY_HOURS when set; drives the individual Load Ratio. */
   estimatedHours?: number
+  /** Actual work segments, one per member per stretch of work. */
+  workSegments?: JOWorkSegment[]
   createdAt: string
   updatedAt: string
   createdBy: string

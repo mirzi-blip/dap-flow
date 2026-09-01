@@ -8,6 +8,7 @@ import { useAppStore } from '../store/useAppStore'
 import type { ActivityType, BookingRequest, Approver, ShootType, ProjectScale, DesignSpecs } from '../types'
 import { getCrewRequirement } from '../types'
 import { generateId } from '../utils/helpers'
+import { emailSpecRows } from '../utils/designSpecs'
 
 // ── Activity catalogue ────────────────────────────────────────────────────────
 const ACTIVITY_TYPES: ActivityType[] = [
@@ -1669,6 +1670,10 @@ export function BookingRequestForm() {
           neededDate:    form.neededDate,            endDate:    form.endDate,
           venue:         form.venue.trim(),          refId:      id.slice(0, 8).toUpperCase(),
           fullId: id,
+          // What was actually requested, so the approver can judge it from the
+          // email alone (Graphics: project category, output dimensions,
+          // printing process, material type, notes).
+          specRows: emailSpecRows(form.activityType, designSpecs),
           ...(form.activityType === 'Video Editing' && form.dsw_platform ? { platform: form.dsw_platform } : {}),
           ...(form.activityType === 'Video Shoot' && form.dsw_shootTypeDetail ? { shootTypeDetail: form.dsw_shootTypeDetail } : {}),
         }),

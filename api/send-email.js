@@ -149,7 +149,28 @@ function buildHtml(config, preparedBy, refId, activityType, neededDate, status) 
     </div>`
 }
 
-function buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail) {
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+// Requested specifications, rendered as its own block so an approver can see
+// exactly what was asked for — for Graphics that is project category, output
+// dimensions, printing process, material type and notes. Rows are built on the
+// client from the same labels the booking form shows the requestor.
+function buildSpecBlock(specRows, accent) {
+  if (!Array.isArray(specRows) || specRows.length === 0) return ''
+  const color = accent || '#5164C0'
+  const rows = specRows.map((r, i) =>
+    `<tr><td style="padding:8px 12px;background:${i % 2 ? '#f8fafc' : '#f1f5f9'};font-weight:600;width:150px;vertical-align:top">${esc(r.label)}</td><td style="padding:8px 12px;white-space:pre-wrap">${esc(r.value)}</td></tr>`
+  ).join('')
+  return `
+      <p style="margin:22px 0 8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${color}">Requested Specifications</p>
+      <table style="margin:0 0 8px;border-collapse:collapse;width:100%;font-size:14px;border-left:3px solid ${color}">${rows}</table>`
+}
+
+function buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail, specRows) {
   const appUrl = 'https://dap-flow-tau.vercel.app'
   const approveUrl = `${appUrl}/api/approve?id=${fullId}&action=approve`
   const rejectUrl  = `${appUrl}/api/approve?id=${fullId}&action=reject`
@@ -175,6 +196,7 @@ function buildApprovalHtml(approverName, preparedBy, activityType, projectName, 
         ${platform ? `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Platform</td><td style="padding:8px 12px">${platform}</td></tr>` : ''}
         ${shootTypeDetail ? `<tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Type of Shoot</td><td style="padding:8px 12px">${shootTypeDetail}</td></tr>` : ''}
       </table>
+      ${buildSpecBlock(specRows, '#1d4ed8')}
 
       <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:16px;margin:20px 0">
         <p style="margin:0;font-weight:700;color:#854d0e;font-size:14px">⚠ Action Required</p>
@@ -209,7 +231,7 @@ module.exports = async function handler(req, res) {
 
   // ── Approval request email to manager ──────────────────────────────────────
   if (body.approvalRequest) {
-    const { approverEmail, approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail } = body
+    const { approverEmail, approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail, specRows } = body
     if (!approverEmail) return res.status(200).json({ ok: true })
     try {
       await transporter.sendMail({
@@ -217,7 +239,7 @@ module.exports = async function handler(req, res) {
         replyTo: 'no-reply@dap-flow.noreply',
         to: approverEmail,
         subject: `[DAP] Approval Required: ${activityType} from ${preparedBy} — #${refId}`,
-        html: buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail),
+        html: buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail, specRows),
       })
       return res.status(200).json({ ok: true })
     } catch (err) {
@@ -228,7 +250,7 @@ module.exports = async function handler(req, res) {
 
   // ── Coordinator notification: request approved, ready for assignment ───────
   if (body.coordinatorNotification) {
-    const { coordinatorEmail, coordinatorName, preparedBy, activityType, projectName, department, neededDate, venue, refId } = body
+    const { coordinatorEmail, coordinatorName, preparedBy, activityType, projectName, department, neededDate, venue, refId, specRows } = body
     if (!coordinatorEmail) return res.status(200).json({ ok: true })
     const appUrl = 'https://dap-flow-tau.vercel.app'
     const html = `<div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
@@ -247,6 +269,7 @@ module.exports = async function handler(req, res) {
         <tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Venue</td><td style="padding:8px 12px">${venue || '—'}</td></tr>
         <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Prepared By</td><td style="padding:8px 12px">${preparedBy || '—'}</td></tr>
       </table>
+      ${buildSpecBlock(specRows, '#5164C0')}
       <a href="${appUrl}/?view=requests" style="display:inline-block;background:linear-gradient(135deg,#1B2F5E,#5164C0);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;margin:8px 0">Open Requests in DAP Flow →</a>
       <p style="color:#94a3b8;font-size:12px;margin:12px 0">Find it under <strong>Job Orders → Requests</strong> (status: Pending Review).</p>
       <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px">— Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management</p>

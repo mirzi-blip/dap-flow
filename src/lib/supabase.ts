@@ -62,6 +62,7 @@ export function rowToJobOrder(row: Record<string, unknown>): JobOrder {
     status: normalizeJOStatus(row.status as string),
     notes: (row.notes as string) || '',
     estimatedHours: row.estimated_hours == null ? undefined : Number(row.estimated_hours),
+    workSegments: Array.isArray(row.work_segments) ? (row.work_segments as JobOrder['workSegments']) : undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     createdBy: (row.created_by as string) || '',
@@ -72,19 +73,30 @@ export function rowToJobOrder(row: Record<string, unknown>): JobOrder {
   }
 }
 
-// Whether job_orders has the estimated_hours column yet. Probed once at
-// startup so a deploy that lands before the capacity migration still writes
-// job orders successfully (the hours simply don't persist until it is run).
+// Whether job_orders has the capacity columns yet. Probed once at startup so a
+// deploy that lands before the migration still writes job orders successfully
+// (the values simply don't persist until it is run).
 let hasEstimatedHoursColumn = false
+let hasWorkSegmentsColumn = false
 
 export async function probeEstimatedHoursColumn(): Promise<void> {
-  const { error } = await supabase.from('job_orders').select('estimated_hours').limit(1)
-  hasEstimatedHoursColumn = !error
+  const [est, seg] = await Promise.all([
+    supabase.from('job_orders').select('estimated_hours').limit(1),
+    supabase.from('job_orders').select('work_segments').limit(1),
+  ])
+  hasEstimatedHoursColumn = !est.error
+  hasWorkSegmentsColumn = !seg.error
+}
+
+/** True once the work_segments column exists — actual-hours capture needs it. */
+export function actualHoursEnabled(): boolean {
+  return hasWorkSegmentsColumn
 }
 
 export function jobOrderToRow(jo: JobOrder) {
   return {
     ...(hasEstimatedHoursColumn ? { estimated_hours: jo.estimatedHours ?? null } : {}),
+    ...(hasWorkSegmentsColumn ? { work_segments: jo.workSegments ?? [] } : {}),
     id: jo.id,
     jo_number: jo.joNumber,
     requesting_team: jo.requestingTeam,

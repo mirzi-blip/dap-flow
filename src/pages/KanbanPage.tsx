@@ -4,15 +4,15 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, PriorityBadge, StatusBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, getNextStatus, isOverdue, scopeJobOrders } from '../utils/helpers'
-import type { JOStatus, JobOrder } from '../types'
+import { formatDate, formatDateTime, generateId, getNextStatus, isOverdue, scopeJobOrders, stampWorkSegments, openWorkSegments, workingHoursBetween, overtimeSuggestion } from '../utils/helpers'
+import type { JOStatus, JobOrder, JOWorkSegment } from '../types'
 import { db } from '../db/database'
 import {
   Calendar, AlertTriangle, ChevronRight, Eye, Clock,
   LayoutList, MessageSquare, Paperclip, Send, Upload,
   CheckCircle2, XCircle, ClipboardCheck, ExternalLink,
 } from 'lucide-react'
-import { fetchJOComments, saveJOComment, uploadOutputFile, saveJOReviewRecord, fetchJOReview, updateJOReviewRecord } from '../lib/supabase'
+import { supabase, jobOrderToRow, fetchJOComments, saveJOComment, uploadOutputFile, saveJOReviewRecord, fetchJOReview, updateJOReviewRecord } from '../lib/supabase'
 import type { JOComment } from '../lib/supabase'
 import type { JOReview } from '../types'
 
@@ -124,6 +124,9 @@ export function KanbanPage() {
 
   // Move modal
   const [moveTarget, setMoveTarget]               = useState<JobOrder | null>(null)
+  // Actual-hours capture on the Ongoing boundary (mirrors the Job Orders page)
+  const [moveHours, setMoveHours] = useState<Record<string, { regular: string; overtime: string }>>({})
+  const [moveSegments, setMoveSegments] = useState<JOWorkSegment[]>([])
   const [moveComment, setMoveComment]             = useState('')
   const [moveFile, setMoveFile]                   = useState<File | null>(null)
   const [moveReqApproverEmail, setMoveReqApproverEmail] = useState('')
@@ -317,6 +320,24 @@ export function KanbanPage() {
     setMoveTarget(jo)
     setMoveComment('')
     setMoveFile(null)
+    // Leaving Ongoing: pre-fill each member's hours from the working hours
+    // between the system's stamps. Overtime is never pre-filled.
+    if (jo.status === 'Ongoing' && getNextStatus(jo.status) !== 'Ongoing') {
+      const endedAt = new Date().toISOString()
+      const rows = openWorkSegments(jo)
+      const draft: Record<string, { regular: string; overtime: string }> = {}
+      for (const sg of rows) {
+        draft[sg.id] = {
+          regular: String(Math.round(workingHoursBetween(sg.startedAt, endedAt) * 10) / 10),
+          overtime: '',
+        }
+      }
+      setMoveSegments(rows)
+      setMoveHours(draft)
+    } else {
+      setMoveSegments([])
+      setMoveHours({})
+    }
     // Auto-fill requestor from linked booking request
     const linkedReq = bookingRequests.find(r => r.joId === jo.id)
     setMoveReqApproverEmail(linkedReq?.requestorEmail ?? '')
@@ -329,8 +350,16 @@ export function KanbanPage() {
 
   const moveNext    = moveTarget ? getNextStatus(moveTarget.status) : null
   const isForReview = moveNext === 'For Review'
+  // Leaving Ongoing means the work is done — capture what was actually spent.
+  const isLeavingOngoing = moveTarget?.status === 'Ongoing' && moveNext !== 'Ongoing'
+  const isEnteringOngoing = moveNext === 'Ongoing' && moveTarget?.status !== 'Ongoing'
   const moveValid   = moveComment.trim() !== '' &&
-    (!isForReview || (moveFile !== null && moveDapApproverEmail !== ''))
+    (!isForReview || (moveFile !== null && moveDapApproverEmail !== '')) &&
+    // Leaving Ongoing requires valid hours for every member on the job.
+    (!isLeavingOngoing || moveSegments.every(sg => {
+      const n = Number(moveHours[sg.id]?.regular)
+      return Number.isFinite(n) && n >= 0 && moveHours[sg.id]?.regular !== ''
+    }))
 
   async function handleConfirmMove() {
     if (!moveTarget || !moveNext || !moveValid || moveLoading) return
@@ -364,10 +393,33 @@ export function KanbanPage() {
         toStatus: moveNext,
       })
 
-      // Update JO status
-      const updated: JobOrder = { ...moveTarget, status: moveNext, updatedAt: new Date().toISOString() }
+      // Update JO status, stamping the work clock on the Ongoing boundary.
+      const stampedAt = new Date().toISOString()
+      let workSegments = stampWorkSegments(moveTarget, moveTarget.status, moveNext, stampedAt)
+      if (isLeavingOngoing) {
+        // Close the open segments with the hours the members confirmed.
+        const kept = (moveTarget.workSegments ?? []).filter(sg => sg.endedAt)
+        const closed: JOWorkSegment[] = moveSegments.map(sg => {
+          const d = moveHours[sg.id]
+          const ot = Number(d?.overtime)
+          return {
+            ...sg,
+            endedAt: stampedAt,
+            confirmedHours: Number(d?.regular) || 0,
+            overtimeHours: Number.isFinite(ot) && ot > 0 ? ot : undefined,
+            confirmedBy: currentUser?.name ?? '',
+            confirmedAt: stampedAt,
+          }
+        })
+        workSegments = [...kept, ...closed]
+      }
+      const updated: JobOrder = { ...moveTarget, status: moveNext, workSegments, updatedAt: new Date().toISOString() }
       await db.jobOrders.put(updated)
       updateJobOrder(updated)
+      // Pipeline moves used to persist only locally, so the status (and now the
+      // logged hours) never reached the server. Sync the whole row.
+      const { error: joSyncErr } = await supabase.from('job_orders').update(jobOrderToRow(updated)).eq('id', updated.id)
+      if (joSyncErr) console.error('JO sync error:', joSyncErr)
 
       // Status log
       const log = {
@@ -585,6 +637,106 @@ export function KanbanPage() {
               {' '}to{' '}
               <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${moveNext ? STATUS_COLORS[moveNext] : ''}`}>{moveNext}</span>
             </p>
+
+            {/* Starting work stamps the clock — show what is recorded. */}
+            {isEnteringOngoing && (
+              <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl px-3.5 py-3 ring-1 ring-slate-100 dark:ring-slate-700">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Clock size={11} className="text-slate-400 dark:text-slate-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Start time — recorded by the system
+                  </span>
+                </div>
+                <p className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                  {formatDateTime(new Date().toISOString())}
+                </p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                  Your hours are counted from here, within 7:30 AM–5:30 PM, Mon–Fri.
+                </p>
+              </div>
+            )}
+
+            {/* Leaving Ongoing — confirm the hours actually spent. */}
+            {isLeavingOngoing && moveSegments.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Clock size={11} className="text-slate-400 dark:text-slate-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Recorded by the system
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-px bg-slate-200 dark:bg-slate-700 rounded-xl overflow-hidden ring-1 ring-slate-200 dark:ring-slate-700 mb-3">
+                  <div className="bg-slate-50 dark:bg-slate-900/40 px-3.5 py-2.5">
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Started</p>
+                    <p className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 mt-0.5 tabular-nums">
+                      {formatDateTime(moveSegments[0].startedAt)}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-900/40 px-3.5 py-2.5">
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Finishing now</p>
+                    <p className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 mt-0.5 tabular-nums">
+                      {formatDateTime(new Date().toISOString())}
+                    </p>
+                  </div>
+                </div>
+
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">
+                  Hours actually spent <span className="text-red-500">*</span>
+                </label>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-2">
+                  Pre-filled from the working hours between the stamps. Correct it if you were also working on other job orders.
+                </p>
+                {overtimeSuggestion(new Date().toISOString()) > 0 && (
+                  <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-2.5 py-2 mb-2">
+                    <Clock size={11} className="mt-px shrink-0" />
+                    Finishing after 5:30 PM. Enter overtime only if you actually worked late — it is not counted otherwise.
+                  </p>
+                )}
+                <div className="space-y-2">
+                  {moveSegments.map(sg => {
+                    const r = resources.find(x => x.id === sg.memberId)
+                    const d = moveHours[sg.id] ?? { regular: '', overtime: '' }
+                    return (
+                      <div key={sg.id} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl px-3 py-2.5 ring-1 ring-slate-100 dark:ring-slate-700">
+                        <span className={`w-8 h-8 rounded-full ${r?.color ?? 'bg-slate-400'} flex items-center justify-center text-white text-[11px] font-bold shrink-0`}>
+                          {r?.initials ?? '—'}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate">{r?.name ?? 'Unassigned'}</p>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{r?.role ?? ''}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="relative">
+                            <input type="number" min="0" step="0.5" inputMode="decimal"
+                              value={d.regular}
+                              onChange={e => setMoveHours(prev => ({ ...prev, [sg.id]: { ...prev[sg.id], regular: e.target.value } }))}
+                              className="w-[94px] text-right tabular-nums text-sm font-semibold pr-7 pl-2 py-2 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-600 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition" />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400 pointer-events-none">h</span>
+                          </div>
+                          <div className="relative">
+                            <input type="number" min="0" step="0.5" inputMode="decimal" placeholder="0"
+                              value={d.overtime}
+                              title="Overtime beyond 5:30 PM"
+                              onChange={e => setMoveHours(prev => ({ ...prev, [sg.id]: { ...prev[sg.id], overtime: e.target.value } }))}
+                              className="w-[84px] text-right tabular-nums text-sm font-semibold pr-9 pl-2 py-2 rounded-lg bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 placeholder:text-slate-300 border border-slate-200 dark:border-slate-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition" />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-500 pointer-events-none">OT</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-700">
+                  <span className="text-[12px] font-semibold text-slate-500 dark:text-slate-400">Total logged</span>
+                  <span className="text-base font-black text-slate-900 dark:text-slate-100 tabular-nums">
+                    {moveSegments.reduce((sum, sg) => {
+                      const d = moveHours[sg.id]
+                      return sum + (Number(d?.regular) || 0) + (Number(d?.overtime) || 0)
+                    }, 0).toFixed(1)}<span className="text-xs font-bold text-slate-400 ml-0.5">h</span>
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Required comment */}
             <div>

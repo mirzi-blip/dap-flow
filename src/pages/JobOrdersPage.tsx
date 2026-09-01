@@ -10,7 +10,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders, memberLoad, joEstimatedHours, workingHoursBetween, overtimeSuggestion } from '../utils/helpers'
+import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders, memberLoad, joEstimatedHours, workingHoursBetween, overtimeSuggestion, stampWorkSegments, openWorkSegments } from '../utils/helpers'
 import { loadColor } from '../utils/colors'
 import { designSpecRows, emailSpecRows } from '../utils/designSpecs'
 import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus, DesignSpecs, JOWorkSegment } from '../types'
@@ -255,28 +255,9 @@ export function JobOrdersPage() {
     setFormError('')
   }
 
-  // Work segments are stamped by the system on the Ongoing boundary. Members
-  // never type or edit a timestamp; the only thing they supply is the hours.
-  function stampSegments(jo: JobOrder, from: JOStatus, to: JOStatus, at: string): JOWorkSegment[] | undefined {
-    const segments = [...(jo.workSegments ?? [])]
-    if (to === 'Ongoing' && from !== 'Ongoing') {
-      // Opening: one open segment per assigned member (re-entry after Needs
-      // Revision simply appends another, so rework is captured).
-      for (const memberId of jo.assignedMemberIds) {
-        if (segments.some(sg => sg.memberId === memberId && !sg.endedAt)) continue
-        segments.push({ id: generateId(), memberId, startedAt: at })
-      }
-      return segments
-    }
-    if (from === 'Ongoing' && to !== 'Ongoing') {
-      return segments.map(sg => (sg.endedAt ? sg : { ...sg, endedAt: at }))
-    }
-    return jo.workSegments
-  }
-
   async function handleStatusChange(jo: JobOrder, newStatus: JOStatus, comment = '', segmentOverride?: JOWorkSegment[]) {
     const stampedAt = new Date().toISOString()
-    const workSegments = segmentOverride ?? stampSegments(jo, jo.status, newStatus, stampedAt)
+    const workSegments = segmentOverride ?? stampWorkSegments(jo, jo.status, newStatus, stampedAt)
     const updated: JobOrder = { ...jo, status: newStatus, workSegments, updatedAt: new Date().toISOString() }
     await db.jobOrders.put(updated)
     updateJobOrder(updated)
@@ -405,17 +386,14 @@ export function JobOrdersPage() {
   // regular working hours between the two stamps (7:30-5:30, Mon-Fri).
   function openHoursModal(jo: JobOrder) {
     const endedAt = new Date().toISOString()
-    const open = (jo.workSegments ?? []).filter(sg => !sg.endedAt)
-    // Job orders that were already Ongoing before actual hours existed have no
-    // open segment, so synthesise one per assigned member from the last update.
-    const rows: JOWorkSegment[] = open.length > 0
-      ? open
-      : jo.assignedMemberIds.map(memberId => ({ id: generateId(), memberId, startedAt: jo.updatedAt }))
+    const rows: JOWorkSegment[] = openWorkSegments(jo)
     const draft: Record<string, { regular: string; overtime: string }> = {}
     for (const sg of rows) {
       draft[sg.id] = {
+        // One decimal is plenty for a figure the member is about to correct,
+        // and it keeps long spans legible in the field.
+        regular: String(Math.round(workingHoursBetween(sg.startedAt, endedAt) * 10) / 10),
         // Overtime is never pre-filled: it counts only when the member says so.
-        regular: String(workingHoursBetween(sg.startedAt, endedAt)),
         overtime: '',
       }
     }
@@ -1641,7 +1619,7 @@ export function JobOrdersPage() {
                                 type="number" min="0" step="0.5" inputMode="decimal"
                                 value={d.regular}
                                 onChange={e => setHoursDraft(prev => ({ ...prev, [sg.id]: { ...prev[sg.id], regular: e.target.value } }))}
-                                className="w-[74px] text-right tabular-nums text-sm font-semibold pr-7 pl-2.5 py-2 rounded-lg
+                                className="w-[94px] text-right tabular-nums text-sm font-semibold pr-7 pl-2 py-2 rounded-lg
                                   bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100
                                   border border-slate-200 dark:border-slate-600
                                   focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition"
@@ -1654,7 +1632,7 @@ export function JobOrdersPage() {
                                 value={d.overtime}
                                 onChange={e => setHoursDraft(prev => ({ ...prev, [sg.id]: { ...prev[sg.id], overtime: e.target.value } }))}
                                 title="Overtime beyond 5:30 PM"
-                                className="w-[74px] text-right tabular-nums text-sm font-semibold pr-9 pl-2.5 py-2 rounded-lg
+                                className="w-[84px] text-right tabular-nums text-sm font-semibold pr-9 pl-2 py-2 rounded-lg
                                   bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 placeholder:text-slate-300
                                   border border-slate-200 dark:border-slate-600
                                   focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition"

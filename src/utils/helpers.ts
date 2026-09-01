@@ -434,3 +434,38 @@ export function memberWeekLoad<T extends {
 export function hasActualHours<T extends { workSegments?: JOWorkSegment[] }>(jos: T[]): boolean {
   return jos.some(jo => (jo.workSegments ?? []).length > 0)
 }
+
+/** Stamp work segments on the Ongoing boundary. Entering Ongoing opens one
+ *  segment per assigned member (re-entry after Needs Revision appends another,
+ *  so rework is captured); leaving Ongoing closes every open one. Timestamps
+ *  come from the system — members never enter or edit them. */
+export function stampWorkSegments(
+  jo: { assignedMemberIds: string[]; workSegments?: JOWorkSegment[] },
+  from: JOStatus,
+  to: JOStatus,
+  at: string
+): JOWorkSegment[] | undefined {
+  const segments = [...(jo.workSegments ?? [])]
+  if (to === 'Ongoing' && from !== 'Ongoing') {
+    for (const memberId of jo.assignedMemberIds) {
+      if (segments.some(sg => sg.memberId === memberId && !sg.endedAt)) continue
+      segments.push({ id: generateId(), memberId, startedAt: at })
+    }
+    return segments
+  }
+  if (from === 'Ongoing' && to !== 'Ongoing') {
+    return segments.map(sg => (sg.endedAt ? sg : { ...sg, endedAt: at }))
+  }
+  return jo.workSegments
+}
+
+/** The segments a member should confirm hours for when work leaves Ongoing.
+ *  Falls back to synthesising one per assignee for job orders that were already
+ *  Ongoing before actual-hours capture existed. */
+export function openWorkSegments(
+  jo: { assignedMemberIds: string[]; workSegments?: JOWorkSegment[]; updatedAt: string }
+): JOWorkSegment[] {
+  const open = (jo.workSegments ?? []).filter(sg => !sg.endedAt)
+  if (open.length > 0) return open
+  return jo.assignedMemberIds.map(memberId => ({ id: generateId(), memberId, startedAt: jo.updatedAt }))
+}

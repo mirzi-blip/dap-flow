@@ -1740,6 +1740,24 @@ export function JobOrdersPage() {
               </div>
             </div>
 
+            {/* Starting work stamps the clock — show the member what is recorded. */}
+            {confirmAction.newStatus === 'Ongoing' && confirmAction.jo.status !== 'Ongoing' && (
+              <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl px-3.5 py-3 ring-1 ring-slate-100 dark:ring-slate-700">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Lock size={11} className="text-slate-400 dark:text-slate-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Start time — recorded by the system
+                  </span>
+                </div>
+                <p className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                  {formatDateTime(new Date().toISOString())}
+                </p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                  Your hours are counted from here, within 7:30 AM–5:30 PM, Mon–Fri.
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
                 Comment <span className="text-red-500">*</span>

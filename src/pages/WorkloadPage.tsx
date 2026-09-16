@@ -16,13 +16,23 @@ export function WorkloadPage() {
   const { jobOrders } = useDataStore()
   const { resources } = useAppStore()
   const [filterTeam, setFilterTeam] = useState<DAPTeam | 'All'>('All')
+  // Narrow to one Team Member (resource id) or 'All' for the overall view.
+  const [filterMember, setFilterMember] = useState<string>('All')
 
   // Teams shown = the configured list plus any (legacy) team still assigned to a member
   const TEAMS = useMemo<DAPTeam[]>(() => orderedTeams(resources), [resources])
 
-  const displayResources = useMemo(() =>
-    resources.filter(r => filterTeam === 'All' || r.team === filterTeam),
+  const teamResources = useMemo(() =>
+    resources
+      .filter(r => filterTeam === 'All' || r.team === filterTeam)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name) || a.role.localeCompare(b.role)),
     [resources, filterTeam]
+  )
+
+  const displayResources = useMemo(() =>
+    filterMember === 'All' ? teamResources : teamResources.filter(r => r.id === filterMember),
+    [teamResources, filterMember]
   )
 
   function getMemberStats(resourceId: string) {
@@ -78,14 +88,12 @@ export function WorkloadPage() {
 
   // JOs to display on the calendar (filtered by team, not completed/cancelled)
   const calJOs: JobOrder[] = useMemo(() => {
-    const memberIds = resources
-      .filter(r => filterTeam === 'All' || r.team === filterTeam)
-      .map(r => r.id)
+    const memberIds = displayResources.map(r => r.id)
     return jobOrders.filter(j =>
       !['Completed', 'Cancelled'].includes(j.status) &&
       j.assignedMemberIds.some(id => memberIds.includes(id))
     )
-  }, [jobOrders, resources, filterTeam])
+  }, [jobOrders, displayResources])
 
   function josOnDay(date: Date): JobOrder[] {
     return calJOs.filter(j => j.deadline && isSameDay(parseISO(j.deadline), date))
@@ -144,7 +152,7 @@ export function WorkloadPage() {
           {(['All', ...TEAMS] as (DAPTeam | 'All')[]).map(t => (
             <button
               key={t}
-              onClick={() => setFilterTeam(t)}
+              onClick={() => { setFilterTeam(t); setFilterMember('All') }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 filterTeam === t
                   ? 'bg-brand-600 text-white shadow-sm'
@@ -155,6 +163,25 @@ export function WorkloadPage() {
             </button>
           ))}
         </div>
+        <select
+          value={filterMember}
+          onChange={e => setFilterMember(e.target.value)}
+          className="text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 shadow-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-400 max-w-[260px]"
+          aria-label="Filter by team member"
+        >
+          <option value="All">All Team Members</option>
+          {teamResources.map(r => (
+            <option key={r.id} value={r.id}>{r.name} · {r.role}</option>
+          ))}
+        </select>
+        {filterMember !== 'All' && (
+          <button
+            onClick={() => setFilterMember('All')}
+            className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+          >
+            Clear
+          </button>
+        )}
         <p className="text-sm text-slate-400 dark:text-slate-500">
           {displayResources.length} member{displayResources.length !== 1 ? 's' : ''}
         </p>
@@ -241,14 +268,14 @@ export function WorkloadPage() {
 
                   {stats.active.length > 0 && (
                     <div className="mt-3 space-y-1.5">
-                      {stats.active.slice(0, 3).map(jo => (
+                      {(filterMember === 'All' ? stats.active.slice(0, 3) : stats.active).map(jo => (
                         <div key={jo.id} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-2.5 py-1.5">
                           <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: activityCalendarColors[jo.activityType] }} />
                           <span className="text-[11px] text-slate-700 dark:text-slate-300 font-medium truncate flex-1">{jo.projectName}</span>
                           <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono flex-shrink-0">{jo.joNumber}</span>
                         </div>
                       ))}
-                      {stats.active.length > 3 && (
+                      {filterMember === 'All' && stats.active.length > 3 && (
                         <p className="text-[10px] text-slate-400 dark:text-slate-500 pl-1">+{stats.active.length - 3} more</p>
                       )}
                     </div>
@@ -274,7 +301,7 @@ export function WorkloadPage() {
           <div>
             <h2 className="font-bold text-slate-900 dark:text-slate-100 text-sm">4-Week Deadline Calendar</h2>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-              {format(calDays[0], 'MMM d')} – {format(calDays[27], 'MMM d, yyyy')} · deadlines for {filterTeam === 'All' ? 'all teams' : `${filterTeam} team`}
+              {format(calDays[0], 'MMM d')} – {format(calDays[27], 'MMM d, yyyy')} · deadlines for {filterMember !== 'All' ? (displayResources[0]?.name ?? 'member') : filterTeam === 'All' ? 'all teams' : `${filterTeam} team`}
             </p>
           </div>
           <div className="flex items-center gap-1">

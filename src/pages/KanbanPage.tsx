@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { supabase, jobOrderToRow, fetchJOComments, saveJOComment, uploadOutputFile, saveJOReviewRecord, fetchJOReview, updateJOReviewRecord } from '../lib/supabase'
 import type { JOComment } from '../lib/supabase'
+import { requestorNotesForJO } from '../utils/designSpecs'
 import type { JOReview } from '../types'
 
 const COLUMNS: { status: JOStatus; label: string; hex: string }[] = [
@@ -472,6 +473,8 @@ export function KanbanPage() {
           comment: moveComment.trim(),
           attachmentUrl,
           attachmentName,
+          // The brief the reviewer is judging the output against.
+          additionalNotes: requestorNotesForJO(moveTarget, bookingRequests),
         }
         // Send to Requestor Approver (email buttons only — no app access)
         fetch('https://dap-flow-tau.vercel.app/api/send-email', {

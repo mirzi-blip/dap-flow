@@ -4,7 +4,7 @@ const APP_URL = 'https://dap-flow-tau.vercel.app'
 
 async function dbGet(id) {
   const r = await fetch(
-    `${SUPABASE_URL}/rest/v1/booking_requests?id=eq.${id}&select=id,status,prepared_by,activity_type,project_name,department,needed_date,venue`,
+    `${SUPABASE_URL}/rest/v1/booking_requests?id=eq.${id}&select=id,status,prepared_by,activity_type,project_name,department,needed_date,venue,notes,design_specs`,
     { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
   )
   const rows = await r.json()
@@ -25,6 +25,15 @@ async function getServiceApprovers(activityType) {
 }
 
 // Notify the DAP approver(s) for this request's service that it's ready to assign
+// The requestor's Additional Notes: design services keep them inside
+// design_specs, shoots use the top-level notes column. Same rule as the app.
+function requestorNotes(row) {
+  let specs = row.design_specs
+  if (typeof specs === 'string') { try { specs = JSON.parse(specs) } catch { specs = null } }
+  const fromSpecs = specs && typeof specs.additionalNotes === 'string' ? specs.additionalNotes.trim() : ''
+  return fromSpecs || (typeof row.notes === 'string' ? row.notes.trim() : '')
+}
+
 async function notifyServiceApprovers(data) {
   const approvers = await getServiceApprovers(data.activity_type)
   for (const ap of approvers) {
@@ -43,6 +52,7 @@ async function notifyServiceApprovers(data) {
           neededDate: data.needed_date,
           venue: data.venue,
           refId: (data.id || '').slice(0, 8).toUpperCase(),
+          additionalNotes: requestorNotes(data),
         }),
       })
     } catch (e) { console.error('Service approver notify failed:', e?.message || e) }

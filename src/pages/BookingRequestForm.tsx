@@ -1033,9 +1033,9 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Additional Specifications / Notes <span className="text-red-500">*</span></label>
-                  <textarea rows={3} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
+                  <textarea rows={5} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Brand guidelines, special instructions, number of copies, reference files…"
-                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-y" />
                 </div>
               </div>
             )}
@@ -1060,9 +1060,9 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
-                  <textarea rows={2} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
+                  <textarea rows={5} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Brand guidelines, reference links, special instructions…"
-                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-y" />
                 </div>
               </div>
             )}
@@ -1114,9 +1114,9 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
-                  <textarea rows={2} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
+                  <textarea rows={5} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Brand guidelines, special instructions, reference files…"
-                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-y" />
                 </div>
               </div>
             )}
@@ -1154,9 +1154,9 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
-                  <textarea rows={2} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
+                  <textarea rows={5} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Quantity, finishing (lamination, binding), delivery instructions…"
-                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-y" />
                 </div>
               </div>
             )}
@@ -1173,9 +1173,9 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Project Brief / Notes <span className="text-red-500">*</span></label>
-                  <textarea rows={4} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
+                  <textarea rows={7} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Describe the advertisement, target audience, message, compliance requirements, and any other relevant details for ASC submission…"
-                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-y" />
                 </div>
               </div>
             )}
@@ -1191,9 +1191,9 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Script / Production Brief <span className="text-red-500">*</span></label>
-                  <textarea rows={4} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
+                  <textarea rows={7} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Describe the content: tone, target audience, key messages, reading style, estimated duration, and any special instructions for the voice talent or audio team…"
-                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-y" />
                 </div>
               </div>
             )}
@@ -1228,9 +1228,9 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Content Brief / Details <span className="text-red-500">*</span></label>
-                  <textarea rows={4} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
+                  <textarea rows={7} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Describe the content: topic, key messages, tone, target audience, word count, references, deadline notes…"
-                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-y" />
                 </div>
               </div>
             )}
@@ -1281,9 +1281,9 @@ function DesignSpecsForm({ values, onChange, activityType, attachments, onAttach
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-[10px] font-bold text-brand-700 uppercase tracking-wide block mb-1">Additional Notes <span className="text-red-500">*</span></label>
-                  <textarea rows={3} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
+                  <textarea rows={5} value={values.dsw_additionalNotes} onChange={e => onChange('dsw_additionalNotes', e.target.value)}
                     placeholder="Raw footage location, editing style references, music/audio preferences, deadline, and any special instructions…"
-                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-none" />
+                    className="w-full border border-brand-200 bg-white rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-slate-400 resize-y" />
                 </div>
               </div>
             )}
@@ -1674,6 +1674,9 @@ export function BookingRequestForm() {
           // email alone (Graphics: project category, output dimensions,
           // printing process, material type, notes).
           specRows: emailSpecRows(form.activityType, designSpecs),
+          // Design services keep the notes inside the specs; shoots use the
+          // top-level field. Send whichever the requestor filled in.
+          additionalNotes: form.dsw_additionalNotes.trim() || form.notes.trim(),
           ...(form.activityType === 'Video Editing' && form.dsw_platform ? { platform: form.dsw_platform } : {}),
           ...(form.activityType === 'Video Shoot' && form.dsw_shootTypeDetail ? { shootTypeDetail: form.dsw_shootTypeDetail } : {}),
         }),
@@ -2426,8 +2429,8 @@ export function BookingRequestForm() {
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
                   Additional Notes <span className="text-red-500">*</span>
                 </label>
-                <textarea rows={4}
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors resize-none"
+                <textarea rows={5}
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 placeholder-slate-400 placeholder:font-normal transition-colors resize-y"
                   placeholder="Special requirements, expected deliverables, creative direction, reference materials, or any details the DAP team should know…"
                   value={form.notes} onChange={field('notes')} required />
                 <p className="text-[10px] text-slate-400 mt-1">Be as specific as possible to reduce clarification rounds.</p>

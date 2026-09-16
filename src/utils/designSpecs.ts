@@ -24,12 +24,30 @@ export function designSpecRows(activityType: string, ds?: DesignSpecs): { label:
   return rows
 }
 
-/** The specification rows an approver needs to judge a request, including the
- *  brand and the requestor's notes. Sent with approval and coordinator emails. */
+/** The specification rows an approver needs to judge a request, led by the
+ *  brand. The requestor's notes are sent separately (see requestorNotes) so
+ *  every email renders them in the same prominent block. */
 export function emailSpecRows(activityType: string, ds?: DesignSpecs): { label: string; value: string }[] {
   if (!ds) return []
   const rows = [...designSpecRows(activityType, ds)]
   if (ds.brand?.trim()) rows.unshift({ label: 'Brand', value: ds.brand })
-  if (ds.additionalNotes?.trim()) rows.push({ label: 'Notes', value: ds.additionalNotes })
   return rows
+}
+
+/** The requestor's Additional Notes. Design services keep them inside the
+ *  specs ("Additional Notes", "Script / Production Brief", "Content Brief");
+ *  shoots use the top-level notes field. Whichever was filled in wins. */
+export function requestorNotes(req?: { notes?: string; designSpecs?: DesignSpecs } | null): string {
+  if (!req) return ''
+  return req.designSpecs?.additionalNotes?.trim() || req.notes?.trim() || ''
+}
+
+/** The same, resolved from a job order through its linked booking request.
+ *  Job orders created by hand (no request) fall back to their own notes. */
+export function requestorNotesForJO(
+  jo: { id: string; notes?: string },
+  bookingRequests: { joId?: string; notes?: string; designSpecs?: DesignSpecs }[]
+): string {
+  const req = bookingRequests.find(r => r.joId === jo.id)
+  return req ? requestorNotes(req) : (jo.notes?.trim() || '')
 }

@@ -170,7 +170,18 @@ function buildSpecBlock(specRows, accent) {
       <table style="margin:0 0 8px;border-collapse:collapse;width:100%;font-size:14px;border-left:3px solid ${color}">${rows}</table>`
 }
 
-function buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail, specRows) {
+// The requestor's Additional Notes, shown as their own block so the recipient
+// can act on the instructions without opening the app. Used by every email
+// that goes to someone who has to do or judge the work.
+function buildNotesBlock(notes, accent) {
+  if (!notes || !String(notes).trim()) return ''
+  const color = accent || '#5164C0'
+  return `
+      <p style="margin:22px 0 8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${color}">Additional Notes from the Requestor</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-left:3px solid ${color};border-radius:6px;padding:12px 14px;font-size:14px;line-height:1.6;color:#1e293b;white-space:pre-wrap">${esc(notes).trim()}</div>`
+}
+
+function buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail, specRows, additionalNotes) {
   const appUrl = 'https://dap-flow-tau.vercel.app'
   const approveUrl = `${appUrl}/api/approve?id=${fullId}&action=approve`
   const rejectUrl  = `${appUrl}/api/approve?id=${fullId}&action=reject`
@@ -197,6 +208,7 @@ function buildApprovalHtml(approverName, preparedBy, activityType, projectName, 
         ${shootTypeDetail ? `<tr><td style="padding:8px 12px;background:#f8fafc;font-weight:600">Type of Shoot</td><td style="padding:8px 12px">${shootTypeDetail}</td></tr>` : ''}
       </table>
       ${buildSpecBlock(specRows, '#1d4ed8')}
+      ${buildNotesBlock(additionalNotes, '#1d4ed8')}
 
       <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:16px;margin:20px 0">
         <p style="margin:0;font-weight:700;color:#854d0e;font-size:14px">⚠ Action Required</p>
@@ -231,7 +243,7 @@ module.exports = async function handler(req, res) {
 
   // ── Approval request email to manager ──────────────────────────────────────
   if (body.approvalRequest) {
-    const { approverEmail, approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail, specRows } = body
+    const { approverEmail, approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail, specRows, additionalNotes } = body
     if (!approverEmail) return res.status(200).json({ ok: true })
     try {
       await transporter.sendMail({
@@ -239,7 +251,7 @@ module.exports = async function handler(req, res) {
         replyTo: 'no-reply@dap-flow.noreply',
         to: approverEmail,
         subject: `[DAP] Approval Required: ${activityType} from ${preparedBy} — #${refId}`,
-        html: buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail, specRows),
+        html: buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail, specRows, additionalNotes),
       })
       return res.status(200).json({ ok: true })
     } catch (err) {
@@ -250,7 +262,7 @@ module.exports = async function handler(req, res) {
 
   // ── Coordinator notification: request approved, ready for assignment ───────
   if (body.coordinatorNotification) {
-    const { coordinatorEmail, coordinatorName, preparedBy, activityType, projectName, department, neededDate, venue, refId, specRows } = body
+    const { coordinatorEmail, coordinatorName, preparedBy, activityType, projectName, department, neededDate, venue, refId, specRows, additionalNotes } = body
     if (!coordinatorEmail) return res.status(200).json({ ok: true })
     const appUrl = 'https://dap-flow-tau.vercel.app'
     const html = `<div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
@@ -270,6 +282,7 @@ module.exports = async function handler(req, res) {
         <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600">Prepared By</td><td style="padding:8px 12px">${preparedBy || '—'}</td></tr>
       </table>
       ${buildSpecBlock(specRows, '#5164C0')}
+      ${buildNotesBlock(additionalNotes, '#5164C0')}
       <a href="${appUrl}/?view=requests" style="display:inline-block;background:linear-gradient(135deg,#1B2F5E,#5164C0);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;margin:8px 0">Open Requests in DAP Flow →</a>
       <p style="color:#94a3b8;font-size:12px;margin:12px 0">Find it under <strong>Job Orders → Requests</strong> (status: Pending Review).</p>
       <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px">— Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management</p>
@@ -291,12 +304,12 @@ module.exports = async function handler(req, res) {
 
   // ── Member notification ─────────────────────────────────────────────────────
   if (body.memberNotification) {
-    const { mode, memberEmail, memberName, joNumber, projectName, activityType, priority, deadline, status } = body
+    const { mode, memberEmail, memberName, joNumber, projectName, activityType, priority, deadline, status, additionalNotes } = body
     const mc = MEMBER_CONFIG[mode]
     if (!mc || !memberEmail) return res.status(200).json({ ok: true })
     try {
       const tableHtml = buildJOTable(joNumber, projectName, activityType, priority || 'N/A', deadline, status || '', mc.headingColor)
-      const bodyHtml = `<p style="margin:0 0 16px">${mc.intro(memberName)}</p>${tableHtml}`
+      const bodyHtml = `<p style="margin:0 0 16px">${mc.intro(memberName)}</p>${tableHtml}${buildNotesBlock(additionalNotes, mc.headingColor)}`
       await transporter.sendMail({
         from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
         replyTo: 'no-reply@dap-flow.noreply',
@@ -391,7 +404,7 @@ module.exports = async function handler(req, res) {
 
   // ── Output-for-review notification to approver ────────────────────────────
   if (body.reviewNotification) {
-    const { approverEmail, approverName, approverRole, submittedBy, joNumber, projectName, activityType, comment, attachmentUrl, attachmentName, reviewId, slot } = body
+    const { approverEmail, approverName, approverRole, submittedBy, joNumber, projectName, activityType, comment, attachmentUrl, attachmentName, reviewId, slot, additionalNotes } = body
     if (!approverEmail) return res.status(200).json({ ok: true })
     const attachmentRow = attachmentUrl
       ? `<tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;width:140px">Output File</td><td style="padding:8px 12px"><a href="${attachmentUrl}" style="color:#1d4ed8;font-weight:700">${attachmentName || 'View Attachment'}</a></td></tr>`
@@ -431,6 +444,7 @@ module.exports = async function handler(req, res) {
         ${roleRow}
         ${attachmentRow}
       </table>
+      ${buildNotesBlock(additionalNotes, '#4f46e5')}
       ${commentBlock}
       ${actionSection}
       <a href="${appUrl}" style="display:inline-block;background:linear-gradient(135deg,#0f4c81,#2389d7);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;margin:8px 0">Open DAP Flow App →</a>

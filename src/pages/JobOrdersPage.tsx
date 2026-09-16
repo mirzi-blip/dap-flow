@@ -12,7 +12,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders, memberLoad, joEstimatedHours, workingHoursBetween, overtimeSuggestion, stampWorkSegments, openWorkSegments } from '../utils/helpers'
 import { loadColor } from '../utils/colors'
-import { designSpecRows, emailSpecRows } from '../utils/designSpecs'
+import { designSpecRows, emailSpecRows, requestorNotes, requestorNotesForJO } from '../utils/designSpecs'
 import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus, DesignSpecs, JOWorkSegment } from '../types'
 import { ACTIVITY_HOURS } from '../types'
 import { db } from '../db/database'
@@ -319,6 +319,7 @@ export function JobOrdersPage() {
             mode: memberMode,
             memberEmail: member.email,
             memberName: member.name,
+            additionalNotes: requestorNotesForJO(updated, bookingRequests),
             joNumber: updated.joNumber,
             projectName: updated.projectName,
             activityType: updated.activityType,
@@ -620,6 +621,7 @@ export function JobOrdersPage() {
       priority: updated.priority,
       deadline: updated.deadline,
       status: updated.status,
+      additionalNotes: requestorNotesForJO(updated, bookingRequests),
     }
 
     for (const memberId of added) {
@@ -900,6 +902,7 @@ export function JobOrdersPage() {
             venue: req.venue,
             refId: req.id.slice(0, 8).toUpperCase(),
             specRows: emailSpecRows(req.activityType, req.designSpecs),
+            additionalNotes: requestorNotes(req),
           }),
         }).catch(console.error)
       }
@@ -946,6 +949,7 @@ export function JobOrdersPage() {
             mode: 'assigned',
             memberEmail: member.email,
             memberName: member.name,
+            additionalNotes: requestorNotes(req),
             joNumber: newJO.joNumber,
             projectName: newJO.projectName,
             activityType: newJO.activityType,

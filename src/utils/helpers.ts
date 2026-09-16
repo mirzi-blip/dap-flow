@@ -197,13 +197,20 @@ export function joEstimatedHours(jo: { activityType: string; estimatedHours?: nu
   return ACTIVITY_HOURS[jo.activityType as ActivityType] ?? 4
 }
 
-/** Total assigned work hours = estimated hours of a member's active work. */
+/** A member id, or every resource id one person holds across their roles. */
+export type MemberRef = string | string[]
+const idsOf = (ref: MemberRef): string[] => (Array.isArray(ref) ? ref : [ref])
+
+/** Total assigned work hours = estimated hours of a member's active work.
+ *  Pass all of a person's ids to combine their roles: each job order is
+ *  counted once even if it is assigned to several of them. */
 export function memberAssignedHours<T extends { assignedMemberIds: string[]; status: JOStatus; activityType: string; estimatedHours?: number }>(
   jos: T[],
-  memberId: string
+  member: MemberRef
 ): number {
+  const ids = idsOf(member)
   return jos
-    .filter(j => j.assignedMemberIds.includes(memberId) && isLoadBearing(j.status))
+    .filter(j => isLoadBearing(j.status) && ids.some(id => j.assignedMemberIds.includes(id)))
     .reduce((sum, j) => sum + joEstimatedHours(j), 0)
 }
 
@@ -224,9 +231,9 @@ export function loadStatus(pct: number): LoadStatus {
 /** Everything the UI needs about one member's load, in one call. */
 export function memberLoad<T extends { assignedMemberIds: string[]; status: JOStatus; activityType: string; estimatedHours?: number }>(
   jos: T[],
-  memberId: string
+  member: MemberRef
 ): { hours: number; pct: number; status: LoadStatus; capacity: number; overloaded: boolean } {
-  const hours = memberAssignedHours(jos, memberId)
+  const hours = memberAssignedHours(jos, member)
   const pct = loadRatio(hours)
   const status = loadStatus(pct)
   return { hours, pct, status, capacity: WEEKLY_CAPACITY_HRS, overloaded: status === 'Peak' }
@@ -393,14 +400,15 @@ export interface WeekLoad {
  *  work already done. */
 export function memberWeekLoad<T extends {
   status: JOStatus; activityType: string; estimatedHours?: number; workSegments?: JOWorkSegment[]
-}>(jos: T[], memberId: string, week: Date = new Date()): WeekLoad {
+}>(jos: T[], member: MemberRef, week: Date = new Date()): WeekLoad {
+  const ids = idsOf(member)
   const key = weekKeyOf(week)
   const nowISO = new Date().toISOString()
   let confirmed = 0, provisional = 0, overtime = 0
 
   for (const jo of jos) {
     for (const seg of (jo.workSegments ?? [])) {
-      if (seg.memberId !== memberId) continue
+      if (!ids.includes(seg.memberId)) continue
       const isConfirmed = typeof seg.confirmedHours === 'number' && !!seg.endedAt
       if (isConfirmed) {
         const ot = seg.overtimeHours ?? 0

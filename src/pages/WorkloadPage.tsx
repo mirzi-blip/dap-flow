@@ -30,15 +30,64 @@ export function WorkloadPage() {
     [resources, filterTeam]
   )
 
-  const displayResources = useMemo(() =>
-    filterMember === 'All' ? teamResources : teamResources.filter(r => r.id === filterMember),
-    [teamResources, filterMember]
+  // One person may hold several roles, each its own resource row sharing the
+  // person's email. The picker lists people, not rows; a selected person is
+  // shown as one workload entry combining every role they hold.
+  type Entry = {
+    key: string; name: string; initials: string; color: string
+    roleLabel: string; teamLabel: string; ids: string[]; maxWeeklyHours: number
+  }
+  const people = useMemo(() => {
+    const byKey = new Map<string, Entry & { roles: string[]; teams: string[] }>()
+    for (const r of resources) {
+      const key = (r.email || r.name).toLowerCase()
+      const cur = byKey.get(key)
+      if (cur) {
+        cur.ids.push(r.id)
+        if (!cur.roles.includes(r.role)) cur.roles.push(r.role)
+        if (!cur.teams.includes(r.team)) cur.teams.push(r.team)
+        cur.maxWeeklyHours = Math.max(cur.maxWeeklyHours, r.maxWeeklyHours)
+      } else {
+        byKey.set(key, { key, name: r.name, initials: r.initials, color: r.color, ids: [r.id],
+          roles: [r.role], teams: [r.team], roleLabel: '', teamLabel: '', maxWeeklyHours: r.maxWeeklyHours })
+      }
+    }
+    return [...byKey.values()]
+      .map(p => ({ ...p, roleLabel: p.roles.join(' • '), teamLabel: p.teams.join(' • ') }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [resources])
+
+  // People offered in the picker: anyone with a role in the selected team.
+  const teamPeople = useMemo(() =>
+    people.filter(p => filterTeam === 'All' || p.teams.includes(filterTeam)),
+    [people, filterTeam]
   )
 
-  function getMemberStats(resourceId: string) {
+  // What the grid renders: every resource row in the overall view, or the one
+  // selected person as a single combined entry across all their roles.
+  const displayEntries = useMemo<Entry[]>(() => {
+    if (filterMember !== 'All') {
+      const person = people.find(p => p.key === filterMember)
+      return person ? [person] : []
+    }
+    return teamResources.map(r => ({
+      key: r.id, name: r.name, initials: r.initials, color: r.color,
+      roleLabel: r.role, teamLabel: r.team, ids: [r.id], maxWeeklyHours: r.maxWeeklyHours,
+    }))
+  }, [people, teamResources, filterMember])
+
+  // Kept for the member count.
+  const displayResources = useMemo(() =>
+    filterMember === 'All' ? teamResources : teamResources.filter(r => displayEntries[0]?.ids.includes(r.id)),
+    [teamResources, filterMember, displayEntries]
+  )
+
+  function getMemberStats(ref: string | string[]) {
+    const ids = Array.isArray(ref) ? ref : [ref]
     const now = new Date()
     const in4Weeks = new Date(now.getTime() + 28 * 24 * 60 * 60 * 1000)
-    const assigned  = jobOrders.filter(j => j.assignedMemberIds.includes(resourceId))
+    // A job order assigned to two of the same person's roles appears once.
+    const assigned  = jobOrders.filter(j => ids.some(id => j.assignedMemberIds.includes(id)))
     // Same set the Load Ratio is built from, so hours and JO count agree.
     const active    = assigned.filter(j => isLoadBearing(j.status))
     const completed = assigned.filter(j => j.status === 'Completed')
@@ -49,9 +98,9 @@ export function WorkloadPage() {
     }).length
 
     // Load Ratio = (total assigned work hours ÷ load capacity) × 100
-    const { hours: estimatedHrs, pct: loadPct, status, overloaded } = memberLoad(jobOrders, resourceId)
+    const { hours: estimatedHrs, pct: loadPct, status, overloaded } = memberLoad(jobOrders, ids)
     // Actual hours logged against this week (confirmed + in-progress accrual)
-    const week = memberWeekLoad(jobOrders, resourceId)
+    const week = memberWeekLoad(jobOrders, ids)
 
     return { assigned: assigned.length, active, completed: completed.length, next4Weeks, overloaded, estimatedHrs, loadPct, status, week }
   }
@@ -88,12 +137,12 @@ export function WorkloadPage() {
 
   // JOs to display on the calendar (filtered by team, not completed/cancelled)
   const calJOs: JobOrder[] = useMemo(() => {
-    const memberIds = displayResources.map(r => r.id)
+    const memberIds = displayEntries.flatMap(e => e.ids)
     return jobOrders.filter(j =>
       !['Completed', 'Cancelled'].includes(j.status) &&
       j.assignedMemberIds.some(id => memberIds.includes(id))
     )
-  }, [jobOrders, displayResources])
+  }, [jobOrders, displayEntries])
 
   function josOnDay(date: Date): JobOrder[] {
     return calJOs.filter(j => j.deadline && isSameDay(parseISO(j.deadline), date))
@@ -170,8 +219,8 @@ export function WorkloadPage() {
           aria-label="Filter by team member"
         >
           <option value="All">All Team Members</option>
-          {teamResources.map(r => (
-            <option key={r.id} value={r.id}>{r.name} · {r.role}</option>
+          {teamPeople.map(p => (
+            <option key={p.key} value={p.key}>{p.name}</option>
           ))}
         </select>
         {filterMember !== 'All' && (
@@ -183,17 +232,19 @@ export function WorkloadPage() {
           </button>
         )}
         <p className="text-sm text-slate-400 dark:text-slate-500">
-          {displayResources.length} member{displayResources.length !== 1 ? 's' : ''}
+          {filterMember !== 'All'
+            ? `1 member · ${displayResources.length} role${displayResources.length !== 1 ? 's' : ''}`
+            : `${teamPeople.length} member${teamPeople.length !== 1 ? 's' : ''} · ${displayResources.length} role${displayResources.length !== 1 ? 's' : ''}`}
         </p>
       </div>
 
       {/* Member capacity grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {displayResources.map(r => {
-          const stats = getMemberStats(r.id)
+        {displayEntries.map(r => {
+          const stats = getMemberStats(r.ids)
 
           return (
-            <div key={r.id} className={`bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border ${
+            <div key={r.key} className={`bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border ${
               stats.overloaded ? 'border-red-200 dark:border-red-800' : 'border-slate-100 dark:border-slate-700'
             }`}>
               <div className="flex items-start gap-4">
@@ -204,7 +255,7 @@ export function WorkloadPage() {
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="font-bold text-slate-900 dark:text-slate-100">{r.name}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">{r.role} · {r.team} Team</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">{r.roleLabel} · {r.teamLabel} Team</p>
                     </div>
                     <div className="text-right">
                       <p className={`text-2xl font-black ${loadColor(stats.status).text}`}>
@@ -301,7 +352,7 @@ export function WorkloadPage() {
           <div>
             <h2 className="font-bold text-slate-900 dark:text-slate-100 text-sm">4-Week Deadline Calendar</h2>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-              {format(calDays[0], 'MMM d')} – {format(calDays[27], 'MMM d, yyyy')} · deadlines for {filterMember !== 'All' ? (displayResources[0]?.name ?? 'member') : filterTeam === 'All' ? 'all teams' : `${filterTeam} team`}
+              {format(calDays[0], 'MMM d')} – {format(calDays[27], 'MMM d, yyyy')} · deadlines for {filterMember !== 'All' ? (displayEntries[0]?.name ?? 'member') : filterTeam === 'All' ? 'all teams' : `${filterTeam} team`}
             </p>
           </div>
           <div className="flex items-center gap-1">

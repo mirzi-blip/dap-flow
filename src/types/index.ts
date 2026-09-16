@@ -292,7 +292,8 @@ export interface JOReview {
   joId: string
   joNumber: string
   projectName: string
-  outputFileUrl: string
+  /** Optional — a review can be submitted without an attached output. */
+  outputFileUrl?: string
   outputFileName?: string
   submittedBy: string
   submittedAt: string

@@ -355,7 +355,7 @@ export function KanbanPage() {
   const isLeavingOngoing = moveTarget?.status === 'Ongoing' && moveNext !== 'Ongoing'
   const isEnteringOngoing = moveNext === 'Ongoing' && moveTarget?.status !== 'Ongoing'
   const moveValid   = moveComment.trim() !== '' &&
-    (!isForReview || (moveFile !== null && moveDapApproverEmail !== '')) &&
+    (!isForReview || moveDapApproverEmail !== '') &&
     // Leaving Ongoing requires valid hours for every member on the job.
     (!isLeavingOngoing || moveSegments.every(sg => {
       const n = Number(moveHours[sg.id]?.regular)
@@ -442,14 +442,15 @@ export function KanbanPage() {
       await db.notifications.add(notif)
       addNotification(notif)
 
-      // Create jo_reviews record and email both approvers
-      if (isForReview && attachmentUrl) {
+      // Create jo_reviews record and email both approvers — with or without
+      // an attached output; the file is optional.
+      if (isForReview) {
         const now = new Date().toISOString()
         const reviewRecord = await saveJOReviewRecord({
           joId: moveTarget.id,
           joNumber: moveTarget.joNumber,
           projectName: moveTarget.projectName,
-          outputFileUrl: attachmentUrl,
+          outputFileUrl: attachmentUrl ?? '',
           outputFileName: attachmentName,
           submittedBy: currentUser?.name ?? 'Unknown',
           submittedAt: now,
@@ -759,7 +760,7 @@ export function KanbanPage() {
             {isForReview && (
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
-                  Attach Output / Artwork <span className="text-red-500">*</span>
+                  Attach Output / Artwork <span className="text-slate-400 font-normal normal-case tracking-normal">(optional)</span>
                 </label>
                 {moveFile ? (
                   <div className="flex items-center gap-3 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-700 rounded-xl px-3 py-2.5">
@@ -1070,12 +1071,16 @@ export function KanbanPage() {
                       <Paperclip size={15} className="text-brand-500 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Output File</p>
-                        <p className="text-sm text-slate-800 dark:text-slate-200 truncate">{joReview.outputFileName || 'Attachment'}</p>
+                        <p className="text-sm text-slate-800 dark:text-slate-200 truncate">{joReview.outputFileName || (joReview.outputFileUrl ? 'Attachment' : '—')}</p>
                       </div>
-                      <a href={joReview.outputFileUrl} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs font-bold text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 shrink-0">
-                        <ExternalLink size={12} /> Open
-                      </a>
+                      {joReview.outputFileUrl ? (
+                        <a href={joReview.outputFileUrl} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs font-bold text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 shrink-0">
+                          <ExternalLink size={12} /> Open
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0">No file attached</span>
+                      )}
                     </div>
 
                     <p className="text-xs text-slate-400 dark:text-slate-500">

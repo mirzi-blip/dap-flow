@@ -4,8 +4,9 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, PriorityBadge, StatusBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, getNextStatus, isOverdue, scopeJobOrders, stampWorkSegments, openWorkSegments, workingHoursBetween, overtimeSuggestion } from '../utils/helpers'
+import { formatDate, formatDateTime, generateId, getNextStatus, isOverdue, scopeJobOrders, stampWorkSegments, openWorkSegments, workingHoursBetween, overtimeSuggestion, canRequestRevision, revisionsUsed, revisionCountAfter, isWorkingStatus } from '../utils/helpers'
 import type { JOStatus, JobOrder, JOWorkSegment } from '../types'
+import { MAX_REVISIONS } from '../types'
 import { db } from '../db/database'
 import {
   Calendar, AlertTriangle, ChevronRight, Eye, Clock,
@@ -45,7 +46,7 @@ function KanbanCard({
   jo, onAdvance, onView, canProgress, resources,
 }: {
   jo: JobOrder
-  onAdvance: (jo: JobOrder) => void
+  onAdvance: (jo: JobOrder, to?: JOStatus) => void
   onView: (jo: JobOrder) => void
   canProgress: boolean
   resources: import('../types').Resource[]
@@ -73,7 +74,15 @@ function KanbanCard({
         </div>
         <PriorityBadge priority={jo.priority} />
       </div>
-      <div className="mb-3"><ActivityBadge type={jo.activityType} /></div>
+      <div className="mb-3 flex items-center gap-1.5 flex-wrap">
+        <ActivityBadge type={jo.activityType} />
+        {revisionsUsed(jo) > 0 && (
+          <span title={`Sent back for revision ${revisionsUsed(jo)} of ${MAX_REVISIONS} times`}
+            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${canRequestRevision(jo) ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300' : 'bg-red-600 text-white'}`}>
+            Rev {revisionsUsed(jo)}/{MAX_REVISIONS}
+          </span>
+        )}
+      </div>
       <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
         <div className="flex items-center gap-1">
           <Calendar size={11} />
@@ -107,6 +116,18 @@ function KanbanCard({
             → {next}
           </button>
         )}
+        {/* For Approval can also go back for revision — until the limit is used up. */}
+        {canProgress && jo.status === 'For Approval' && (
+          <button
+            onClick={() => canRequestRevision(jo) && onAdvance(jo, 'Needs Revision')}
+            disabled={!canRequestRevision(jo)}
+            title={canRequestRevision(jo) ? `Send back for revision (${revisionsUsed(jo) + 1} of ${MAX_REVISIONS})` : `Revision limit reached (${MAX_REVISIONS}) — this job order can only be completed`}
+            className="flex-1 flex items-center justify-center gap-1 text-xs font-medium py-1.5 rounded-lg transition-colors border border-dashed
+              text-rose-600 dark:text-rose-400 hover:text-rose-800 hover:bg-rose-50 dark:hover:bg-rose-900/30 border-rose-200 dark:border-rose-800 hover:border-rose-400
+              disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+            ↩ Revision
+          </button>
+        )}
       </div>
     </div>
   )
@@ -125,6 +146,9 @@ export function KanbanPage() {
 
   // Move modal
   const [moveTarget, setMoveTarget]               = useState<JobOrder | null>(null)
+  // Where the move goes. Normally the next stage; For Approval can also
+  // choose Needs Revision.
+  const [moveTo, setMoveTo]                       = useState<JOStatus | null>(null)
   // Actual-hours capture on the Ongoing boundary (mirrors the Job Orders page)
   const [moveHours, setMoveHours] = useState<Record<string, { regular: string; overtime: string }>>({})
   const [moveSegments, setMoveSegments] = useState<JOWorkSegment[]>([])
@@ -198,7 +222,7 @@ export function KanbanPage() {
           if (r && r.overallStatus !== 'pending' && jo.status === 'For Review') {
             const newStatus: JOStatus = r.overallStatus === 'approved' ? 'Completed' : 'Needs Revision'
             const now = new Date().toISOString()
-            const synced: JobOrder = { ...jo, status: newStatus, updatedAt: now }
+            const synced: JobOrder = { ...jo, status: newStatus, revisionCount: revisionCountAfter(jo, newStatus), updatedAt: now }
             await db.jobOrders.put(synced)
             updateJobOrder(synced)
             setSelectedJO(synced)
@@ -258,7 +282,7 @@ export function KanbanPage() {
       setJoReview(updatedReview)
 
       if (newJOStatus) {
-        const updatedJO: JobOrder = { ...selectedJO, status: newJOStatus, updatedAt: now }
+        const updatedJO: JobOrder = { ...selectedJO, status: newJOStatus, revisionCount: revisionCountAfter(selectedJO, newJOStatus), updatedAt: now }
         await db.jobOrders.put(updatedJO)
         updateJobOrder(updatedJO)
         setSelectedJO(updatedJO)
@@ -319,14 +343,17 @@ export function KanbanPage() {
     }
   }
 
-  function openMoveModal(jo: JobOrder) {
+  function openMoveModal(jo: JobOrder, to?: JOStatus) {
+    if (to === 'Needs Revision' && !canRequestRevision(jo)) return
+    setMoveTo(to ?? null)
     setMoveTarget(jo)
     setMoveComment('')
     setMoveFile(null)
     setMoveLink('')
     // Leaving Ongoing: pre-fill each member's hours from the working hours
     // between the system's stamps. Overtime is never pre-filled.
-    if (jo.status === 'Ongoing' && getNextStatus(jo.status) !== 'Ongoing') {
+    const target = to ?? getNextStatus(jo.status)
+    if (isWorkingStatus(jo.status) && !isWorkingStatus(target)) {
       const endedAt = new Date().toISOString()
       const rows = openWorkSegments(jo)
       const draft: Record<string, { regular: string; overtime: string }> = {}
@@ -366,11 +393,12 @@ export function KanbanPage() {
   const linkGiven   = moveLink.trim() !== ''
   const linkValid   = !linkGiven || normaliseLink(moveLink) !== null
 
-  const moveNext    = moveTarget ? getNextStatus(moveTarget.status) : null
+  const moveNext    = moveTarget ? (moveTo ?? getNextStatus(moveTarget.status)) : null
+  const isRevision  = moveNext === 'Needs Revision'
   const isForReview = moveNext === 'For Review'
   // Leaving Ongoing means the work is done — capture what was actually spent.
-  const isLeavingOngoing = moveTarget?.status === 'Ongoing' && moveNext !== 'Ongoing'
-  const isEnteringOngoing = moveNext === 'Ongoing' && moveTarget?.status !== 'Ongoing'
+  const isLeavingOngoing = isWorkingStatus(moveTarget?.status) && !isWorkingStatus(moveNext)
+  const isEnteringOngoing = isWorkingStatus(moveNext) && !isWorkingStatus(moveTarget?.status)
   const moveValid   = linkValid &&
     (!isForReview || moveDapApproverEmail !== '') &&
     // Leaving Ongoing requires valid hours for every member on the job.
@@ -443,7 +471,16 @@ export function KanbanPage() {
         })
         workSegments = [...kept, ...closed]
       }
-      const updated: JobOrder = { ...moveTarget, status: moveNext, workSegments, updatedAt: new Date().toISOString() }
+      if (isRevision && !canRequestRevision(moveTarget)) {
+        setMoveError(`Revision limit reached (${MAX_REVISIONS}). This job order can only be completed.`)
+        setMoveLoading(false)
+        return
+      }
+      const updated: JobOrder = {
+        ...moveTarget, status: moveNext, workSegments,
+        revisionCount: revisionCountAfter(moveTarget, moveNext),
+        updatedAt: new Date().toISOString(),
+      }
       await db.jobOrders.put(updated)
       updateJobOrder(updated)
       // Pipeline moves used to persist only locally, so the status (and now the
@@ -527,6 +564,7 @@ export function KanbanPage() {
       }
 
       setMoveTarget(null)
+      setMoveTo(null)
     } catch (err) {
       console.error('Move error:', err)
       setMoveError('Something went wrong. Please try again.')
@@ -658,7 +696,7 @@ export function KanbanPage() {
       {/* ── Move Modal ── */}
       <Modal
         open={!!moveTarget}
-        onClose={() => { if (!moveLoading) setMoveTarget(null) }}
+        onClose={() => { if (!moveLoading) { setMoveTarget(null); setMoveTo(null) } }}
         title={moveTarget ? `Move ${moveTarget.joNumber} → ${moveNext}` : ''}
         maxWidth="max-w-lg"
       >
@@ -670,6 +708,22 @@ export function KanbanPage() {
               {' '}to{' '}
               <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${moveNext ? STATUS_COLORS[moveNext] : ''}`}>{moveNext}</span>
             </p>
+
+            {isRevision && (
+              <div className="flex items-start gap-2.5 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-xl px-3.5 py-3">
+                <span className="text-rose-600 dark:text-rose-400 font-black text-lg leading-none">↩</span>
+                <div>
+                  <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+                    Revision {revisionsUsed(moveTarget) + 1} of {MAX_REVISIONS}
+                  </p>
+                  <p className="text-[12px] text-rose-600/80 dark:text-rose-400/80 mt-0.5">
+                    {revisionsUsed(moveTarget) + 1 >= MAX_REVISIONS
+                      ? 'This is the last revision allowed. After this the job order can only be completed.'
+                      : `The job order goes back to the team; ${MAX_REVISIONS - revisionsUsed(moveTarget) - 1} revision${MAX_REVISIONS - revisionsUsed(moveTarget) - 1 === 1 ? '' : 's'} will remain.`}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Starting work stamps the clock — show what is recorded. */}
             {isEnteringOngoing && (
@@ -1066,6 +1120,13 @@ export function KanbanPage() {
                 </div>
                 {canProgress && selectedJO.status !== 'Completed' && selectedJO.status !== 'Cancelled' && getNextStatus(selectedJO.status) && (
                   <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                    {selectedJO.status === 'For Approval' && (
+                      <Button variant="secondary" disabled={!canRequestRevision(selectedJO)}
+                        title={canRequestRevision(selectedJO) ? undefined : `Revision limit reached (${MAX_REVISIONS})`}
+                        onClick={() => openMoveModal(selectedJO, 'Needs Revision')}>
+                        ↩ Needs Revision {revisionsUsed(selectedJO) > 0 && `(${revisionsUsed(selectedJO)}/${MAX_REVISIONS})`}
+                      </Button>
+                    )}
                     <Button onClick={() => openMoveModal(selectedJO)}>
                       Move to {getNextStatus(selectedJO.status)} <ChevronRight size={14} />
                     </Button>

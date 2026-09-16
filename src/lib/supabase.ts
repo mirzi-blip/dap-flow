@@ -63,6 +63,7 @@ export function rowToJobOrder(row: Record<string, unknown>): JobOrder {
     notes: (row.notes as string) || '',
     estimatedHours: row.estimated_hours == null ? undefined : Number(row.estimated_hours),
     workSegments: Array.isArray(row.work_segments) ? (row.work_segments as JobOrder['workSegments']) : undefined,
+    revisionCount: row.revision_count == null ? undefined : Number(row.revision_count),
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     createdBy: (row.created_by as string) || '',
@@ -78,14 +79,17 @@ export function rowToJobOrder(row: Record<string, unknown>): JobOrder {
 // (the values simply don't persist until it is run).
 let hasEstimatedHoursColumn = false
 let hasWorkSegmentsColumn = false
+let hasRevisionCountColumn = false
 
 export async function probeEstimatedHoursColumn(): Promise<void> {
-  const [est, seg] = await Promise.all([
+  const [est, seg, rev] = await Promise.all([
     supabase.from('job_orders').select('estimated_hours').limit(1),
     supabase.from('job_orders').select('work_segments').limit(1),
+    supabase.from('job_orders').select('revision_count').limit(1),
   ])
   hasEstimatedHoursColumn = !est.error
   hasWorkSegmentsColumn = !seg.error
+  hasRevisionCountColumn = !rev.error
 }
 
 /** True once the work_segments column exists — actual-hours capture needs it. */
@@ -97,6 +101,7 @@ export function jobOrderToRow(jo: JobOrder) {
   return {
     ...(hasEstimatedHoursColumn ? { estimated_hours: jo.estimatedHours ?? null } : {}),
     ...(hasWorkSegmentsColumn ? { work_segments: jo.workSegments ?? [] } : {}),
+    ...(hasRevisionCountColumn ? { revision_count: jo.revisionCount ?? 0 } : {}),
     id: jo.id,
     jo_number: jo.joNumber,
     requesting_team: jo.requestingTeam,

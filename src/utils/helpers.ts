@@ -2,7 +2,7 @@ import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay, startOfWeek 
 import type { JobOrder, JOStatus, Approver, ActivityType, JOWorkSegment } from '../types'
 import {
   DAP_TEAM_LIST, ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS,
-  LOAD_OPTIMAL, LOAD_THRESHOLD, LOAD_PEAK,
+  LOAD_OPTIMAL, LOAD_THRESHOLD, LOAD_PEAK, MAX_REVISIONS,
 } from '../types'
 
 // Teams to show in team views: the configured teams that have members, followed
@@ -443,9 +443,9 @@ export function hasActualHours<T extends { workSegments?: JOWorkSegment[] }>(jos
   return jos.some(jo => (jo.workSegments ?? []).length > 0)
 }
 
-/** Stamp work segments on the Ongoing boundary. Entering Ongoing opens one
- *  segment per assigned member (re-entry after Needs Revision appends another,
- *  so rework is captured); leaving Ongoing closes every open one. Timestamps
+/** Stamp work segments on the working boundary. Entering Ongoing (or Needs
+ *  Revision, where rework happens) opens one segment per assigned member;
+ *  leaving working status closes every open one, so rework is captured. Timestamps
  *  come from the system — members never enter or edit them. */
 export function stampWorkSegments(
   jo: { assignedMemberIds: string[]; workSegments?: JOWorkSegment[] },
@@ -454,14 +454,14 @@ export function stampWorkSegments(
   at: string
 ): JOWorkSegment[] | undefined {
   const segments = [...(jo.workSegments ?? [])]
-  if (to === 'Ongoing' && from !== 'Ongoing') {
+  if (isWorkingStatus(to) && !isWorkingStatus(from)) {
     for (const memberId of jo.assignedMemberIds) {
       if (segments.some(sg => sg.memberId === memberId && !sg.endedAt)) continue
       segments.push({ id: generateId(), memberId, startedAt: at })
     }
     return segments
   }
-  if (from === 'Ongoing' && to !== 'Ongoing') {
+  if (isWorkingStatus(from) && !isWorkingStatus(to)) {
     return segments.map(sg => (sg.endedAt ? sg : { ...sg, endedAt: at }))
   }
   return jo.workSegments
@@ -476,4 +476,30 @@ export function openWorkSegments(
   const open = (jo.workSegments ?? []).filter(sg => !sg.endedAt)
   if (open.length > 0) return open
   return jo.assignedMemberIds.map(memberId => ({ id: generateId(), memberId, startedAt: jo.updatedAt }))
+}
+
+// ── Revisions ───────────────────────────────────────────────────────────────
+// A job order waiting For Approval can be completed or sent back for revision.
+// Every entry into Needs Revision — from For Approval or from a reviewer —
+// counts toward MAX_REVISIONS; once used up, only Completed is offered.
+
+export function revisionsUsed(jo: { revisionCount?: number }): number {
+  return Math.max(0, jo.revisionCount ?? 0)
+}
+
+export function canRequestRevision(jo: { revisionCount?: number }): boolean {
+  return revisionsUsed(jo) < MAX_REVISIONS
+}
+
+/** The revision count a job order should carry after moving to `to`. */
+export function revisionCountAfter(jo: { revisionCount?: number; status: JOStatus }, to: JOStatus): number {
+  const used = revisionsUsed(jo)
+  return to === 'Needs Revision' && jo.status !== 'Needs Revision' ? used + 1 : used
+}
+
+/** Statuses during which a member is actively working the job order — the
+ *  work clock runs in both, so rework after a revision is captured too. */
+export const WORKING_STATUSES: readonly JOStatus[] = ['Ongoing', 'Needs Revision']
+export function isWorkingStatus(s: JOStatus | undefined | null): boolean {
+  return !!s && WORKING_STATUSES.includes(s)
 }

@@ -89,6 +89,10 @@ export const LOAD_THRESHOLD = 80   // ≥ 80  → Threshold
 export const LOAD_PEAK      = 90   // ≥ 90  → Peak (overloaded)
 export const LOAD_OVERLOAD  = LOAD_PEAK  // warn at / above Peak
 
+/** A job order may be sent back for revision this many times. On the next
+ *  attempt Needs Revision is no longer offered; only Completed remains. */
+export const MAX_REVISIONS = 3
+
 /** Design specification details for Static / Digital artwork requests */
 export interface DesignSpecs {
   paperSize:        string
@@ -212,6 +216,8 @@ export interface JobOrder {
   estimatedHours?: number
   /** Actual work segments, one per member per stretch of work. */
   workSegments?: JOWorkSegment[]
+  /** Times this job order has been sent back for revision. See MAX_REVISIONS. */
+  revisionCount?: number
   createdAt: string
   updatedAt: string
   createdBy: string

@@ -10,11 +10,11 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders, memberLoad, joEstimatedHours, workingHoursBetween, overtimeSuggestion, stampWorkSegments, openWorkSegments } from '../utils/helpers'
+import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders, memberLoad, joEstimatedHours, workingHoursBetween, overtimeSuggestion, stampWorkSegments, openWorkSegments, canRequestRevision, revisionsUsed, revisionCountAfter, isWorkingStatus } from '../utils/helpers'
 import { loadColor } from '../utils/colors'
 import { designSpecRows, emailSpecRows, requestorNotes, requestorNotesForJO } from '../utils/designSpecs'
 import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus, DesignSpecs, JOWorkSegment } from '../types'
-import { ACTIVITY_HOURS } from '../types'
+import { ACTIVITY_HOURS, MAX_REVISIONS } from '../types'
 import { db } from '../db/database'
 import { supabase, requestToRow, jobOrderToRow, saveJOComment } from '../lib/supabase'
 
@@ -258,7 +258,24 @@ export function JobOrdersPage() {
   async function handleStatusChange(jo: JobOrder, newStatus: JOStatus, comment = '', segmentOverride?: JOWorkSegment[]) {
     const stampedAt = new Date().toISOString()
     const workSegments = segmentOverride ?? stampWorkSegments(jo, jo.status, newStatus, stampedAt)
-    const updated: JobOrder = { ...jo, status: newStatus, workSegments, updatedAt: new Date().toISOString() }
+    // The buttons are disabled at the limit; this only guards against stale state.
+    if (newStatus === 'Needs Revision' && jo.status !== 'Needs Revision' && !canRequestRevision(jo)) {
+      const blocked = {
+        id: generateId(), type: 'status_changed' as const,
+        title: 'Revision limit reached',
+        message: `${jo.joNumber} has used all ${MAX_REVISIONS} revisions and can only be completed.`,
+        read: false, createdAt: new Date().toISOString(),
+        targetUserId: currentUser?.id ?? '', joId: jo.id,
+      }
+      await db.notifications.add(blocked)
+      addNotification(blocked)
+      return
+    }
+    const updated: JobOrder = {
+      ...jo, status: newStatus, workSegments,
+      revisionCount: revisionCountAfter(jo, newStatus),
+      updatedAt: new Date().toISOString(),
+    }
     await db.jobOrders.put(updated)
     updateJobOrder(updated)
     supabase.from('job_orders').update(jobOrderToRow(updated)).eq('id', jo.id).then(({ error }) => { if (error) console.error('JO sync error:', error) })
@@ -357,7 +374,7 @@ export function JobOrdersPage() {
   function handleStatusChangeWithConfirm(jo: JobOrder, newStatus: JOStatus) {
     setConfirmComment('')
     // Leaving Ongoing means the work is done — capture the actual hours first.
-    if (newStatus === 'For Review' && jo.status === 'Ongoing') {
+    if (newStatus === 'For Review' && isWorkingStatus(jo.status)) {
       openHoursModal(jo)
       return
     }
@@ -1501,6 +1518,14 @@ export function JobOrdersPage() {
                               → {next}
                             </Button>
                           )}
+                          {canProgress && jo.status === 'For Approval' && (
+                            <Button size="sm" variant="secondary" disabled={!canRequestRevision(jo)}
+                              title={canRequestRevision(jo) ? `Send back for revision (${revisionsUsed(jo) + 1} of ${MAX_REVISIONS})` : `Revision limit reached (${MAX_REVISIONS}) — can only be completed`}
+                              onClick={() => handleStatusChangeWithConfirm(jo, 'Needs Revision')}
+                              className="text-xs text-rose-600 dark:text-rose-400 disabled:opacity-40">
+                              ↩ Revision
+                            </Button>
+                          )}
                           {canApprove && jo.status !== 'Completed' && jo.status !== 'Cancelled' && (
                             <Button size="sm" variant="danger" onClick={() => handleStatusChangeWithConfirm(jo, 'Cancelled')} className="text-xs">Cancel</Button>
                           )}
@@ -1721,6 +1746,22 @@ export function JobOrdersPage() {
                 </p>
               </div>
             </div>
+
+            {confirmAction.newStatus === 'Needs Revision' && (
+              <div className="flex items-start gap-2.5 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-xl px-3.5 py-3">
+                <span className="text-rose-600 dark:text-rose-400 font-black text-lg leading-none">↩</span>
+                <div>
+                  <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+                    Revision {revisionsUsed(confirmAction.jo) + 1} of {MAX_REVISIONS}
+                  </p>
+                  <p className="text-[12px] text-rose-600/80 dark:text-rose-400/80 mt-0.5">
+                    {revisionsUsed(confirmAction.jo) + 1 >= MAX_REVISIONS
+                      ? 'This is the last revision allowed. After this the job order can only be completed.'
+                      : 'The job order goes back to the team for rework.'}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Starting work stamps the clock — show the member what is recorded. */}
             {confirmAction.newStatus === 'Ongoing' && confirmAction.jo.status !== 'Ongoing' && (
@@ -2041,6 +2082,10 @@ export function JobOrdersPage() {
                       value={`${joEstimatedHours(selectedJO)}h${selectedJO.estimatedHours == null ? ' (default)' : ''}`}
                     />
                     <InfoBox
+                      label="Revisions"
+                      value={`${revisionsUsed(selectedJO)} of ${MAX_REVISIONS}${canRequestRevision(selectedJO) ? '' : ' — limit reached'}`}
+                    />
+                    <InfoBox
                       label="Actual Hours"
                       value={(() => {
                         const done = (selectedJO.workSegments ?? []).filter(sg => typeof sg.confirmedHours === 'number')
@@ -2097,9 +2142,18 @@ export function JobOrdersPage() {
                       )}
                       {getNextStatus(selectedJO.status) && selectedJO.status !== 'Delayed' &&
                         !(selectedJO.status === 'For Review' && getNextStatus(selectedJO.status) === 'Completed') && (
+                        <>
+                        {selectedJO.status === 'For Approval' && (
+                          <Button variant="secondary" disabled={!canRequestRevision(selectedJO)}
+                            title={canRequestRevision(selectedJO) ? undefined : `Revision limit reached (${MAX_REVISIONS})`}
+                            onClick={() => handleStatusChangeWithConfirm(selectedJO, 'Needs Revision')}>
+                            ↩ Needs Revision {revisionsUsed(selectedJO) > 0 && `(${revisionsUsed(selectedJO)}/${MAX_REVISIONS})`}
+                          </Button>
+                        )}
                         <Button onClick={() => handleStatusChangeWithConfirm(selectedJO, getNextStatus(selectedJO.status)!)}>
                           Move to {getNextStatus(selectedJO.status)} <ChevronRight size={14} />
                         </Button>
+                        </>
                       )}
                       {canApprove && (
                         <Button variant="danger" onClick={() => handleStatusChangeWithConfirm(selectedJO, 'Cancelled')}>Cancel JO</Button>

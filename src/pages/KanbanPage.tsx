@@ -130,6 +130,8 @@ export function KanbanPage() {
   const [moveSegments, setMoveSegments] = useState<JOWorkSegment[]>([])
   const [moveComment, setMoveComment]             = useState('')
   const [moveFile, setMoveFile]                   = useState<File | null>(null)
+  // A pasted link is an alternative to uploading a file.
+  const [moveLink, setMoveLink]                   = useState('')
   const [moveReqApproverEmail, setMoveReqApproverEmail] = useState('')
   const [moveReqApproverName, setMoveReqApproverName]   = useState('')
   const [moveDapApproverEmail, setMoveDapApproverEmail] = useState('')
@@ -321,6 +323,7 @@ export function KanbanPage() {
     setMoveTarget(jo)
     setMoveComment('')
     setMoveFile(null)
+    setMoveLink('')
     // Leaving Ongoing: pre-fill each member's hours from the working hours
     // between the system's stamps. Overtime is never pre-filled.
     if (jo.status === 'Ongoing' && getNextStatus(jo.status) !== 'Ongoing') {
@@ -349,12 +352,26 @@ export function KanbanPage() {
     setMoveError('')
   }
 
+  // Accepts "drive.google.com/..." as well as a full URL; anything that is not
+  // a usable http(s) address is rejected so a bad link never reaches the reviewer.
+  function normaliseLink(raw: string): string | null {
+    const t = raw.trim()
+    if (!t) return null
+    const withScheme = /^https?:\/\//i.test(t) ? t : `https://${t}`
+    try {
+      const u = new URL(withScheme)
+      return /^https?:$/.test(u.protocol) && u.hostname.includes('.') ? u.toString() : null
+    } catch { return null }
+  }
+  const linkGiven   = moveLink.trim() !== ''
+  const linkValid   = !linkGiven || normaliseLink(moveLink) !== null
+
   const moveNext    = moveTarget ? getNextStatus(moveTarget.status) : null
   const isForReview = moveNext === 'For Review'
   // Leaving Ongoing means the work is done — capture what was actually spent.
   const isLeavingOngoing = moveTarget?.status === 'Ongoing' && moveNext !== 'Ongoing'
   const isEnteringOngoing = moveNext === 'Ongoing' && moveTarget?.status !== 'Ongoing'
-  const moveValid   = moveComment.trim() !== '' &&
+  const moveValid   = linkValid &&
     (!isForReview || moveDapApproverEmail !== '') &&
     // Leaving Ongoing requires valid hours for every member on the job.
     (!isLeavingOngoing || moveSegments.every(sg => {
@@ -380,19 +397,31 @@ export function KanbanPage() {
         }
         attachmentUrl = uploaded.url
         attachmentName = uploaded.name
+      } else if (isForReview && linkGiven) {
+        const url = normaliseLink(moveLink)
+        if (!url) {
+          setMoveError('That link does not look like a valid web address.')
+          setMoveLoading(false)
+          return
+        }
+        attachmentUrl = url
+        attachmentName = new URL(url).hostname.replace(/^www\./, '')
       }
 
-      // Persist comment
-      const savedComment = await saveJOComment({
-        joId: moveTarget.id,
-        authorName: currentUser?.name ?? 'Unknown',
-        authorEmail: currentUser?.email ?? '',
-        body: moveComment.trim(),
-        attachmentUrl,
-        attachmentName,
-        fromStatus: moveTarget.status,
-        toStatus: moveNext,
-      })
+      // Persist the comment when one was written (it is optional). An
+      // attachment with no comment is still recorded against the job order.
+      const savedComment = (moveComment.trim() || attachmentUrl)
+        ? await saveJOComment({
+            joId: moveTarget.id,
+            authorName: currentUser?.name ?? 'Unknown',
+            authorEmail: currentUser?.email ?? '',
+            body: moveComment.trim(),
+            attachmentUrl,
+            attachmentName,
+            fromStatus: moveTarget.status,
+            toStatus: moveNext,
+          })
+        : null
 
       // Update JO status, stamping the work clock on the Ongoing boundary.
       const stampedAt = new Date().toISOString()
@@ -745,7 +774,7 @@ export function KanbanPage() {
             {/* Required comment */}
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">
-                Comment <span className="text-red-500">*</span>
+                Comment <span className="text-slate-400 font-normal normal-case tracking-normal">(optional)</span>
               </label>
               <textarea
                 value={moveComment}
@@ -769,12 +798,38 @@ export function KanbanPage() {
                     <button type="button" onClick={() => setMoveFile(null)} className="text-slate-400 hover:text-red-500 text-xs font-semibold transition-colors shrink-0">Remove</button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center gap-2 border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-xl py-6 cursor-pointer hover:border-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-900/20 transition-all">
-                    <Upload size={22} className="text-brand-400" />
-                    <span className="text-sm font-semibold text-brand-600 dark:text-brand-400">Click to upload output file</span>
-                    <span className="text-xs text-slate-400">Image, PDF, video link, or any format</span>
-                    <input type="file" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) setMoveFile(f) }} />
-                  </label>
+                  <>
+                    {!linkGiven && (
+                      <label className="flex flex-col items-center gap-2 border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-xl py-5 cursor-pointer hover:border-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-900/20 transition-all">
+                        <Upload size={22} className="text-brand-400" />
+                        <span className="text-sm font-semibold text-brand-600 dark:text-brand-400">Click to upload output file</span>
+                        <span className="text-xs text-slate-400">Image, PDF, or any format</span>
+                        <input type="file" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) setMoveFile(f) }} />
+                      </label>
+                    )}
+                    <div className={`flex items-center gap-2 ${linkGiven ? '' : 'mt-2'}`}>
+                      {!linkGiven && <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0">or</span>}
+                      <div className="relative flex-1">
+                        <ExternalLink size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <input
+                          type="url" inputMode="url" value={moveLink}
+                          onChange={e => setMoveLink(e.target.value)}
+                          placeholder="Paste a link to the output (Google Drive, Dropbox, YouTube…)"
+                          className={`w-full text-sm pl-8 pr-3 py-2.5 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 border placeholder-slate-400 focus:outline-none focus:ring-2 ${
+                            linkGiven && !linkValid
+                              ? 'border-red-300 focus:ring-red-300'
+                              : 'border-slate-200 dark:border-slate-600 focus:ring-brand-400'
+                          }`}
+                        />
+                      </div>
+                      {linkGiven && (
+                        <button type="button" onClick={() => setMoveLink('')} className="text-slate-400 hover:text-red-500 text-xs font-semibold transition-colors shrink-0">Clear</button>
+                      )}
+                    </div>
+                    {linkGiven && !linkValid && (
+                      <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">Enter a full web address, e.g. drive.google.com/…</p>
+                    )}
+                  </>
                 )}
               </div>
             )}

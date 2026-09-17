@@ -2,8 +2,8 @@
 import {
   UserPlus, Shield, ShieldOff, ShieldAlert, Pencil, RotateCcw,
   X, Check, ChevronDown, Users, Lock, AlertTriangle,
-  User, KeyRound, Save, Settings2, Plug2,
-  Calendar, MessageSquare, HardDrive, Layers, RefreshCw,
+  User, KeyRound, Save, Settings2,
+
   CheckCircle2, XCircle, ExternalLink, Mail, Eye, EyeOff, Camera, Trash2,
   Search, Plus, UserCheck, Building2, ChevronUp, GripVertical, ToggleLeft, ToggleRight, FileSliders,
 } from 'lucide-react'
@@ -26,22 +26,10 @@ const DAP_SERVICES: ActivityType[] = [
 const ROLES: UserRole[] = ['Super Admin', 'Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']
 const DEFAULT_TEAMS: RequestingTeam[] = [...DEFAULT_REQUESTING_TEAMS]
 
-type SettingsTab = 'profile' | 'users' | 'team' | 'activity' | 'integrations' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments' | 'booking-form'
-
+type SettingsTab = 'profile' | 'users' | 'team' | 'activity' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments' | 'booking-form'
 
 const SUB_ROLES: DAPSubRole[] = [...DAP_MEMBER_ROLES]
 const DAP_TEAMS: DAPTeam[] = [...DAP_TEAM_LIST]
-
-interface Integration {
-  id: string
-  name: string
-  description: string
-  icon: React.ElementType
-  iconColor: string
-  connected: boolean
-  syncLabel?: string
-  configFields?: { label: string; placeholder: string; type?: string }[]
-}
 
 const statusMeta: Record<UserStatus, { label: string; className: string; icon: React.ElementType }> = {
   active:     { label: 'Active',     className: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-800',  icon: Check },
@@ -64,7 +52,6 @@ function initials(name: string) { return name.split(' ').map(w => w[0]).join('')
 interface EditForm { name: string; email: string; password: string; role: UserRole; team?: RequestingTeam }
 type ModalMode = 'add' | 'edit' | null
 type ConfirmAction = { type: 'terminate' | 'limit' | 'reinstate' | 'remove'; userId: string; userName: string } | null
-
 
 // ── Booking Form Configuration Tab ───────────────────────────────────────────
 
@@ -670,76 +657,6 @@ export function SettingsPage() {
     terminated: managedUsers.filter(u => u.status === 'terminated').length,
   }
 
-  const [integrations, setIntegrations] = useState<Integration[]>([
-    {
-      id: 'gcal',
-      name: 'Google Calendar',
-      description: 'Sync JO deadlines and production schedules to Google Calendar. Keeps your team updated automatically.',
-      icon: Calendar,
-      iconColor: 'text-brand-500',
-      connected: false,
-      syncLabel: 'Syncs: Deadlines, Launch Dates, Scheduled Events',
-      configFields: [{ label: 'Calendar ID', placeholder: 'your-calendar@gmail.com' }],
-    },
-    {
-      id: 'slack',
-      name: 'Slack',
-      description: 'Receive real-time notifications in Slack for status changes, new JOs, and deadline alerts.',
-      icon: MessageSquare,
-      iconColor: 'text-emerald-500',
-      connected: false,
-      syncLabel: 'Syncs: Status changes, New JOs, Overdue alerts',
-      configFields: [{ label: 'Webhook URL', placeholder: 'https://hooks.slack.com/...' }],
-    },
-    {
-      id: 'onedrive',
-      name: 'OneDrive / SharePoint',
-      description: 'Link production files and deliverables directly from SharePoint into Job Orders.',
-      icon: HardDrive,
-      iconColor: 'text-sky-500',
-      connected: false,
-      syncLabel: 'Syncs: File references, Deliverable uploads',
-      configFields: [
-        { label: 'Tenant ID', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
-        { label: 'Site URL', placeholder: 'https://company.sharepoint.com/sites/...' },
-      ],
-    },
-    {
-      id: 'adobe',
-      name: 'Adobe Creative Cloud',
-      description: 'Track Adobe project files linked to Job Orders. Opens files directly from the detail panel.',
-      icon: Layers,
-      iconColor: 'text-red-500',
-      connected: false,
-      syncLabel: 'Syncs: Project files, Asset references',
-      configFields: [{ label: 'Organization ID', placeholder: 'Your Adobe Org ID' }],
-    },
-    {
-      id: 'teams',
-      name: 'Microsoft Teams',
-      description: 'Post JO status updates and approval notifications directly to Teams channels.',
-      icon: Users,
-      iconColor: 'text-brand-500',
-      connected: false,
-      syncLabel: 'Syncs: Status changes, Approval requests',
-      configFields: [{ label: 'Webhook URL', placeholder: 'https://outlook.office.com/webhook/...' }],
-    },
-    {
-      id: 'gcalendar2',
-      name: 'iCal / Outlook Calendar',
-      description: 'Export production schedules as a subscribable .ics calendar feed for any calendar app.',
-      icon: RefreshCw,
-      iconColor: 'text-orange-500',
-      connected: false,
-      syncLabel: 'Syncs every 15 minutes',
-    },
-  ])
-  const [expandedIntegration, setExpandedIntegration] = useState<string | null>(null)
-
-  function toggleIntegration(id: string) {
-    setIntegrations(prev => prev.map(i => i.id === id ? { ...i, connected: !i.connected } : i))
-  }
-
   // RBAC: which role is being edited in the Permissions tab
   // Super Admins can also configure the Admin role; Super Admin itself is never editable
   const EDITABLE_ROLES: UserRole[] = currentUser?.role === 'Super Admin'
@@ -882,7 +799,6 @@ export function SettingsPage() {
     ...(can('settings', 'manage_team')         ? [{ id: 'dap-approvers' as SettingsTab, label: 'DAP Team Approvers', icon: Shield     }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'departments'   as SettingsTab, label: 'Departments',        icon: Building2    }] : []),
     ...(currentUser?.role === 'Admin' || currentUser?.role === 'Super Admin' ? [{ id: 'booking-form'  as SettingsTab, label: 'Booking Form',       icon: FileSliders  }] : []),
-    ...(can('settings', 'manage_integrations') ? [{ id: 'integrations' as SettingsTab, label: 'Integrations',    icon: Plug2        }] : []),
     ...(can('settings', 'manage_permissions')  ? [{ id: 'permissions'  as SettingsTab, label: 'Permissions',     icon: Shield       }] : []),
   ]
 
@@ -1737,116 +1653,6 @@ export function SettingsPage() {
           updateFormOption={updateFormOption}
           removeFormOption={removeFormOption}
         />
-      )}
-
-      {/* ── INTEGRATIONS ──────────────────────────────────────── */}
-      {activeTab === 'integrations' && (
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Integrations</h2>
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
-              Connect DAP Flow with your existing tools to sync schedules, files, and notifications.
-            </p>
-          </div>
-
-          <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-[13px] text-amber-800 dark:text-amber-300">
-            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-            <p><span className="font-semibold">Not yet available.</span> These integrations are planned but none are wired up in this version — switching one on here does not connect anything. Notifications currently go out by email only.</p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3">
-            {integrations.map(intg => {
-              const Icon = intg.icon
-              const expanded = expandedIntegration === intg.id
-              return (
-                <div key={intg.id} className="card overflow-hidden">
-                  <div className="px-5 py-4 flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 ${intg.iconColor}`}>
-                      <Icon size={20} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{intg.name}</p>
-                        {intg.connected ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-                            <CheckCircle2 size={9} /> Connected
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
-                            <XCircle size={9} /> Not connected
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{intg.syncLabel ?? intg.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {intg.configFields && (
-                        <button
-                          onClick={() => setExpandedIntegration(expanded ? null : intg.id)}
-                          className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                        >
-                          Configure
-                        </button>
-                      )}
-                      <button
-                        onClick={() => toggleIntegration(intg.id)}
-                        className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
-                          intg.connected ? 'bg-brand-600' : 'bg-slate-200 dark:bg-slate-600'
-                        }`}
-                      >
-                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                          intg.connected ? 'translate-x-6' : 'translate-x-1'
-                        }`} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Expand config */}
-                  {expanded && intg.configFields && (
-                    <div className="px-5 pb-5 border-t border-slate-50 dark:border-slate-700 pt-4 space-y-3 bg-slate-50/50 dark:bg-slate-700/20">
-                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{intg.description}</p>
-                      {intg.configFields.map(field => (
-                        <div key={field.label}>
-                          <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">{field.label}</label>
-                          <input
-                            type={field.type ?? 'text'}
-                            placeholder={field.placeholder}
-                            className="form-input text-xs"
-                          />
-                        </div>
-                      ))}
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={() => { toggleIntegration(intg.id); setExpandedIntegration(null) }}
-                          className="btn-primary text-xs px-4 py-2"
-                        >
-                          <CheckCircle2 size={13} /> Save & Connect
-                        </button>
-                        <button
-                          onClick={() => setExpandedIntegration(null)}
-                          className="text-xs px-4 py-2 font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <a
-                          href="#"
-                          onClick={e => e.preventDefault()}
-                          className="ml-auto flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 hover:underline font-semibold"
-                        >
-                          <ExternalLink size={11} /> View Docs
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
-            Integration configs are stored locally. Contact your IT admin to set up shared credentials.
-          </p>
-        </div>
       )}
 
       {/* ── PERMISSIONS ────────────────────────────────────────── */}

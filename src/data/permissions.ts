@@ -85,7 +85,6 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'manage_users',        label: 'Add / Edit / Terminate',     description: 'Full user management' },
       { key: 'manage_team',         label: 'Manage Team Members',        description: 'Add or edit DAP team resources' },
       { key: 'manage_permissions',  label: 'Manage Role Permissions',    description: 'Configure RBAC for all roles' },
-      { key: 'manage_integrations', label: 'Configure Integrations',     description: 'Connect external tools' },
     ],
   },
 ]

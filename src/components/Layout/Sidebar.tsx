@@ -40,7 +40,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   // Settings has no "view" action — gate it on any settings permission instead
   function canViewModule(module: string): boolean {
     if (module === 'settings') {
-      return can('settings', 'view_profile') || can('settings', 'view_users') || can('settings', 'manage_users') || can('settings', 'manage_team') || can('settings', 'manage_permissions') || can('settings', 'manage_integrations')
+      return can('settings', 'view_profile') || can('settings', 'view_users') || can('settings', 'manage_users') || can('settings', 'manage_team') || can('settings', 'manage_permissions')
     }
     return canView(module)
   }

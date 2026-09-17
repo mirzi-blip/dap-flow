@@ -984,7 +984,6 @@ export function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {teamPeople.map(p => {
               const activeRoles = p.roles.filter(r => r.active)
-              const removedRoles = p.roles.filter(r => !r.active)
               const isEditing = editingMember != null && p.ids.includes(editingMember.id)
               const isAddingRole = addingRoleFor === p.key
               return (
@@ -1056,19 +1055,6 @@ export function SettingsPage() {
                               )}
                             </div>
                           ))}
-                          {removedRoles.map(role => (
-                            <div key={role.id} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 border border-dashed border-slate-200 dark:border-slate-700">
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0" />
-                              <span className="text-xs text-slate-400 dark:text-slate-500 line-through truncate flex-1">{role.role}</span>
-                              <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400 shrink-0">removed</span>
-                              {can('settings', 'manage_team') && (
-                                <button onClick={() => reactivateResource(role.id)} className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline shrink-0">
-                                  Restore
-                                </button>
-                              )}
-                            </div>
-                          ))}
-
                           {/* Add another role to this person */}
                           {can('settings', 'manage_team') && (isAddingRole ? (
                             <div className="flex items-center gap-1.5 pt-1">

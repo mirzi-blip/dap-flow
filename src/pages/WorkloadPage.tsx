@@ -297,12 +297,14 @@ export function WorkloadPage() {
                           {r.roles.map(role => {
                             const rl = memberLoad(jobOrders, role.id)
                             const rw = memberWeekLoad(jobOrders, role.id)
+                            // A removed role is listed only while it still carries hours,
+                            // so the breakdown keeps adding up to the overall.
+                            if (!role.active && rl.hours === 0 && rw.total === 0) return null
                             return (
                               <div key={role.id} className="flex items-center gap-3 px-3 py-2 bg-slate-50/60 dark:bg-slate-900/30">
                                 <div className="min-w-0 flex-1">
                                   <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-200 truncate">
                                     {role.role}
-                                    {!role.active && <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wide text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">removed</span>}
                                   </p>
                                   <p className="text-[10px] text-slate-400 dark:text-slate-500">{role.team}</p>
                                 </div>

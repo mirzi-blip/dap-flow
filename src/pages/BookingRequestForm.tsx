@@ -1437,9 +1437,15 @@ export function BookingRequestForm() {
   useEffect(() => {
     async function loadData() {
       try {
-        const { data } = await supabase.from('booking_departments').select('name').order('created_at', { ascending: true })
+        const { data } = await supabase.from('booking_departments').select('*').order('created_at', { ascending: true })
         if (data && data.length > 0) {
-          setDepartments([...(data as { name: string }[]).map(d => d.name), 'Other'])
+          // Only active departments are offered; the defaults are always kept
+          // available so adding a custom one never hides them.
+          const rows = data as { name: string; is_active?: boolean }[]
+          const names = rows.filter(d => d.is_active !== false).map(d => d.name)
+          const inactive = new Set(rows.filter(d => d.is_active === false).map(d => d.name.toLowerCase()))
+          const merged = [...DEFAULT_DEPTS.filter(d => !inactive.has(d.toLowerCase()) && !names.some(x => x.toLowerCase() === d.toLowerCase())), ...names]
+          setDepartments([...merged, 'Other'])
         } else {
           setDepartments([...DEFAULT_DEPTS, 'Other'])
         }

@@ -24,7 +24,13 @@ interface Props {
  * chip selects that role's resource id — the job order data model is unchanged.
  */
 export function MemberRolePicker({ resources, jobOrders, selectedIds, onToggle, showLoad = false, compact = false }: Props) {
-  const people = useMemo(() => groupByPerson(resources), [resources])
+  // Removed roles stay in the data for history but are not offered here.
+  const people = useMemo(
+    () => groupByPerson(resources)
+      .map(p => ({ ...p, roles: p.roles.filter(r => r.active) }))
+      .filter(p => p.roles.length > 0),
+    [resources]
+  )
 
   return (
     <div className={`space-y-1.5 ${compact ? '' : ''}`}>

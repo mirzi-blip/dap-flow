@@ -25,7 +25,9 @@ export function WorkloadPage() {
   // Every view on this page is per person: one card per Team Member however
   // many roles they hold, with their roles listed and broken down underneath.
   // Work is still assigned to a role, so each role keeps its own bucket.
-  const people = useMemo(() => groupByPerson(resources), [resources])
+  // People still holding at least one role. Removed roles stay in the data
+  // (history and any open work still count) but are marked in the breakdown.
+  const people = useMemo(() => groupByPerson(resources).filter(p => p.active), [resources])
 
   // People offered in the picker / shown in the grid: anyone with a role in
   // the selected team.
@@ -224,7 +226,7 @@ export function WorkloadPage() {
                     <div>
                       <p className="font-bold text-slate-900 dark:text-slate-100">{r.name}</p>
                       <p className="text-xs text-slate-400 dark:text-slate-500">
-                        {r.roles.map(x => x.role).join(' • ')} · {r.teams.join(' • ')} Team
+                        {r.roles.filter(x => x.active).map(x => x.role).join(' • ')} · {r.teams.join(' • ')} Team
                       </p>
                     </div>
                     <div className="text-right">
@@ -298,7 +300,10 @@ export function WorkloadPage() {
                             return (
                               <div key={role.id} className="flex items-center gap-3 px-3 py-2 bg-slate-50/60 dark:bg-slate-900/30">
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-200 truncate">{role.role}</p>
+                                  <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-200 truncate">
+                                    {role.role}
+                                    {!role.active && <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wide text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">removed</span>}
+                                  </p>
                                   <p className="text-[10px] text-slate-400 dark:text-slate-500">{role.team}</p>
                                 </div>
                                 <div className="w-24 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden shrink-0">
@@ -328,8 +333,6 @@ export function WorkloadPage() {
                     <span className="font-semibold text-slate-700 dark:text-slate-300">{stats.active.length}</span> active JOs
                     <span>·</span>
                     <span className="font-semibold text-emerald-600 dark:text-emerald-400">{stats.completed}</span> completed
-                    <span>·</span>
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">{Math.max(...r.roles.map(x => x.maxWeeklyHours))}h</span>/week max
                   </div>
 
                   {stats.active.length > 0 && (

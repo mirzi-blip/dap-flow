@@ -214,7 +214,7 @@ export function ReportsPage() {
   // ── Individual Resource Load — uses globalFilteredJOs ──
   const resourceData = useMemo(() => {
     // One row per person; overall load combines every role they hold.
-    return groupByPerson(resources).map((p) => {
+    return groupByPerson(resources).filter(p => p.active).map((p) => {
       // Load Ratio = (total assigned work hours ÷ load capacity) × 100
       const { hours, pct: util, status } = memberLoad(globalFilteredJOs, p.ids)
       return { name: p.initials, fullName: p.name, role: p.roles.map(r => r.role).join(' • '), util, hours, status, color: p.color, team: p.teams.join(' • ') }

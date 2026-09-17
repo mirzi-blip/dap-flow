@@ -129,7 +129,7 @@ export function DashboardPage() {
   const teamWorkload = useMemo(() => {
     const teams = orderedTeams(resources)
     return teams.map(team => {
-      const members = groupByPerson(resources).filter(p => p.teams.includes(team))
+      const members = groupByPerson(resources).filter(p => p.active && p.teams.includes(team))
       const totalActive = filteredJOs.filter(j =>
         !['Completed','Cancelled','Delayed'].includes(j.status) &&
         members.some(m => m.ids.some(id => j.assignedMemberIds.includes(id)))
@@ -145,7 +145,7 @@ export function DashboardPage() {
   // Individual resource load — one entry per person, combining every role they
   // hold; a job order assigned under two of their roles counts once.
   const resourceLoadData = useMemo(() => {
-    return groupByPerson(resources).map(p => {
+    return groupByPerson(resources).filter(p => p.active).map(p => {
       const activeJOs = filteredJOs.filter(jo =>
         isLoadBearing(jo.status) && p.ids.some(id => jo.assignedMemberIds.includes(id))
       )
@@ -164,7 +164,7 @@ export function DashboardPage() {
     const teams = orderedTeams(resources)
     return teams.map(team => {
       // Distinct people with a role in this team, each counted once at their overall load.
-      const members = groupByPerson(resources).filter(p => p.teams.includes(team))
+      const members = groupByPerson(resources).filter(p => p.active && p.teams.includes(team))
       const usedHrs = members.reduce((sum, p) => sum + memberLoad(filteredJOs, p.ids).hours, 0)
       const totalCapacity = members.length * WEEKLY_CAPACITY_HRS
       const pct = totalCapacity > 0 ? Math.round((usedHrs / totalCapacity) * 100) : 0
@@ -173,7 +173,7 @@ export function DashboardPage() {
   }, [filteredJOs, resources])
 
   // Total team capacity = headcount × per-person weekly capacity
-  const teamTotalCapacity = groupByPerson(resources).length * WEEKLY_CAPACITY_HRS
+  const teamTotalCapacity = groupByPerson(resources).filter(p => p.active).length * WEEKLY_CAPACITY_HRS
 
   const totalUsedHrs = resourceLoadData.reduce((s, r) => s + r.estimatedHrs, 0)
   const overloadedResources = resourceLoadData.filter(r => r.status === 'Peak')

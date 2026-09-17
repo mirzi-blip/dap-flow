@@ -49,6 +49,9 @@ interface AppState {
   updateResource: (r: Resource) => void
   addResource: (r: Resource) => void
   removeResource: (id: string) => void
+  /** Remove one role from a member without touching history: the row is kept, marked inactive. */
+  deactivateResource: (id: string) => void
+  reactivateResource: (id: string) => void
   requestAlert: BookingRequest | null
   setRequestAlert: (req: BookingRequest | null) => void
 
@@ -243,6 +246,16 @@ export const useAppStore = create<AppState>()(
         set(s => ({ resources: [...s.resources, r] }))
         supabase.from('resources').insert(resourceToRow(r)).then(({ error }) => { if (error) console.error('Resource sync error:', error) })
       },
+      deactivateResource(id) {
+        set(s => ({ resources: s.resources.map(r => r.id === id ? { ...r, active: false } : r) }))
+        const r = get().resources.find(x => x.id === id)
+        if (r) supabase.from('resources').update(resourceToRow(r)).eq('id', id).then(({ error }) => { if (error) console.error('Resource sync error:', error) })
+      },
+      reactivateResource(id) {
+        set(s => ({ resources: s.resources.map(r => r.id === id ? { ...r, active: true } : r) }))
+        const r = get().resources.find(x => x.id === id)
+        if (r) supabase.from('resources').update(resourceToRow(r)).eq('id', id).then(({ error }) => { if (error) console.error('Resource sync error:', error) })
+      },
       removeResource(id: string) {
         set(s => ({ resources: s.resources.filter(r => r.id !== id) }))
         supabase.from('resources').delete().eq('id', id).then(({ error }) => { if (error) console.error('Resource delete error:', error) })
@@ -296,9 +309,17 @@ export const useAppStore = create<AppState>()(
       async initDepartments() {
         try {
           const { data, error } = await supabase.from('booking_departments').select('*').order('created_at', { ascending: true })
-          if (!error && data && data.length > 0) {
-            set({ departments: data.map(rowToDepartment) })
+          if (error || !data) return
+          const fromDb = data.map(rowToDepartment)
+          // The six defaults live in code but the request form reads the table,
+          // so the moment one custom department was added the defaults vanished
+          // from the form. Seed any missing default into the table once, so the
+          // table is the single source of truth for every reader.
+          const missing = DEFAULT_DEPARTMENTS.filter(d => !fromDb.some(x => x.id === d.id || x.name.toLowerCase() === d.name.toLowerCase()))
+          if (missing.length) {
+            await supabase.from('booking_departments').insert(missing.map(departmentToRow))
           }
+          set({ departments: [...fromDb, ...missing] })
         } catch { /* offline — keep local */ }
       },
 

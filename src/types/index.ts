@@ -163,6 +163,10 @@ export interface Resource {
   initials: string
   color: string
   maxWeeklyHours: number
+  /** false = this role was removed from the member. The row is kept so job
+   *  orders and logged hours that reference it stay intact; it is simply no
+   *  longer offered for new assignments. Undefined means active. */
+  active?: boolean
 }
 
 export interface AppUser {
@@ -320,7 +324,9 @@ export interface JOReview {
 export interface BookingDepartment {
   id: string
   name: string
-  isDefault: boolean         // default depts can't be deleted
+  isDefault: boolean         // default depts can't be deleted (they can be deactivated)
+  /** false = hidden from the request form. Undefined means active. */
+  isActive?: boolean
   createdAt: string
 }
 

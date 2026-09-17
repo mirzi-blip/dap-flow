@@ -80,16 +80,22 @@ export function rowToJobOrder(row: Record<string, unknown>): JobOrder {
 let hasEstimatedHoursColumn = false
 let hasWorkSegmentsColumn = false
 let hasRevisionCountColumn = false
+let hasResourceActiveColumn = false
+let hasDeptActiveColumn = false
 
 export async function probeEstimatedHoursColumn(): Promise<void> {
-  const [est, seg, rev] = await Promise.all([
+  const [est, seg, rev, ract, dact] = await Promise.all([
     supabase.from('job_orders').select('estimated_hours').limit(1),
     supabase.from('job_orders').select('work_segments').limit(1),
     supabase.from('job_orders').select('revision_count').limit(1),
+    supabase.from('resources').select('is_active').limit(1),
+    supabase.from('booking_departments').select('is_active').limit(1),
   ])
   hasEstimatedHoursColumn = !est.error
   hasWorkSegmentsColumn = !seg.error
   hasRevisionCountColumn = !rev.error
+  hasResourceActiveColumn = !ract.error
+  hasDeptActiveColumn = !dact.error
 }
 
 /** True once the work_segments column exists — actual-hours capture needs it. */
@@ -214,6 +220,7 @@ export function rowToDepartment(row: Record<string, unknown>): BookingDepartment
     id: row.id as string,
     name: row.name as string,
     isDefault: (row.is_default as boolean) ?? false,
+    isActive: row.is_active === false ? false : true,
     createdAt: (row.created_at as string) || new Date().toISOString(),
   }
 }
@@ -223,6 +230,7 @@ export function departmentToRow(d: BookingDepartment) {
     id: d.id,
     name: d.name,
     is_default: d.isDefault,
+    ...(hasDeptActiveColumn ? { is_active: d.isActive !== false } : {}),
     created_at: d.createdAt,
   }
 }
@@ -422,6 +430,7 @@ export function rowToResource(row: Record<string, unknown>): Resource {
     initials: (row.initials as string) || '',
     color: (row.color as string) || 'bg-brand-500',
     maxWeeklyHours: (row.max_weekly_hours as number) || 40,
+    active: row.is_active === false ? false : true,
   }
 }
 
@@ -435,6 +444,7 @@ export function resourceToRow(r: Resource) {
     initials: r.initials,
     color: r.color,
     max_weekly_hours: r.maxWeeklyHours ?? 40,
+    ...(hasResourceActiveColumn ? { is_active: r.active !== false } : {}),
   }
 }
 

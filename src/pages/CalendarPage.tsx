@@ -244,7 +244,7 @@ export function CalendarPage() {
               className="text-xs font-semibold bg-transparent text-brand-700 dark:text-brand-300 border-none outline-none cursor-pointer"
             >
               <option value="">All Members</option>
-              {groupByPerson(resources).map((p) => (
+              {groupByPerson(resources).filter(p => p.active).map((p) => (
                 <option key={p.key} value={p.key}>{p.name}</option>
               ))}
             </select>

@@ -2,12 +2,13 @@
 import {
   UserPlus, Shield, ShieldOff, ShieldAlert, Pencil, RotateCcw,
   X, Check, ChevronDown, Users, Lock, AlertTriangle,
-  User, KeyRound, Save, Settings2, Sliders, Plug2,
+  User, KeyRound, Save, Settings2, Plug2,
   Calendar, MessageSquare, HardDrive, Layers, RefreshCw,
   CheckCircle2, XCircle, ExternalLink, Mail, Eye, EyeOff, Camera, Trash2,
   Search, Plus, UserCheck, Building2, ChevronUp, GripVertical, ToggleLeft, ToggleRight, FileSliders,
 } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore, useDataStore } from '../store/useAppStore'
+import { groupByPerson, isLoadBearing, type Person, type PersonRole } from '../utils/helpers'
 import { uploadAvatar } from '../lib/supabase'
 import { PERMISSION_MODULES, DEFAULT_PERMISSIONS, ALL_PERMISSIONS, perm } from '../data/permissions'
 import { usePermissions } from '../hooks/usePermissions'
@@ -23,7 +24,7 @@ const DAP_SERVICES: ActivityType[] = [
 const ROLES: UserRole[] = ['Super Admin', 'Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']
 const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
 
-type SettingsTab = 'profile' | 'users' | 'team' | 'capacity' | 'activity' | 'integrations' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments' | 'booking-form'
+type SettingsTab = 'profile' | 'users' | 'team' | 'activity' | 'integrations' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments' | 'booking-form'
 
 
 const SUB_ROLES: DAPSubRole[] = [...DAP_MEMBER_ROLES]
@@ -61,14 +62,6 @@ function initials(name: string) { return name.split(' ').map(w => w[0]).join('')
 interface EditForm { name: string; email: string; password: string; role: UserRole; team?: RequestingTeam }
 type ModalMode = 'add' | 'edit' | null
 type ConfirmAction = { type: 'terminate' | 'limit' | 'reinstate' | 'remove'; userId: string; userName: string } | null
-
-// Default capacity limits per team
-const DEFAULT_CAPACITY = [
-  { team: 'Photo Team',  limit: 40, current: 80 },
-  { team: 'Video Team',  limit: 40, current: 95 },
-  { team: 'Audio Team',  limit: 40, current: 50 },
-  { team: 'Design Team', limit: 40, current: 60 },
-]
 
 const ACTIVITY_TYPES = [
   { name: 'Photo Shoot',           color: '#3B82F6', icon: '📷' },
@@ -430,7 +423,8 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
 }
 
 export function SettingsPage() {
-  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, removeManagedUser, resources, updateResource, addResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, deactivateApprover, reactivateApprover, initApprovers, departments, addDepartment, removeDepartment, formOptions, addFormOption, updateFormOption, removeFormOption } = useAppStore()
+  const { jobOrders } = useDataStore()
+  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, removeManagedUser, resources, updateResource, addResource, deactivateResource, reactivateResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, deactivateApprover, reactivateApprover, initApprovers, departments, addDepartment, updateDepartment, removeDepartment, formOptions, addFormOption, updateFormOption, removeFormOption } = useAppStore()
   const { can } = usePermissions()
 
   const EMOJI_OPTIONS = [
@@ -527,10 +521,55 @@ export function SettingsPage() {
 
   const MEMBER_COLORS = ['bg-brand-500','bg-cyan-500','bg-purple-500','bg-red-500','bg-emerald-500','bg-teal-500','bg-amber-500','bg-pink-500','bg-brand-500','bg-orange-500']
 
-  function openEditMember(r: Resource) {
+  // One card per person; each role they hold is a row underneath (its own
+  // assignment bucket). Removed roles are kept for history and shown struck.
+  const teamPeople = groupByPerson(resources)
+  const [addingRoleFor, setAddingRoleFor] = useState<string | null>(null)
+  const [newRole, setNewRole] = useState<{ role: string; team: string }>({ role: SUB_ROLES[0], team: DAP_TEAMS[0] })
+  const [roleAddError, setRoleAddError] = useState<string | null>(null)
+  const [roleRemoveConfirm, setRoleRemoveConfirm] = useState<{ person: Person; role: PersonRole } | null>(null)
+
+  function openEditPerson(p: Person) {
     setAddingMember(false)
-    setEditingMember(r)
-    setMemberForm({ name: r.name, email: r.email, role: r.role, team: r.team })
+    const first = resources.find(r => r.id === p.ids[0])
+    if (!first) return
+    setEditingMember(first)
+    setMemberForm({ name: p.name, email: p.email, role: first.role, team: first.team })
+  }
+
+  // Name/email edits apply to every role row the person holds.
+  function savePerson() {
+    if (!editingMember || !memberForm.name.trim() || !memberForm.email.trim()) return
+    const person = teamPeople.find(p => p.ids.includes(editingMember.id))
+    if (!person) return
+    const inits = memberForm.name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    for (const id of person.ids) {
+      const r = resources.find(x => x.id === id)
+      if (r) updateResource({ ...r, name: memberForm.name.trim(), email: memberForm.email.trim(), initials: inits })
+    }
+    setMemberSaved(person.key)
+    setEditingMember(null)
+    setTimeout(() => setMemberSaved(''), 2000)
+  }
+
+  function addRoleTo(p: Person) {
+    const dup = p.roles.find(r => r.role === newRole.role && r.team === newRole.team)
+    if (dup) {
+      if (!dup.active) { reactivateResource(dup.id); setAddingRoleFor(null); return }
+      setRoleAddError(p.key); setTimeout(() => setRoleAddError(null), 2500); return
+    }
+    addResource({ id: `r${Date.now()}`, name: p.name, email: p.email, role: newRole.role, team: newRole.team, initials: p.initials, color: p.color, maxWeeklyHours: 40 })
+    setAddingRoleFor(null)
+  }
+
+  // How a role is used before it is removed: the warning names real numbers,
+  // and nothing about those records changes — the role is only withdrawn
+  // from future assignment.
+  function roleUsage(roleId: string) {
+    const all = jobOrders.filter(j => j.assignedMemberIds.includes(roleId))
+    const open = all.filter(j => isLoadBearing(j.status))
+    const logged = jobOrders.reduce((n, j) => n + (j.workSegments ?? []).filter(sg => sg.memberId === roleId).length, 0)
+    return { total: all.length, open: open.length, logged }
   }
 
   function openAddMember() {
@@ -783,18 +822,36 @@ export function SettingsPage() {
   const [deptError, setDeptError] = useState('')
   const [deptSaved, setDeptSaved] = useState('')
   const [deptDeleteConfirm, setDeptDeleteConfirm] = useState<BookingDepartment | null>(null)
+  // The add/edit modal: null = closed, undefined target = adding, otherwise editing that department.
+  const [deptModal, setDeptModal] = useState<{ target: BookingDepartment | null } | null>(null)
 
-  function handleAddDepartment() {
-    const name = deptInput.trim()
-    if (!name) { setDeptError('Department name is required'); return }
-    if (departments.find(d => d.name.toLowerCase() === name.toLowerCase())) {
-      setDeptError('This department already exists')
-      return
-    }
-    addDepartment({ id: `dept_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name, isDefault: false, createdAt: new Date().toISOString() })
-    setDeptInput('')
+  function openDeptModal(target: BookingDepartment | null) {
+    setDeptInput(target?.name ?? '')
     setDeptError('')
-    setDeptSaved(name)
+    setDeptModal({ target })
+  }
+
+  function saveDepartment() {
+    const name = deptInput.trim()
+    if (!name) { setDeptError('Department name is required.'); return }
+    const clash = departments.find(d => d.name.toLowerCase() === name.toLowerCase() && d.id !== deptModal?.target?.id)
+    if (clash) { setDeptError(`"${clash.name}" already exists.`); return }
+    if (deptModal?.target) {
+      updateDepartment({ ...deptModal.target, name })
+      setDeptSaved(`"${name}" updated.`)
+    } else {
+      addDepartment({ id: `dept_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name, isDefault: false, isActive: true, createdAt: new Date().toISOString() })
+      setDeptSaved(`"${name}" added. It is now available on the request form.`)
+    }
+    setDeptModal(null)
+    setDeptInput('')
+    setTimeout(() => setDeptSaved(''), 3000)
+  }
+
+  function toggleDepartment(d: BookingDepartment) {
+    const next = d.isActive === false
+    updateDepartment({ ...d, isActive: next })
+    setDeptSaved(`"${d.name}" ${next ? 'activated' : 'deactivated'}.`)
     setTimeout(() => setDeptSaved(''), 2500)
   }
 
@@ -826,7 +883,6 @@ export function SettingsPage() {
     ...(can('settings', 'view_profile')        ? [{ id: 'profile'      as SettingsTab, label: 'My Profile',     icon: User       }] : []),
     ...(can('settings', 'view_users')          ? [{ id: 'users'        as SettingsTab, label: 'User Management', icon: Users      }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'team'         as SettingsTab, label: 'Team Members',    icon: Mail       }] : []),
-    ...(can('settings', 'manage_team')         ? [{ id: 'capacity'     as SettingsTab, label: 'Capacity',        icon: Sliders    }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'activity'     as SettingsTab, label: 'Activity Types',  icon: Settings2  }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'approvers'      as SettingsTab, label: 'Approvers',          icon: UserCheck  }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'dap-approvers' as SettingsTab, label: 'DAP Team Approvers', icon: Shield     }] : []),
@@ -926,68 +982,119 @@ export function SettingsPage() {
             </div>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {resources.map(r => (
-              <div key={r.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
-                {editingMember?.id === r.id ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`w-9 h-9 rounded-full ${editingMember?.color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>{memberForm.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) || editingMember?.initials}</span>
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Editing</p>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Full Name</label>
-                      <input className="form-input text-sm" value={memberForm.name} onChange={e => setMemberForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Email</label>
-                      <input type="email" className="form-input text-sm" value={memberForm.email} onChange={e => setMemberForm(f => ({ ...f, email: e.target.value }))} placeholder="member@company.com" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Role</label>
-                        <select className="form-input text-sm" value={memberForm.role} onChange={e => setMemberForm(f => ({ ...f, role: e.target.value as DAPSubRole }))}>
-                          {SUB_ROLES.map(role => <option key={role}>{role}</option>)}
-                        </select>
+            {teamPeople.map(p => {
+              const activeRoles = p.roles.filter(r => r.active)
+              const removedRoles = p.roles.filter(r => !r.active)
+              const isEditing = editingMember != null && p.ids.includes(editingMember.id)
+              const isAddingRole = addingRoleFor === p.key
+              return (
+                <div key={p.key} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`w-9 h-9 rounded-full ${p.color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>{memberForm.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) || p.initials}</span>
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Editing member</p>
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Team</label>
-                        <select className="form-input text-sm" value={memberForm.team} onChange={e => setMemberForm(f => ({ ...f, team: e.target.value as DAPTeam }))}>
-                          {DAP_TEAMS.map(t => <option key={t}>{t}</option>)}
-                        </select>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Full Name</label>
+                        <input className="form-input text-sm" value={memberForm.name} onChange={e => setMemberForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Email</label>
+                        <input type="email" className="form-input text-sm" value={memberForm.email} onChange={e => setMemberForm(f => ({ ...f, email: e.target.value }))} placeholder="member@company.com" />
+                      </div>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">Name and email apply to every role this member holds. Roles are managed below.</p>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={savePerson} className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-colors">
+                          <Check size={12} /> Save
+                        </button>
+                        <button onClick={() => setEditingMember(null)} className="px-3 py-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 text-xs font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                          Cancel
+                        </button>
                       </div>
                     </div>
-                    <div className="flex gap-2 pt-1">
-                      <button onClick={saveMember} className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-colors">
-                        <Check size={12} /> Save
-                      </button>
-                      <button onClick={() => setEditingMember(null)} className="px-3 py-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 text-xs font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-start gap-3">
-                    <span className={`w-10 h-10 rounded-full ${r.color} flex items-center justify-center text-white text-sm font-bold shrink-0`}>{r.initials}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{r.name}</p>
-                        {memberSaved === r.id && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5"><Check size={10} /> Saved</span>}
-                        {can('settings', 'manage_team') && (
-                          <button onClick={() => openEditMember(r)} className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 px-2 py-1 rounded-lg transition-colors shrink-0">
-                            <Pencil size={11} /> Edit
-                          </button>
-                        )}
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <span className={`w-10 h-10 rounded-full ${p.color} flex items-center justify-center text-white text-sm font-bold shrink-0`}>{p.initials}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{p.name}</p>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {memberSaved === p.key && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5"><Check size={10} /> Saved</span>}
+                            {can('settings', 'manage_team') && (
+                              <button onClick={() => openEditPerson(p)} className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 px-2 py-1 rounded-lg transition-colors">
+                                <Pencil size={11} /> Edit
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Mail size={11} className="text-slate-400 shrink-0" />
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{p.email || <span className="italic text-amber-500">No email set</span>}</p>
+                        </div>
+
+                        {/* Roles — each is its own workload bucket for assignment */}
+                        <div className="mt-2.5 space-y-1">
+                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
+                            {activeRoles.length} role{activeRoles.length !== 1 ? 's' : ''}
+                          </p>
+                          {activeRoles.map(role => (
+                            <div key={role.id} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700/40 rounded-lg px-2.5 py-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-brand-500 shrink-0" />
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate flex-1">{role.role}</span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0">{role.team}</span>
+                              {can('settings', 'manage_team') && (
+                                <button
+                                  onClick={() => setRoleRemoveConfirm({ person: p, role })}
+                                  disabled={activeRoles.length <= 1}
+                                  title={activeRoles.length <= 1 ? 'This is the member\'s only role. Remove the member instead.' : `Remove the ${role.role} role from ${p.name}`}
+                                  className="text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-slate-300 transition-colors shrink-0"
+                                  aria-label={`Remove ${role.role} role`}
+                                >
+                                  <X size={13} />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          {removedRoles.map(role => (
+                            <div key={role.id} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 border border-dashed border-slate-200 dark:border-slate-700">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0" />
+                              <span className="text-xs text-slate-400 dark:text-slate-500 line-through truncate flex-1">{role.role}</span>
+                              <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400 shrink-0">removed</span>
+                              {can('settings', 'manage_team') && (
+                                <button onClick={() => reactivateResource(role.id)} className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline shrink-0">
+                                  Restore
+                                </button>
+                              )}
+                            </div>
+                          ))}
+
+                          {/* Add another role to this person */}
+                          {can('settings', 'manage_team') && (isAddingRole ? (
+                            <div className="flex items-center gap-1.5 pt-1">
+                              <select className="form-input text-xs py-1.5 flex-1" value={newRole.role} onChange={e => setNewRole(f => ({ ...f, role: e.target.value }))}>
+                                {SUB_ROLES.map(r => <option key={r}>{r}</option>)}
+                              </select>
+                              <select className="form-input text-xs py-1.5 flex-1" value={newRole.team} onChange={e => setNewRole(f => ({ ...f, team: e.target.value }))}>
+                                {DAP_TEAMS.map(t => <option key={t}>{t}</option>)}
+                              </select>
+                              <button onClick={() => addRoleTo(p)} className="px-2.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg transition-colors shrink-0">Add</button>
+                              <button onClick={() => setAddingRoleFor(null)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg shrink-0" aria-label="Cancel"><X size={13} /></button>
+                            </div>
+                          ) : (
+                            <button onClick={() => { setAddingRoleFor(p.key); setNewRole({ role: SUB_ROLES[0], team: p.teams[0] ?? DAP_TEAMS[0] }) }}
+                              className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline pt-0.5">
+                              <Plus size={11} /> Add role
+                            </button>
+                          ))}
+                          {roleAddError === p.key && <p className="text-[11px] text-red-500">That role in that team is already on this member.</p>}
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{r.role} · {r.team} Team</p>
-                      <div className="flex items-center gap-1 mt-1">
-                        <Mail size={11} className="text-slate-400 shrink-0" />
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{r.email || <span className="italic text-amber-500">No email set</span>}</p>
-                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -1238,46 +1345,6 @@ export function SettingsPage() {
       )}
 
       {/* ── CAPACITY LIMITS ────────────────────────────────────── */}
-      {activeTab === 'capacity' && (
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Capacity Limits</h2>
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">Set max weekly hours per team. Alerts trigger when utilization exceeds 90%.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {DEFAULT_CAPACITY.map(t => (
-              <div key={t.team} className="card p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">{t.team}</p>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${t.current > 90 ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400'}`}>
-                    {t.current}% utilized
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 w-28 shrink-0">Max hours/week</p>
-                  <input
-                    type="number"
-                    defaultValue={t.limit}
-                    min={10} max={60}
-                    className="form-input w-24 text-center font-bold"
-                  />
-                  <p className="text-xs text-slate-400 dark:text-slate-500">hrs</p>
-                </div>
-                <div className="mt-3 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all" style={{
-                    width: `${t.current}%`,
-                    background: t.current > 90 ? '#EF4444' : 'linear-gradient(90deg, #3C4C9C, #8B9FE8)',
-                  }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          <button className="btn-primary text-xs px-4 py-2.5">
-            <Save size={13} /> Save Capacity Settings
-          </button>
-        </div>
-      )}
-
       {/* ── ACTIVITY TYPES ─────────────────────────────────────── */}
       {activeTab === 'activity' && (
         <div className="space-y-4">
@@ -1563,69 +1630,89 @@ export function SettingsPage() {
       {/* ── DEPARTMENTS ───────────────────────────────────────── */}
       {activeTab === 'departments' && (
         <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Department Management</h2>
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">Manage the departments available in the booking request form. Default departments cannot be deleted.</p>
-          </div>
-
-          {/* Add new department */}
-          <div className="card p-4">
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Add Department</p>
-            <div className="flex gap-2">
-              <input
-                value={deptInput}
-                onChange={e => { setDeptInput(e.target.value); setDeptError('') }}
-                placeholder="e.g. Marketing, Finance, Operations…"
-                className="form-input flex-1 text-sm"
-                onKeyDown={e => e.key === 'Enter' && handleAddDepartment()}
-              />
-              <button
-                onClick={handleAddDepartment}
-                disabled={!deptInput.trim()}
-                className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 text-white text-xs font-semibold rounded-xl transition-colors shrink-0"
-              >
-                <Plus size={13} /> Add
-              </button>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Departments</h2>
+              <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">The departments offered on the booking request form. Deactivate one to hide it from requestors without losing its history.</p>
             </div>
-            {deptError && <p className="mt-2 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={11} /> {deptError}</p>}
-            {deptSaved && (
-              <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                <Check size={12} /> "{deptSaved}" added successfully.
-              </p>
+            {can('settings', 'manage_team') && (
+              <button
+                type="button"
+                onClick={() => openDeptModal(null)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold rounded-xl transition-colors shadow-sm shrink-0"
+              >
+                <Plus size={13} /> Add Department
+              </button>
             )}
           </div>
 
-          {/* Department list */}
+          {deptSaved && (
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">
+              <Check size={13} /> {deptSaved}
+            </div>
+          )}
+
           <div className="card overflow-hidden">
             <div className="px-5 py-3.5 border-b border-slate-50 dark:border-slate-700 flex items-center gap-2">
               <Building2 size={14} className="text-slate-400" />
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{departments.length} department{departments.length !== 1 ? 's' : ''}</p>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                {departments.length} department{departments.length !== 1 ? 's' : ''} · {departments.filter(d => d.isActive !== false).length} active
+              </p>
             </div>
-            <div className="divide-y divide-slate-50 dark:divide-slate-700">
-              {departments.map(d => (
-                <div key={d.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${d.isDefault ? 'bg-brand-400' : 'bg-slate-300 dark:bg-slate-600'}`} />
-                  <p className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
-                  {d.isDefault ? (
-                    <span className="text-[10px] font-bold bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 px-2 py-0.5 rounded-full shrink-0">
-                      Default
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => setDeptDeleteConfirm(d)}
-                      title="Remove department"
-                      className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors shrink-0"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 border-b border-slate-50 dark:border-slate-700">
+                    <th className="text-left px-5 py-2.5">Department</th>
+                    <th className="text-left px-3 py-2.5">Status</th>
+                    <th className="text-right px-5 py-2.5">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
+                  {departments.map(d => {
+                    const active = d.isActive !== false
+                    return (
+                      <tr key={d.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors ${active ? '' : 'opacity-60'}`}>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${d.isDefault ? 'bg-brand-400' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                            <span className={`font-semibold text-slate-800 dark:text-slate-200 ${active ? '' : 'line-through'}`}>{d.name}</span>
+                            {d.isDefault && <span className="text-[10px] font-bold bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 px-2 py-0.5 rounded-full shrink-0">Default</span>}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full ${active ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                            {active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          {can('settings', 'manage_team') && (
+                            <div className="flex items-center justify-end gap-1">
+                              <button type="button" onClick={() => openDeptModal(d)} className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 px-2 py-1 rounded-lg transition-colors">
+                                <Pencil size={11} /> Edit
+                              </button>
+                              <button type="button" onClick={() => toggleDepartment(d)} className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors ${active ? 'text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'}`}>
+                                {active ? <><ToggleRight size={13} /> Deactivate</> : <><ToggleLeft size={13} /> Activate</>}
+                              </button>
+                              {!d.isDefault && (
+                                <button type="button" onClick={() => setDeptDeleteConfirm(d)} title="Remove department" className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
 
           <p className="text-xs text-slate-400 dark:text-slate-500 italic">
-            Departments shown in blue are system defaults (BMG, MOD, MTO, CBE, Sales, HR) and cannot be removed.
+            Default departments (blue) cannot be removed, but any department can be deactivated. Requests already submitted under a renamed or deactivated department keep their original value.
           </p>
         </div>
       )}
@@ -2133,6 +2220,95 @@ export function SettingsPage() {
               </button>
               <button onClick={() => { removeApprover(approverDeleteConfirm.id); setApproverSaved('removed'); setApproverDeleteConfirm(null); setTimeout(() => setApproverSaved(''), 2500) }} className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-sm">
                 Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Remove role confirm ────────────────────────────────── */}
+      {roleRemoveConfirm && (() => {
+        const { person, role } = roleRemoveConfirm
+        const use = roleUsage(role.id)
+        const inUse = use.total > 0 || use.logged > 0
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setRoleRemoveConfirm(null)} />
+            <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={18} className="text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">Remove Role?</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Are you sure you want to remove the <span className="font-semibold text-slate-800 dark:text-slate-200">{role.role}</span> role from <span className="font-semibold text-slate-800 dark:text-slate-200">{person.name}</span>?
+                  </p>
+                </div>
+              </div>
+              {inUse ? (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3.5 py-3 text-[13px] text-amber-800 dark:text-amber-300 space-y-1">
+                  <p className="font-semibold">This role is in use.</p>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {use.open > 0 && <li><strong>{use.open}</strong> open job order{use.open !== 1 ? 's' : ''} currently assigned under this role</li>}
+                    {use.total > use.open && <li><strong>{use.total - use.open}</strong> completed or cancelled job order{use.total - use.open !== 1 ? 's' : ''} in history</li>}
+                    {use.logged > 0 && <li><strong>{use.logged}</strong> logged work record{use.logged !== 1 ? 's' : ''} under this role</li>}
+                  </ul>
+                  <p className="pt-1">Nothing here is deleted or changed. {person.name} stays a team member, the records keep their history, and any open work still counts toward their load. The role is simply no longer offered when assigning new work — and it can be restored later.</p>
+                </div>
+              ) : (
+                <p className="text-[13px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/40 rounded-xl px-3.5 py-3">
+                  This role may be associated with existing assignments or workload records. Removing it may affect future team member assignment options. {person.name} stays a team member with their other roles.
+                </p>
+              )}
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setRoleRemoveConfirm(null)} className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">
+                  Cancel
+                </button>
+                <button onClick={() => { deactivateResource(role.id); setRoleRemoveConfirm(null) }} className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-sm">
+                  Remove Role
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── Department add / edit ─────────────────────────────── */}
+      {deptModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeptModal(null)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
+                <Building2 size={18} className="text-brand-600 dark:text-brand-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">{deptModal.target ? 'Edit Department' : 'Add Department'}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  {deptModal.target ? 'Rename this department. Existing requests keep the name they were submitted with.' : 'It will appear on the booking request form immediately.'}
+                </p>
+              </div>
+              <button type="button" onClick={() => setDeptModal(null)} className="p-1 -mr-1 -mt-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Close"><X size={16} /></button>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1.5">Department name</label>
+              <input
+                autoFocus
+                value={deptInput}
+                onChange={e => { setDeptInput(e.target.value); setDeptError('') }}
+                onKeyDown={e => { if (e.key === 'Enter') saveDepartment(); if (e.key === 'Escape') setDeptModal(null) }}
+                placeholder="e.g. Marketing, Regulatory, Finance"
+                className="form-input text-sm"
+              />
+              {deptError && <p className="mt-2 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={11} /> {deptError}</p>}
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={() => setDeptModal(null)} className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">
+                Cancel
+              </button>
+              <button type="button" onClick={saveDepartment} className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl transition-colors shadow-sm">
+                {deptModal.target ? 'Save Changes' : 'Add Department'}
               </button>
             </div>
           </div>

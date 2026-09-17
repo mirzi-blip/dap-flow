@@ -510,7 +510,7 @@ export function isWorkingStatus(s: JOStatus | undefined | null): boolean {
 // and a person's overall load is the union of their rows with each job order
 // counted once. These helpers give every screen the same person grouping.
 
-export interface PersonRole { id: string; role: string; team: string; maxWeeklyHours: number }
+export interface PersonRole { id: string; role: string; team: string; maxWeeklyHours: number; active: boolean }
 export interface Person {
   /** Stable key — the person's email (lower-cased), or their name if absent. */
   key: string
@@ -522,6 +522,12 @@ export interface Person {
   /** Every resource id this person holds — pass to memberLoad for overall load. */
   ids: string[]
   teams: string[]
+  /** True while the person holds at least one active role. */
+  active: boolean
+}
+
+export function isActiveResource(r: { active?: boolean }): boolean {
+  return r.active !== false
 }
 
 export function personKey(r: { email?: string; name: string }): string {
@@ -532,18 +538,22 @@ export function groupByPerson(resources: Resource[]): Person[] {
   const byKey = new Map<string, Person>()
   for (const r of resources) {
     const key = personKey(r)
-    const role: PersonRole = { id: r.id, role: r.role, team: r.team, maxWeeklyHours: r.maxWeeklyHours }
+    const role: PersonRole = { id: r.id, role: r.role, team: r.team, maxWeeklyHours: r.maxWeeklyHours, active: isActiveResource(r) }
     const cur = byKey.get(key)
     if (cur) {
       cur.roles.push(role)
       cur.ids.push(r.id)
       if (!cur.teams.includes(r.team)) cur.teams.push(r.team)
     } else {
-      byKey.set(key, { key, name: r.name, email: r.email, initials: r.initials, color: r.color, roles: [role], ids: [r.id], teams: [r.team] })
+      byKey.set(key, { key, name: r.name, email: r.email, initials: r.initials, color: r.color, roles: [role], ids: [r.id], teams: [r.team], active: false })
     }
   }
   return [...byKey.values()]
-    .map(p => ({ ...p, roles: p.roles.slice().sort((a, b) => a.role.localeCompare(b.role)) }))
+    .map(p => ({
+      ...p,
+      roles: p.roles.slice().sort((a, b) => a.role.localeCompare(b.role)),
+      active: p.roles.some(r => r.active),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 

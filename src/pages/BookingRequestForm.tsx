@@ -9,6 +9,7 @@ import type { ActivityType, BookingRequest, Approver, ShootType, ProjectScale, D
 import { getCrewRequirement } from '../types'
 import { generateId } from '../utils/helpers'
 import { emailSpecRows } from '../utils/designSpecs'
+import { SERVICE_ICONS, SERVICE_DESC } from '../data/services'
 
 // ── Activity catalogue ────────────────────────────────────────────────────────
 const ACTIVITY_TYPES: ActivityType[] = [
@@ -123,37 +124,6 @@ const EMPTY: FormState = {
   dsw_paperSize: '', dsw_orientation: '', dsw_colorMode: '',
   dsw_dimensions: '', dsw_material: '', dsw_additionalNotes: '',
   dsw_platform: '', dsw_shootTypeDetail: '',
-}
-
-// ── Icons / descriptions ──────────────────────────────────────────────────────
-const SERVICE_ICONS: Record<string, string> = {
-  'Photo Shoot':           '📷',
-  'Video Shoot':           '🎬',
-  'Static Artwork Design': '🎨',
-  'Digital Design':        '💻',
-  'Graphics':              '🖼️',
-  'Printing':              '🖨️',
-  'ASC':                   '📋',
-  'Video Editing':         '✂️',
-  'Audio Recording':       '🎙️',
-  'Audio Editing':         '🎧',
-  'Audio Services':        '🎙️',
-  'Content Writing':       '✍️',
-}
-
-const SERVICE_DESC: Record<string, string> = {
-  'Photo Shoot':           'Product, event, or portrait photography',
-  'Video Shoot':           'Video production & on-site filming',
-  'Static Artwork Design': 'Print-ready layouts, banners & artwork',
-  'Digital Design':        'Social graphics, motion assets & digital creatives',
-  'Graphics':              'Graphic layouts, illustrations & visual assets',
-  'Printing':              'Print production — tarpaulins, flyers, banners & more',
-  'ASC':                   'Advertising Standards Council submission & approval',
-  'Video Editing':         'Post-production & video assembly',
-  'Audio Recording':       'Voice-over, podcast & recording sessions',
-  'Audio Editing':         'Mixing, mastering & audio cleanup',
-  'Audio Services':        'Voice-over, podcast, recording & audio post-production',
-  'Content Writing':       'Copywriting, scripts, captions & editorial content',
 }
 
 const MONTH_NAMES = [

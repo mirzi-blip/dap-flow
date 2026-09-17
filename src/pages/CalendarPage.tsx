@@ -12,13 +12,11 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ActivityBadge, StatusBadge } from '../components/ui/Badge'
 import { formatDateTime, generateId, orderedTeams, scopeJobOrders, groupByPerson } from '../utils/helpers'
+import { ALL_ACTIVITY_TYPES } from '../data/services'
 import type { ActivityType, CalendarEvent, JOStatus } from '../types'
 import { db } from '../db/database'
 
-const ACTIVITY_TYPES: ActivityType[] = [
-  'Photo Shoot', 'Video Shoot', 'Static Artwork Design',
-  'Video Editing', 'Audio Recording', 'Audio Editing',
-]
+const ACTIVITY_TYPES: ActivityType[] = ALL_ACTIVITY_TYPES
 
 type ViewMode = 'month' | 'week'
 type FilterTeam = string

@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import { useAppStore, useDataStore } from '../store/useAppStore'
 import { groupByPerson, isLoadBearing, type Person, type PersonRole } from '../utils/helpers'
+import { SERVICES } from '../data/services'
+import { DEFAULT_REQUESTING_TEAMS } from '../types'
 import { uploadAvatar } from '../lib/supabase'
 import { PERMISSION_MODULES, DEFAULT_PERMISSIONS, ALL_PERMISSIONS, perm } from '../data/permissions'
 import { usePermissions } from '../hooks/usePermissions'
@@ -22,7 +24,7 @@ const DAP_SERVICES: ActivityType[] = [
 ]
 
 const ROLES: UserRole[] = ['Super Admin', 'Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']
-const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
+const DEFAULT_TEAMS: RequestingTeam[] = [...DEFAULT_REQUESTING_TEAMS]
 
 type SettingsTab = 'profile' | 'users' | 'team' | 'activity' | 'integrations' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments' | 'booking-form'
 
@@ -63,14 +65,6 @@ interface EditForm { name: string; email: string; password: string; role: UserRo
 type ModalMode = 'add' | 'edit' | null
 type ConfirmAction = { type: 'terminate' | 'limit' | 'reinstate' | 'remove'; userId: string; userName: string } | null
 
-const ACTIVITY_TYPES = [
-  { name: 'Photo Shoot',           color: '#3B82F6', icon: '📷' },
-  { name: 'Video Shoot',           color: '#EF4444', icon: '🎬' },
-  { name: 'Static Artwork Design', color: '#10B981', icon: '🎨' },
-  { name: 'Video Editing',         color: '#F97316', icon: '✂️' },
-  { name: 'Audio Recording',       color: '#8B9FE8', icon: '🎙️' },
-  { name: 'Audio Editing',         color: '#EC4899', icon: '🎧' },
-]
 
 // ── Booking Form Configuration Tab ───────────────────────────────────────────
 
@@ -736,7 +730,7 @@ export function SettingsPage() {
       description: 'Export production schedules as a subscribable .ics calendar feed for any calendar app.',
       icon: RefreshCw,
       iconColor: 'text-orange-500',
-      connected: true,
+      connected: false,
       syncLabel: 'Syncs every 15 minutes',
     },
   ])
@@ -1335,25 +1329,57 @@ export function SettingsPage() {
       {activeTab === 'activity' && (
         <div className="space-y-4">
           <div>
-            <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Activity Types</h2>
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">Defined production activity types used across Job Orders, Calendar, and Workload.</p>
+            <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Services & Activity Types</h2>
+            <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
+              The services a requestor can choose on the booking form, the DAP section that handles each, and the planning estimate used for workload when a job order has no hours of its own.
+            </p>
           </div>
           <div className="card overflow-hidden">
-            <div className="divide-y divide-slate-50 dark:divide-slate-700">
-              {ACTIVITY_TYPES.map(a => (
-                <div key={a.name} className="flex items-center gap-4 px-5 py-4">
-                  <span className="text-xl">{a.icon}</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{a.name}</p>
-                  </div>
-                  <span className="w-4 h-4 rounded-full shrink-0" style={{ background: a.color }} />
-                  <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{a.color}</span>
-                  <span className="text-[11px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-0.5 rounded-full">Active</span>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 border-b border-slate-50 dark:border-slate-700">
+                    <th className="text-left px-5 py-2.5">Service</th>
+                    <th className="text-left px-3 py-2.5">Handled by</th>
+                    <th className="text-right px-3 py-2.5">Default est.</th>
+                    <th className="text-left px-3 py-2.5">Colour</th>
+                    <th className="text-right px-5 py-2.5">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
+                  {SERVICES.map(svc => (
+                    <tr key={svc.type} className={svc.legacy ? 'opacity-60' : ''}>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg leading-none">{svc.icon}</span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-800 dark:text-slate-200">{svc.type}</p>
+                            {svc.description && <p className="text-[11px] text-slate-400 dark:text-slate-500">{svc.description}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap">{svc.section}</td>
+                      <td className="px-3 py-3 text-xs text-slate-600 dark:text-slate-300 text-right whitespace-nowrap tabular-nums">{svc.defaultHours}h</td>
+                      <td className="px-3 py-3">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ background: svc.color }} />
+                          <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">{svc.color}</span>
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        {svc.legacy
+                          ? <span className="text-[11px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" title="Not offered on the form; kept so existing job orders stay visible">Legacy</span>
+                          : <span className="text-[11px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-0.5 rounded-full">Active</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-          <p className="text-xs text-slate-400 dark:text-slate-500 italic">Activity types are system-defined. Contact your administrator to modify them.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            Services are system-defined. The per-service form fields (categories, materials, brands) are configured under Booking Form; the DAP Team Approver for each service under DAP Approvers.
+          </p>
         </div>
       )}
 
@@ -1723,6 +1749,11 @@ export function SettingsPage() {
             </p>
           </div>
 
+          <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-[13px] text-amber-800 dark:text-amber-300">
+            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+            <p><span className="font-semibold">Not yet available.</span> These integrations are planned but none are wired up in this version — switching one on here does not connect anything. Notifications currently go out by email only.</p>
+          </div>
+
           <div className="grid grid-cols-1 gap-3">
             {integrations.map(intg => {
               const Icon = intg.icon
@@ -2047,7 +2078,7 @@ export function SettingsPage() {
                   <div className="relative">
                     <select value={form.team ?? ''} onChange={e => setForm(f => ({ ...f, team: (e.target.value || undefined) as RequestingTeam | undefined }))} className="form-input appearance-none pr-8">
                       <option value="">— none —</option>
-                      {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
+                      {[...new Set<string>([...DEFAULT_TEAMS, ...departments.filter(d => d.isActive !== false).map(d => d.name)])].map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                     <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>

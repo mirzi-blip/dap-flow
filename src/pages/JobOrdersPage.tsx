@@ -15,19 +15,17 @@ import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, ge
 import { loadColor } from '../utils/colors'
 import { designSpecRows, emailSpecRows, requestorNotes, requestorNotesForJO } from '../utils/designSpecs'
 import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus, DesignSpecs, JOWorkSegment } from '../types'
-import { ACTIVITY_HOURS, MAX_REVISIONS } from '../types'
+import { ACTIVITY_HOURS, MAX_REVISIONS, DEFAULT_REQUESTING_TEAMS } from '../types'
+import { ALL_ACTIVITY_TYPES } from '../data/services'
 import { db } from '../db/database'
 import { supabase, requestToRow, jobOrderToRow, saveJOComment } from '../lib/supabase'
 
 type PageTab = 'list' | 'requests'
 
-const ACTIVITY_TYPES: ActivityType[] = [
-  'Photo Shoot', 'Video Shoot', 'Static Artwork Design',
-  'Video Editing', 'Audio Recording', 'Audio Editing',
-]
+const ACTIVITY_TYPES: ActivityType[] = ALL_ACTIVITY_TYPES
 const STATUSES: JOStatus[] = ['To Do', 'Ongoing', 'For Review', 'Needs Revision', 'For Approval', 'Completed', 'Delayed', 'Cancelled']
 const PRIORITIES: Priority[] = ['High', 'Medium', 'Low']
-const TEAMS: RequestingTeam[] = ['BMG', 'MOD', 'MTO', 'CBE']
+const DEFAULT_TEAMS: RequestingTeam[] = [...DEFAULT_REQUESTING_TEAMS]
 
 const emptyForm = {
   requestingTeam: 'BMG' as RequestingTeam,
@@ -63,7 +61,16 @@ type SortCol = 'joNumber' | 'projectName' | 'activityType' | 'requestingTeam' | 
 
 export function JobOrdersPage() {
   const { jobOrders, addJobOrder, updateJobOrder, deleteJobOrder, statusLogs, addStatusLog, addNotification, bookingRequests, updateBookingRequest, deleteBookingRequest, addCalendarEvent } = useDataStore()
-  const { currentUser, globalSearch, setGlobalSearch, resources, approvers } = useAppStore()
+  const { currentUser, globalSearch, setGlobalSearch, resources, approvers, departments } = useAppStore()
+
+  // Team filter options: the configured departments, plus any team a job order
+  // was actually filed under (e.g. an "Other" department typed by a requestor).
+  const TEAMS = useMemo<RequestingTeam[]>(() => {
+    const set = new Set<string>(DEFAULT_TEAMS)
+    departments.filter(d => d.isActive !== false).forEach(d => set.add(d.name))
+    jobOrders.forEach(j => { if (j.requestingTeam) set.add(j.requestingTeam) })
+    return [...set]
+  }, [departments, jobOrders])
   const { can } = usePermissions()
 
   const canSeeRequests = can('job_orders', 'view_requests')

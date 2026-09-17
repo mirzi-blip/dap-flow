@@ -120,7 +120,10 @@ export type JOStatus =
 
 export type Priority = 'High' | 'Medium' | 'Low'
 
-export type RequestingTeam = 'BMG' | 'MOD' | 'MTO' | 'CBE'
+/** The requesting team is the department on the booking request. Departments
+ *  are configured in Settings (plus "Other" free text), so this is open. */
+export type RequestingTeam = string
+export const DEFAULT_REQUESTING_TEAMS = ['BMG', 'MOD', 'MTO', 'CBE'] as const
 
 export type UserRole = 'Super Admin' | 'Admin' | 'DAP Team' | 'Brand Team' | 'Leadership' | 'End User'
 

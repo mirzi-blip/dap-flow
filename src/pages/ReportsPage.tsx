@@ -14,16 +14,14 @@ import { useDataStore, useAppStore } from '../store/useAppStore'
 import { activityCalendarColors, loadColor } from '../utils/colors'
 import { isOverdue, memberLoad, groupByPerson } from '../utils/helpers'
 import type { ActivityType } from '../types'
+import { DEFAULT_REQUESTING_TEAMS } from '../types'
+import { ALL_ACTIVITY_TYPES } from '../data/services'
 
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-const ACTIVITY_TYPES: ActivityType[] = [
-  'Photo Shoot', 'Video Shoot', 'Static Artwork Design', 'Digital Design',
-  'Graphics', 'Printing', 'ASC',
-  'Video Editing', 'Audio Services', 'Audio Recording', 'Audio Editing', 'Content Writing',
-]
+const ACTIVITY_TYPES: ActivityType[] = ALL_ACTIVITY_TYPES
 
-const PREDEFINED_TEAMS = ['BMG', 'MOD', 'MTO', 'CBE']
+const PREDEFINED_TEAMS: string[] = [...DEFAULT_REQUESTING_TEAMS]
 
 const activityIcon: Record<ActivityType, React.ElementType> = {
   'Photo Shoot':           Camera,

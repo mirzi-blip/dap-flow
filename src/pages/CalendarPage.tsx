@@ -11,7 +11,7 @@ import { activityCalendarColors } from '../utils/colors'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ActivityBadge, StatusBadge } from '../components/ui/Badge'
-import { formatDateTime, generateId, orderedTeams, scopeJobOrders } from '../utils/helpers'
+import { formatDateTime, generateId, orderedTeams, scopeJobOrders, groupByPerson } from '../utils/helpers'
 import type { ActivityType, CalendarEvent, JOStatus } from '../types'
 import { db } from '../db/database'
 
@@ -84,7 +84,9 @@ export function CalendarPage() {
   const filteredEvents = useMemo(() => {
     let events = allEvents
     if (filterMember) {
-      events = events.filter((e) => e.assignedMemberIds.includes(filterMember))
+      // A person may hold several roles; match any of their resource ids.
+      const ids = groupByPerson(resources).find(p => p.key === filterMember)?.ids ?? [filterMember]
+      events = events.filter((e) => e.assignedMemberIds.some(id => ids.includes(id)))
     } else if (filterTeam !== 'All') {
       const teamResources = resources.filter((r) => r.team === filterTeam).map((r) => r.id)
       events = events.filter((e) => e.assignedMemberIds.some((id) => teamResources.includes(id)))
@@ -242,8 +244,8 @@ export function CalendarPage() {
               className="text-xs font-semibold bg-transparent text-brand-700 dark:text-brand-300 border-none outline-none cursor-pointer"
             >
               <option value="">All Members</option>
-              {resources.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
+              {groupByPerson(resources).map((p) => (
+                <option key={p.key} value={p.key}>{p.name}</option>
               ))}
             </select>
           </div>

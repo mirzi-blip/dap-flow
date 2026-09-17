@@ -1,11 +1,11 @@
 ﻿import { useState, useMemo } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, CheckCircle2, ChevronDown } from 'lucide-react'
 import {
   startOfWeek, addDays, addWeeks, format, isSameDay, parseISO, isToday,
 } from 'date-fns'
 import { useDataStore, useAppStore } from '../store/useAppStore'
 import { teamColor, activityCalendarColors, loadColor } from '../utils/colors'
-import { orderedTeams, memberLoad, isLoadBearing, memberWeekLoad, loadRatio } from '../utils/helpers'
+import { orderedTeams, memberLoad, isLoadBearing, memberWeekLoad, loadRatio, groupByPerson, type Person } from '../utils/helpers'
 import type { DAPTeam, JobOrder } from '../types'
 import {
   WEEKLY_CAPACITY_HRS, HOURS_PER_DAY, WORKING_DAYS_PER_WEEK, NON_PROJECT_HRS_PER_DAY,
@@ -22,65 +22,33 @@ export function WorkloadPage() {
   // Teams shown = the configured list plus any (legacy) team still assigned to a member
   const TEAMS = useMemo<DAPTeam[]>(() => orderedTeams(resources), [resources])
 
-  const teamResources = useMemo(() =>
-    resources
-      .filter(r => filterTeam === 'All' || r.team === filterTeam)
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name) || a.role.localeCompare(b.role)),
-    [resources, filterTeam]
-  )
+  // Every view on this page is per person: one card per Team Member however
+  // many roles they hold, with their roles listed and broken down underneath.
+  // Work is still assigned to a role, so each role keeps its own bucket.
+  const people = useMemo(() => groupByPerson(resources), [resources])
 
-  // One person may hold several roles, each its own resource row sharing the
-  // person's email. The picker lists people, not rows; a selected person is
-  // shown as one workload entry combining every role they hold.
-  type Entry = {
-    key: string; name: string; initials: string; color: string
-    roleLabel: string; teamLabel: string; ids: string[]; maxWeeklyHours: number
-  }
-  const people = useMemo(() => {
-    const byKey = new Map<string, Entry & { roles: string[]; teams: string[] }>()
-    for (const r of resources) {
-      const key = (r.email || r.name).toLowerCase()
-      const cur = byKey.get(key)
-      if (cur) {
-        cur.ids.push(r.id)
-        if (!cur.roles.includes(r.role)) cur.roles.push(r.role)
-        if (!cur.teams.includes(r.team)) cur.teams.push(r.team)
-        cur.maxWeeklyHours = Math.max(cur.maxWeeklyHours, r.maxWeeklyHours)
-      } else {
-        byKey.set(key, { key, name: r.name, initials: r.initials, color: r.color, ids: [r.id],
-          roles: [r.role], teams: [r.team], roleLabel: '', teamLabel: '', maxWeeklyHours: r.maxWeeklyHours })
-      }
-    }
-    return [...byKey.values()]
-      .map(p => ({ ...p, roleLabel: p.roles.join(' • '), teamLabel: p.teams.join(' • ') }))
-      .sort((a, b) => a.name.localeCompare(b.name))
-  }, [resources])
-
-  // People offered in the picker: anyone with a role in the selected team.
+  // People offered in the picker / shown in the grid: anyone with a role in
+  // the selected team.
   const teamPeople = useMemo(() =>
     people.filter(p => filterTeam === 'All' || p.teams.includes(filterTeam)),
     [people, filterTeam]
   )
 
-  // What the grid renders: every resource row in the overall view, or the one
-  // selected person as a single combined entry across all their roles.
-  const displayEntries = useMemo<Entry[]>(() => {
-    if (filterMember !== 'All') {
-      const person = people.find(p => p.key === filterMember)
-      return person ? [person] : []
-    }
-    return teamResources.map(r => ({
-      key: r.id, name: r.name, initials: r.initials, color: r.color,
-      roleLabel: r.role, teamLabel: r.team, ids: [r.id], maxWeeklyHours: r.maxWeeklyHours,
-    }))
-  }, [people, teamResources, filterMember])
-
-  // Kept for the member count.
-  const displayResources = useMemo(() =>
-    filterMember === 'All' ? teamResources : teamResources.filter(r => displayEntries[0]?.ids.includes(r.id)),
-    [teamResources, filterMember, displayEntries]
+  const displayEntries = useMemo<Person[]>(() =>
+    filterMember === 'All' ? teamPeople : teamPeople.filter(p => p.key === filterMember),
+    [teamPeople, filterMember]
   )
+
+  // Role rows behind the people on screen (for the roles counter).
+  const displayRoleCount = useMemo(() => displayEntries.reduce((n, p) => n + p.roles.length, 0), [displayEntries])
+
+  // Which cards have their per-role breakdown open.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggleExpanded = (key: string) => setExpanded(prev => {
+    const next = new Set(prev)
+    if (next.has(key)) next.delete(key); else next.add(key)
+    return next
+  })
 
   function getMemberStats(ref: string | string[]) {
     const ids = Array.isArray(ref) ? ref : [ref]
@@ -107,18 +75,20 @@ export function WorkloadPage() {
 
   const teamSummary = useMemo(() =>
     TEAMS.map(team => {
-      const members = resources.filter(r => r.team === team)
-      const totalNext4Weeks = members.reduce((acc, r) => acc + getMemberStats(r.id).next4Weeks, 0)
+      // Distinct people with a role in this team — each counted once, at their
+      // overall load across every role, so nobody is averaged in twice.
+      const members = people.filter(p => p.teams.includes(team))
+      const totalNext4Weeks = members.reduce((acc, p) => acc + getMemberStats(p.ids).next4Weeks, 0)
       const totalActive = jobOrders.filter(j =>
         !['Completed', 'Delayed', 'Cancelled'].includes(j.status) &&
-        members.some(m => j.assignedMemberIds.includes(m.id))
+        members.some(m => m.ids.some(id => j.assignedMemberIds.includes(id)))
       ).length
       const avgLoad = members.length
-        ? Math.round(members.reduce((acc, r) => acc + getMemberStats(r.id).loadPct, 0) / members.length)
+        ? Math.round(members.reduce((acc, p) => acc + getMemberStats(p.ids).loadPct, 0) / members.length)
         : 0
       return { team, members: members.length, totalActive, totalNext4Weeks, avgLoad }
     }),
-    [jobOrders, resources, TEAMS]
+    [jobOrders, people, TEAMS]
   )
 
   // ── Calendar visualization ──────────────────────────────────────────────────
@@ -232,9 +202,7 @@ export function WorkloadPage() {
           </button>
         )}
         <p className="text-sm text-slate-400 dark:text-slate-500">
-          {filterMember !== 'All'
-            ? `1 member · ${displayResources.length} role${displayResources.length !== 1 ? 's' : ''}`
-            : `${teamPeople.length} member${teamPeople.length !== 1 ? 's' : ''} · ${displayResources.length} role${displayResources.length !== 1 ? 's' : ''}`}
+          {displayEntries.length} member{displayEntries.length !== 1 ? 's' : ''} · {displayRoleCount} role{displayRoleCount !== 1 ? 's' : ''}
         </p>
       </div>
 
@@ -255,7 +223,9 @@ export function WorkloadPage() {
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="font-bold text-slate-900 dark:text-slate-100">{r.name}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">{r.roleLabel} · {r.teamLabel} Team</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
+                        {r.roles.map(x => x.role).join(' • ')} · {r.teams.join(' • ')} Team
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className={`text-2xl font-black ${loadColor(stats.status).text}`}>
@@ -309,23 +279,74 @@ export function WorkloadPage() {
                     </p>
                   )}
 
+                  {/* By role — each role is its own workload bucket; the overall above counts each job once */}
+                  {r.roles.length > 1 && (
+                    <div className="mt-2.5">
+                      <button
+                        onClick={() => toggleExpanded(r.key)}
+                        className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400"
+                        aria-expanded={expanded.has(r.key)}
+                      >
+                        <ChevronDown size={12} className={`transition-transform ${expanded.has(r.key) ? 'rotate-180' : ''}`} />
+                        By role
+                      </button>
+                      {expanded.has(r.key) && (
+                        <div className="mt-1.5 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
+                          {r.roles.map(role => {
+                            const rl = memberLoad(jobOrders, role.id)
+                            const rw = memberWeekLoad(jobOrders, role.id)
+                            return (
+                              <div key={role.id} className="flex items-center gap-3 px-3 py-2 bg-slate-50/60 dark:bg-slate-900/30">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-200 truncate">{role.role}</p>
+                                  <p className="text-[10px] text-slate-400 dark:text-slate-500">{role.team}</p>
+                                </div>
+                                <div className="w-24 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden shrink-0">
+                                  <div className="h-full rounded-full" style={{ width: `${Math.min(100, rl.pct)}%`, background: loadColor(rl.status).bar }} />
+                                </div>
+                                <span className="text-[11px] tabular-nums text-slate-600 dark:text-slate-300 w-28 text-right shrink-0">
+                                  {rl.hours.toFixed(1)}h · <span className={loadColor(rl.status).text}>{rl.pct}%</span>
+                                </span>
+                                <span className="text-[10px] tabular-nums text-slate-400 dark:text-slate-500 w-20 text-right shrink-0" title="Actual hours logged this week under this role">
+                                  {rw.total > 0 ? `${rw.total.toFixed(1)}h actual` : '—'}
+                                </span>
+                              </div>
+                            )
+                          })}
+                          <div className="flex items-center justify-between px-3 py-2 bg-white dark:bg-slate-800">
+                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Overall (each job counted once)</span>
+                            <span className="text-[11px] font-black tabular-nums text-slate-900 dark:text-slate-100">
+                              {stats.estimatedHrs.toFixed(1)}h · <span className={loadColor(stats.status).text}>{stats.loadPct}%</span> · {stats.status}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-4 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                     <span className="font-semibold text-slate-700 dark:text-slate-300">{stats.active.length}</span> active JOs
                     <span>·</span>
                     <span className="font-semibold text-emerald-600 dark:text-emerald-400">{stats.completed}</span> completed
                     <span>·</span>
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">{r.maxWeeklyHours}h</span>/week max
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">{Math.max(...r.roles.map(x => x.maxWeeklyHours))}h</span>/week max
                   </div>
 
                   {stats.active.length > 0 && (
                     <div className="mt-3 space-y-1.5">
-                      {(filterMember === 'All' ? stats.active.slice(0, 3) : stats.active).map(jo => (
-                        <div key={jo.id} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-2.5 py-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: activityCalendarColors[jo.activityType] }} />
-                          <span className="text-[11px] text-slate-700 dark:text-slate-300 font-medium truncate flex-1">{jo.projectName}</span>
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono flex-shrink-0">{jo.joNumber}</span>
-                        </div>
-                      ))}
+                      {(filterMember === 'All' ? stats.active.slice(0, 3) : stats.active).map(jo => {
+                        const under = r.roles.filter(x => jo.assignedMemberIds.includes(x.id)).map(x => x.role)
+                        return (
+                          <div key={jo.id} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-2.5 py-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: activityCalendarColors[jo.activityType] }} />
+                            <span className="text-[11px] text-slate-700 dark:text-slate-300 font-medium truncate flex-1">{jo.projectName}</span>
+                            {r.roles.length > 1 && under.length > 0 && (
+                              <span className="text-[9px] font-semibold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/30 px-1.5 py-0.5 rounded flex-shrink-0">{under.join(' • ')}</span>
+                            )}
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono flex-shrink-0">{jo.joNumber}</span>
+                          </div>
+                        )
+                      })}
                       {filterMember === 'All' && stats.active.length > 3 && (
                         <p className="text-[10px] text-slate-400 dark:text-slate-500 pl-1">+{stats.active.length - 3} more</p>
                       )}

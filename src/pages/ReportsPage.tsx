@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
 import { activityCalendarColors, loadColor } from '../utils/colors'
-import { isOverdue, memberLoad } from '../utils/helpers'
+import { isOverdue, memberLoad, groupByPerson } from '../utils/helpers'
 import type { ActivityType } from '../types'
 
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -213,10 +213,11 @@ export function ReportsPage() {
 
   // ── Individual Resource Load — uses globalFilteredJOs ──
   const resourceData = useMemo(() => {
-    return resources.map((r) => {
+    // One row per person; overall load combines every role they hold.
+    return groupByPerson(resources).map((p) => {
       // Load Ratio = (total assigned work hours ÷ load capacity) × 100
-      const { hours, pct: util, status } = memberLoad(globalFilteredJOs, r.id)
-      return { name: r.initials, fullName: r.name, role: r.role, util, hours, status, color: r.color, team: r.team }
+      const { hours, pct: util, status } = memberLoad(globalFilteredJOs, p.ids)
+      return { name: p.initials, fullName: p.name, role: p.roles.map(r => r.role).join(' • '), util, hours, status, color: p.color, team: p.teams.join(' • ') }
     })
   }, [globalFilteredJOs, resources])
 

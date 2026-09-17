@@ -10,7 +10,8 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders, memberLoad, joEstimatedHours, workingHoursBetween, overtimeSuggestion, stampWorkSegments, openWorkSegments, canRequestRevision, revisionsUsed, revisionCountAfter, isWorkingStatus } from '../utils/helpers'
+import { MemberRolePicker } from '../components/MemberRolePicker'
+import { formatDate, formatDateTime, generateId, generateJONumber, isOverdue, getNextStatus, scopeJobOrders, memberLoad, joEstimatedHours, workingHoursBetween, overtimeSuggestion, stampWorkSegments, openWorkSegments, canRequestRevision, revisionsUsed, revisionCountAfter, isWorkingStatus, groupByPerson, assignedPeople, uniqueEmailTargets } from '../utils/helpers'
 import { loadColor } from '../utils/colors'
 import { designSpecRows, emailSpecRows, requestorNotes, requestorNotesForJO } from '../utils/designSpecs'
 import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, BookingRequest, BookingRequestStatus, DesignSpecs, JOWorkSegment } from '../types'
@@ -73,17 +74,8 @@ export function JobOrdersPage() {
     [jobOrders, currentUser, resources, approvers]
   )
 
-  // Members who can be assigned = everyone, regardless of section, de-duped by
-  // person (someone with several roles appears once).
-  function assignableResources(_activityType: string) {
-    const seen = new Set<string>()
-    return resources.filter(r => {
-      const key = (r.email || r.id).toLowerCase()
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-  }
+  // One entry per person across all their roles; used wherever members are shown.
+  const people = useMemo(() => groupByPerson(resources), [resources])
 
   const [pageTab, setPageTab] = useState<PageTab>(
     () => new URLSearchParams(window.location.search).get('view') === 'requests' ? 'requests' : 'list'
@@ -325,9 +317,8 @@ export function JobOrdersPage() {
 
     // Notify ALL assigned members of the status change
     const memberMode = 'status_update'
-    for (const memberId of jo.assignedMemberIds) {
-      const member = resources.find(r => r.id === memberId)
-      if (member?.email) {
+    for (const member of uniqueEmailTargets(jo.assignedMemberIds, resources)) {
+      {
         fetch('https://dap-flow-tau.vercel.app/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -641,9 +632,8 @@ export function JobOrdersPage() {
       additionalNotes: requestorNotesForJO(updated, bookingRequests),
     }
 
-    for (const memberId of added) {
-      const member = resources.find(r => r.id === memberId)
-      if (member?.email) {
+    for (const member of uniqueEmailTargets(added, resources)) {
+      {
         fetch(EMAIL_BASE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -652,9 +642,8 @@ export function JobOrdersPage() {
       }
     }
 
-    for (const memberId of removed) {
-      const member = resources.find(r => r.id === memberId)
-      if (member?.email) {
+    for (const member of uniqueEmailTargets(removed, resources)) {
+      {
         fetch(EMAIL_BASE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -673,9 +662,8 @@ export function JobOrdersPage() {
 
     if (detailsChanged) {
       const continuingIds = editForm.assignedMemberIds.filter(id => oldIds.has(id))
-      for (const memberId of continuingIds) {
-        const member = resources.find(r => r.id === memberId)
-        if (member?.email) {
+      for (const member of uniqueEmailTargets(continuingIds, resources)) {
+        {
           fetch(EMAIL_BASE, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -955,9 +943,8 @@ export function JobOrdersPage() {
     updateBookingRequest(updatedReq)
 
     // Notify each assigned member by email
-    for (const memberId of selectedMemberIds) {
-      const member = resources.find(r => r.id === memberId)
-      if (member?.email) {
+    for (const member of uniqueEmailTargets(selectedMemberIds, resources)) {
+      {
         fetch('https://dap-flow-tau.vercel.app/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1265,55 +1252,14 @@ export function JobOrdersPage() {
                     <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
                       Assign Team Members
                     </p>
-                    <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
-                      {assignableResources(reviewRequest.activityType).map((r) => {
-                        const activeJOs = memberActiveJOs(r.id)
-                        const load = memberLoad(jobOrders, r.id)
-                        const utilPct = load.pct
-                        const overloaded = load.overloaded
-                        const selected = selectedMemberIds.includes(r.id)
-                        return (
-                          <label
-                            key={r.id}
-                            className={`flex items-start gap-2.5 cursor-pointer p-2.5 rounded-xl transition-colors border ${
-                              selected
-                                ? 'bg-brand-50 dark:bg-brand-900/30 border-brand-300 dark:border-brand-700'
-                                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              onChange={() => toggleMember(r.id)}
-                              className="mt-0.5 accent-brand-600"
-                            />
-                            <span className={`w-8 h-8 rounded-full ${r.color} flex items-center justify-center text-white text-[11px] font-bold shrink-0`}>
-                              {r.initials}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-1">
-                                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{r.name}</p>
-                                <span className={`flex items-center gap-0.5 text-[10px] font-bold shrink-0 ${loadColor(load.status).text}`}>
-                                  {overloaded && <AlertTriangle size={10} />}{load.status}
-                                </span>
-                              </div>
-                              <p className="text-[10px] text-slate-400 dark:text-slate-500">{r.role} · {r.team}</p>
-                              <div className="mt-1.5 flex items-center gap-2">
-                                <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full transition-all"
-                                    style={{ width: `${Math.min(100, utilPct)}%`, background: loadColor(load.status).bar }}
-                                  />
-                                </div>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap"
-                                  title={`${load.hours.toFixed(1)}h of ~${Math.round(load.capacity)}h weekly capacity · ${activeJOs} active JOs`}>
-                                  {utilPct}% · {load.hours.toFixed(1)}h
-                                </span>
-                              </div>
-                            </div>
-                          </label>
-                        )
-                      })}
+                    <div className="max-h-72 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2.5">
+                      <MemberRolePicker
+                        resources={resources}
+                        jobOrders={jobOrders}
+                        selectedIds={selectedMemberIds}
+                        onToggle={toggleMember}
+                        showLoad
+                      />
                     </div>
                   </div>
                 )}
@@ -1486,20 +1432,24 @@ export function JobOrdersPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex -space-x-1">
-                          {jo.assignedMemberIds.slice(0, 3).map((id) => {
-                            const r = resources.find((r) => r.id === id)
-                            return r ? (
-                              <span key={id} title={r.name}
-                                className={`w-6 h-6 rounded-full ${r.color} border-2 border-white dark:border-slate-800 flex items-center justify-center text-white text-[9px] font-bold`}>
-                                {r.initials}
-                              </span>
-                            ) : null
-                          })}
-                          {jo.assignedMemberIds.length > 3 && (
-                            <span className="w-6 h-6 rounded-full bg-slate-300 dark:bg-slate-600 border-2 border-white dark:border-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 text-[9px] font-bold">
-                              +{jo.assignedMemberIds.length - 3}
-                            </span>
-                          )}
+                          {(() => {
+                            const ap = assignedPeople(jo, people)
+                            return (
+                              <>
+                                {ap.slice(0, 3).map(({ person, roles }) => (
+                                  <span key={person.key} title={`${person.name} · ${roles.map(r => r.role).join(', ')}`}
+                                    className={`w-6 h-6 rounded-full ${person.color} border-2 border-white dark:border-slate-800 flex items-center justify-center text-white text-[9px] font-bold`}>
+                                    {person.initials}
+                                  </span>
+                                ))}
+                                {ap.length > 3 && (
+                                  <span className="w-6 h-6 rounded-full bg-slate-300 dark:bg-slate-600 border-2 border-white dark:border-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 text-[9px] font-bold">
+                                    +{ap.length - 3}
+                                  </span>
+                                )}
+                              </>
+                            )
+                          })()}
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={jo.status} /></td>
@@ -2020,22 +1970,17 @@ export function JobOrdersPage() {
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-2">Assigned Members</label>
-                    <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2">
-                      {assignableResources(selectedJO.activityType).map(r => (
-                        <label key={r.id} className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors">
-                          <input type="checkbox" checked={editForm.assignedMemberIds.includes(r.id)}
-                            onChange={e => setEditForm(f => ({
-                              ...f,
-                              assignedMemberIds: e.target.checked ? [...f.assignedMemberIds, r.id] : f.assignedMemberIds.filter(id => id !== r.id),
-                            }))}
-                          />
-                          <span className={`w-6 h-6 rounded-full ${r.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{r.initials}</span>
-                          <div>
-                            <p className="text-xs font-medium text-slate-900 dark:text-slate-100">{r.name}</p>
-                            <p className="text-[10px] text-slate-400">{r.role}</p>
-                          </div>
-                        </label>
-                      ))}
+                    <div className="max-h-56 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2">
+                      <MemberRolePicker
+                        resources={resources}
+                        jobOrders={jobOrders}
+                        selectedIds={editForm.assignedMemberIds}
+                        onToggle={id => setEditForm(f => ({
+                          ...f,
+                          assignedMemberIds: f.assignedMemberIds.includes(id) ? f.assignedMemberIds.filter(x => x !== id) : [...f.assignedMemberIds, id],
+                        }))}
+                        compact
+                      />
                     </div>
                   </div>
                   <div>
@@ -2111,18 +2056,15 @@ export function JobOrdersPage() {
                       <p className="text-sm text-slate-400 dark:text-slate-500 italic">No members assigned</p>
                     ) : (
                       <div className="flex flex-wrap gap-2">
-                        {selectedJO.assignedMemberIds.map(id => {
-                          const r = resources.find(r => r.id === id)
-                          return r ? (
-                            <div key={id} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-lg px-2 py-1.5">
-                              <span className={`w-6 h-6 rounded-full ${r.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{r.initials}</span>
-                              <div>
-                                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">{r.name}</p>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400">{r.role}</p>
-                              </div>
+                        {assignedPeople(selectedJO, people).map(({ person, roles }) => (
+                          <div key={person.key} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-lg px-2 py-1.5">
+                            <span className={`w-6 h-6 rounded-full ${person.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{person.initials}</span>
+                            <div>
+                              <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">{person.name}</p>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">{roles.map(r => r.role).join(' • ')}</p>
                             </div>
-                          ) : null
-                        })}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -2383,22 +2325,17 @@ export function JobOrdersPage() {
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">Assign Team Members</label>
-            <div className="grid grid-cols-2 gap-1.5 max-h-44 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2">
-              {assignableResources(form.activityType).map((r) => (
-                <label key={r.id} className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors">
-                  <input type="checkbox" checked={form.assignedMemberIds.includes(r.id)}
-                    onChange={(e) => setForm((f) => ({
-                      ...f,
-                      assignedMemberIds: e.target.checked ? [...f.assignedMemberIds, r.id] : f.assignedMemberIds.filter((id) => id !== r.id),
-                    }))}
-                  />
-                  <span className={`w-6 h-6 rounded-full ${r.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{r.initials}</span>
-                  <div>
-                    <p className="text-xs font-medium text-slate-900 dark:text-slate-100">{r.name}</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500">{r.role}</p>
-                  </div>
-                </label>
-              ))}
+            <div className="max-h-60 overflow-y-auto bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2">
+              <MemberRolePicker
+                resources={resources}
+                jobOrders={jobOrders}
+                selectedIds={form.assignedMemberIds}
+                onToggle={id => setForm(f => ({
+                  ...f,
+                  assignedMemberIds: f.assignedMemberIds.includes(id) ? f.assignedMemberIds.filter(x => x !== id) : [...f.assignedMemberIds, id],
+                }))}
+                compact
+              />
             </div>
           </div>
           <div>

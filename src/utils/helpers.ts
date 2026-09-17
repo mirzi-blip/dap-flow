@@ -1,5 +1,5 @@
 import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay, startOfWeek } from 'date-fns'
-import type { JobOrder, JOStatus, Approver, ActivityType, JOWorkSegment } from '../types'
+import type { JobOrder, JOStatus, Approver, ActivityType, JOWorkSegment, Resource } from '../types'
 import {
   DAP_TEAM_LIST, ACTIVITY_HOURS, WEEKLY_CAPACITY_HRS,
   LOAD_OPTIMAL, LOAD_THRESHOLD, LOAD_PEAK, MAX_REVISIONS,
@@ -502,4 +502,85 @@ export function revisionCountAfter(jo: { revisionCount?: number; status: JOStatu
 export const WORKING_STATUSES: readonly JOStatus[] = ['Ongoing', 'Needs Revision']
 export function isWorkingStatus(s: JOStatus | undefined | null): boolean {
   return !!s && WORKING_STATUSES.includes(s)
+}
+
+// ── People and roles ─────────────────────────────────────────────────────────
+// A Team Member row is one person in one role; a person with three roles has
+// three rows sharing their email. Work is assigned to a row (a role bucket),
+// and a person's overall load is the union of their rows with each job order
+// counted once. These helpers give every screen the same person grouping.
+
+export interface PersonRole { id: string; role: string; team: string; maxWeeklyHours: number }
+export interface Person {
+  /** Stable key — the person's email (lower-cased), or their name if absent. */
+  key: string
+  name: string
+  email: string
+  initials: string
+  color: string
+  roles: PersonRole[]
+  /** Every resource id this person holds — pass to memberLoad for overall load. */
+  ids: string[]
+  teams: string[]
+}
+
+export function personKey(r: { email?: string; name: string }): string {
+  return (r.email || r.name).trim().toLowerCase()
+}
+
+export function groupByPerson(resources: Resource[]): Person[] {
+  const byKey = new Map<string, Person>()
+  for (const r of resources) {
+    const key = personKey(r)
+    const role: PersonRole = { id: r.id, role: r.role, team: r.team, maxWeeklyHours: r.maxWeeklyHours }
+    const cur = byKey.get(key)
+    if (cur) {
+      cur.roles.push(role)
+      cur.ids.push(r.id)
+      if (!cur.teams.includes(r.team)) cur.teams.push(r.team)
+    } else {
+      byKey.set(key, { key, name: r.name, email: r.email, initials: r.initials, color: r.color, roles: [role], ids: [r.id], teams: [r.team] })
+    }
+  }
+  return [...byKey.values()]
+    .map(p => ({ ...p, roles: p.roles.slice().sort((a, b) => a.role.localeCompare(b.role)) }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** The person who holds a given resource (role) id. */
+export function personForId(people: Person[], resourceId: string): Person | undefined {
+  return people.find(p => p.ids.includes(resourceId))
+}
+
+/** The people assigned to a job order, each with the roles they are assigned
+ *  under — one entry per person even when assigned in several roles. */
+export function assignedPeople(
+  jo: { assignedMemberIds: string[] },
+  people: Person[]
+): { person: Person; roles: PersonRole[] }[] {
+  const out: { person: Person; roles: PersonRole[] }[] = []
+  for (const p of people) {
+    const roles = p.roles.filter(r => jo.assignedMemberIds.includes(r.id))
+    if (roles.length) out.push({ person: p, roles })
+  }
+  return out
+}
+
+/** Resource ids for the given people/roles that share an email, de-duplicated
+ *  by person — so a member assigned under two roles is emailed once. */
+export function uniqueEmailTargets(
+  resourceIds: string[],
+  resources: { id: string; email?: string; name: string }[]
+): { email: string; name: string }[] {
+  const seen = new Set<string>()
+  const out: { email: string; name: string }[] = []
+  for (const id of resourceIds) {
+    const r = resources.find(x => x.id === id)
+    if (!r?.email) continue
+    const k = r.email.toLowerCase()
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push({ email: r.email, name: r.name })
+  }
+  return out
 }

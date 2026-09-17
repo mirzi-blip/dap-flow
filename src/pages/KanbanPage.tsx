@@ -4,7 +4,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { ActivityBadge, PriorityBadge, StatusBadge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { formatDate, formatDateTime, generateId, getNextStatus, isOverdue, scopeJobOrders, stampWorkSegments, openWorkSegments, workingHoursBetween, overtimeSuggestion, canRequestRevision, revisionsUsed, revisionCountAfter, isWorkingStatus } from '../utils/helpers'
+import { formatDate, formatDateTime, generateId, getNextStatus, isOverdue, scopeJobOrders, stampWorkSegments, openWorkSegments, workingHoursBetween, overtimeSuggestion, canRequestRevision, revisionsUsed, revisionCountAfter, isWorkingStatus, groupByPerson, assignedPeople } from '../utils/helpers'
 import type { JOStatus, JobOrder, JOWorkSegment } from '../types'
 import { MAX_REVISIONS } from '../types'
 import { db } from '../db/database'
@@ -53,7 +53,8 @@ function KanbanCard({
 }) {
   const overdue = isOverdue(jo.deadline) && jo.status !== 'Completed'
   const next = getNextStatus(jo.status)
-  const members = resources.filter((r) => jo.assignedMemberIds.includes(r.id))
+  // One avatar per person, however many roles they are assigned under.
+  const members = assignedPeople(jo, groupByPerson(resources))
 
   return (
     <div
@@ -95,10 +96,10 @@ function KanbanCard({
       {members.length > 0 && (
         <div className="flex items-center gap-1 mb-3">
           <div className="flex -space-x-1">
-            {members.slice(0, 4).map((r) => (
-              <span key={r.id} title={r.name}
-                className={`w-5 h-5 rounded-full ${r.color} border-[1.5px] border-white dark:border-slate-800 flex items-center justify-center text-white text-[8px] font-bold`}>
-                {r.initials}
+            {members.slice(0, 4).map(({ person, roles }) => (
+              <span key={person.key} title={`${person.name} · ${roles.map(r => r.role).join(', ')}`}
+                className={`w-5 h-5 rounded-full ${person.color} border-[1.5px] border-white dark:border-slate-800 flex items-center justify-center text-white text-[8px] font-bold`}>
+                {person.initials}
               </span>
             ))}
           </div>

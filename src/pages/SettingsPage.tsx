@@ -405,7 +405,7 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
 
 export function SettingsPage() {
   const { jobOrders } = useDataStore()
-  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, removeManagedUser, resources, updateResource, addResource, deactivateResource, reactivateResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, deactivateApprover, reactivateApprover, initApprovers, departments, addDepartment, updateDepartment, removeDepartment, formOptions, addFormOption, updateFormOption, removeFormOption } = useAppStore()
+  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, removeManagedUser, resources, updateResource, addResource, deactivateResource, reactivateResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, deactivateApprover, reactivateApprover, initApprovers, departments, addDepartment, updateDepartment, removeDepartment, initDepartments, formOptions, addFormOption, updateFormOption, removeFormOption } = useAppStore()
   const { can } = usePermissions()
 
   const EMOJI_OPTIONS = [
@@ -420,6 +420,7 @@ export function SettingsPage() {
   // Sync approvers from Supabase whenever an approvers tab is opened
   useEffect(() => {
     if (activeTab === 'approvers' || activeTab === 'dap-approvers') initApprovers()
+    if (activeTab === 'departments') initDepartments()
   }, [activeTab])
 
   const [modalMode, setModalMode] = useState<ModalMode>(null)

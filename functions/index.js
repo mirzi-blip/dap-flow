@@ -11,6 +11,14 @@ const cors = require('cors')({ origin: true })
 //   firebase functions:secrets:set VITE_SUPABASE_ANON_KEY
 // They are then available as process.env.VAR_NAME in the function at runtime.
 
+// Sender identity — mirrors api/_mail.js. Kept inline because the functions
+// directory is deployed on its own. MAIL_FROM_ADDRESS must be declared as a
+// secret on the function before it takes effect here.
+const FROM_ADDRESS = process.env.MAIL_FROM_ADDRESS || process.env.GMAIL_USER
+const FROM_NAME    = process.env.MAIL_FROM_NAME    || 'DAP Flow (No Reply)'
+const MAIL_FROM = `"${FROM_NAME}" <${FROM_ADDRESS}>`
+const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || 'no-reply@dap-flow.noreply'
+
 function getTransporter() {
   return nodemailer.createTransport({
     service: 'gmail',
@@ -304,8 +312,8 @@ exports.sendEmail = functions
         if (!approverEmail) return res.status(200).json({ ok: true })
         try {
           await transporter.sendMail({
-            from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-            replyTo: 'no-reply@dap-flow.noreply',
+            from: MAIL_FROM,
+            replyTo: MAIL_REPLY_TO,
             to: approverEmail,
             subject: `[DAP] Approval Required: ${activityType} from ${preparedBy} — #${refId}`,
             html: buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId),
@@ -326,8 +334,8 @@ exports.sendEmail = functions
           const tableHtml = buildJOTable(joNumber, projectName, activityType, priority || 'N/A', deadline, status || '', mc.headingColor)
           const bodyHtml = `<p style="margin:0 0 16px">${mc.intro(memberName)}</p>${tableHtml}`
           await transporter.sendMail({
-            from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-            replyTo: 'no-reply@dap-flow.noreply',
+            from: MAIL_FROM,
+            replyTo: MAIL_REPLY_TO,
             to: memberEmail,
             subject: `[DAP] ${mc.subject} — ${joNumber}`,
             html: buildJOEmailHtml(mc.heading, mc.headingColor, bodyHtml),
@@ -376,8 +384,8 @@ exports.sendEmail = functions
           </div>`
         try {
           await transporter.sendMail({
-            from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-            replyTo: 'no-reply@dap-flow.noreply',
+            from: MAIL_FROM,
+            replyTo: MAIL_REPLY_TO,
             to: requestorEmail,
             subject: `[DAP] Job Order Completed — ${joNumber}`,
             html: completionHtml,
@@ -435,8 +443,8 @@ exports.sendEmail = functions
         </div>`
         try {
           await transporter.sendMail({
-            from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-            replyTo: 'no-reply@dap-flow.noreply',
+            from: MAIL_FROM,
+            replyTo: MAIL_REPLY_TO,
             to: approverEmail,
             subject: `[DAP] Output for Review: ${projectName} — ${joNumber}`,
             html,
@@ -470,7 +478,7 @@ exports.sendEmail = functions
         </div>`
         try {
           for (const email of recipientEmails) {
-            await transporter.sendMail({ from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`, replyTo: 'no-reply@dap-flow.noreply', to: email, subject: `[DAP] Output Approved — ${joNumber}`, html })
+            await transporter.sendMail({ from: MAIL_FROM, replyTo: MAIL_REPLY_TO, to: email, subject: `[DAP] Output Approved — ${joNumber}`, html })
           }
           return res.status(200).json({ ok: true })
         } catch (err) {
@@ -501,7 +509,7 @@ exports.sendEmail = functions
         </div>`
         try {
           for (const email of recipientEmails) {
-            await transporter.sendMail({ from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`, replyTo: 'no-reply@dap-flow.noreply', to: email, subject: `[DAP] Revision Requested — ${joNumber}`, html })
+            await transporter.sendMail({ from: MAIL_FROM, replyTo: MAIL_REPLY_TO, to: email, subject: `[DAP] Revision Requested — ${joNumber}`, html })
           }
           return res.status(200).json({ ok: true })
         } catch (err) {
@@ -520,8 +528,8 @@ exports.sendEmail = functions
           const refLine = refId ? `<p style="font-size:13px;color:#64748b;margin-top:8px">Booking Reference: <strong style="font-family:monospace;color:#1d4ed8">#${refId}</strong></p>` : ''
           const bodyHtml = `<p style="margin:0 0 8px">Hi <strong>${preparedBy}</strong>,</p><p style="margin:0 0 16px;color:#475569">The Job Order linked to your booking request has been updated.</p>${tableHtml}${refLine}`
           await transporter.sendMail({
-            from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-            replyTo: 'no-reply@dap-flow.noreply',
+            from: MAIL_FROM,
+            replyTo: MAIL_REPLY_TO,
             to: requestorEmail,
             subject: `[DAP] Job Order Update — ${joNumber}`,
             html: buildJOEmailHtml(`Job Order Updated ${statusInfo.icon}`, statusInfo.color, bodyHtml),
@@ -564,8 +572,8 @@ exports.sendEmail = functions
 
       try {
         await transporter.sendMail({
-          from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-          replyTo: 'no-reply@dap-flow.noreply',
+          from: MAIL_FROM,
+          replyTo: MAIL_REPLY_TO,
           to,
           subject: `[DAP] ${config.subject} — #${refId}`,
           html: buildStatusHtml(config, preparedBy, refId, activityType, neededDate, status),
@@ -660,8 +668,8 @@ exports.reviewAction = functions
       if (otherEmail) {
         const actionLabel = isApprove ? 'approved' : 'requested revision on'
         transporter.sendMail({
-          from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-          replyTo: 'no-reply@dap-flow.noreply',
+          from: MAIL_FROM,
+          replyTo: MAIL_REPLY_TO,
           to: otherEmail,
           subject: `[DAP] Review Update: ${review.project_name} — ${review.jo_number}`,
           html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
@@ -699,8 +707,8 @@ exports.reviewAction = functions
       </div>`
       for (const email of notifyEmails) {
         transporter.sendMail({
-          from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-          replyTo: 'no-reply@dap-flow.noreply',
+          from: MAIL_FROM,
+          replyTo: MAIL_REPLY_TO,
           to: email,
           subject: `[DAP] Review ${newOverallStatus === 'approved' ? 'Approved' : 'Needs Revision'} — ${review.jo_number}`,
           html: outcomeHtml,

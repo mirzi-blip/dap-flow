@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer')
+const { MAIL_FROM, MAIL_REPLY_TO } = require('./_mail')
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -247,8 +248,8 @@ module.exports = async function handler(req, res) {
     if (!approverEmail) return res.status(200).json({ ok: true })
     try {
       await transporter.sendMail({
-        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-        replyTo: 'no-reply@dap-flow.noreply',
+        from: MAIL_FROM,
+        replyTo: MAIL_REPLY_TO,
         to: approverEmail,
         subject: `[DAP] Approval Required: ${activityType} from ${preparedBy} — #${refId}`,
         html: buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail, specRows, additionalNotes),
@@ -289,8 +290,8 @@ module.exports = async function handler(req, res) {
     </div>`
     try {
       await transporter.sendMail({
-        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-        replyTo: 'no-reply@dap-flow.noreply',
+        from: MAIL_FROM,
+        replyTo: MAIL_REPLY_TO,
         to: coordinatorEmail,
         subject: `[DAP] Approved — Ready to Assign: ${activityType || 'Request'} #${refId || ''}`.trim(),
         html,
@@ -311,8 +312,8 @@ module.exports = async function handler(req, res) {
       const tableHtml = buildJOTable(joNumber, projectName, activityType, priority || 'N/A', deadline, status || '', mc.headingColor)
       const bodyHtml = `<p style="margin:0 0 16px">${mc.intro(memberName)}</p>${tableHtml}${buildNotesBlock(additionalNotes, mc.headingColor)}`
       await transporter.sendMail({
-        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-        replyTo: 'no-reply@dap-flow.noreply',
+        from: MAIL_FROM,
+        replyTo: MAIL_REPLY_TO,
         to: memberEmail,
         subject: `[DAP] ${mc.subject} — ${joNumber}`,
         html: buildJOEmailHtml(mc.heading, mc.headingColor, bodyHtml),
@@ -389,8 +390,8 @@ module.exports = async function handler(req, res) {
 
     try {
       await transporter.sendMail({
-        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-        replyTo: 'no-reply@dap-flow.noreply',
+        from: MAIL_FROM,
+        replyTo: MAIL_REPLY_TO,
         to: requestorEmail,
         subject: `[DAP] Job Order Completed — ${joNumber}`,
         html: completionHtml,
@@ -452,8 +453,8 @@ module.exports = async function handler(req, res) {
     </div>`
     try {
       await transporter.sendMail({
-        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-        replyTo: 'no-reply@dap-flow.noreply',
+        from: MAIL_FROM,
+        replyTo: MAIL_REPLY_TO,
         to: approverEmail,
         subject: `[DAP] Output for Review: ${projectName} — ${joNumber}`,
         html,
@@ -488,8 +489,8 @@ module.exports = async function handler(req, res) {
     try {
       for (const email of recipientEmails) {
         await transporter.sendMail({
-          from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-          replyTo: 'no-reply@dap-flow.noreply',
+          from: MAIL_FROM,
+          replyTo: MAIL_REPLY_TO,
           to: email,
           subject: `[DAP] Output Approved — ${joNumber}`,
           html,
@@ -528,8 +529,8 @@ module.exports = async function handler(req, res) {
     try {
       for (const email of recipientEmails) {
         await transporter.sendMail({
-          from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-          replyTo: 'no-reply@dap-flow.noreply',
+          from: MAIL_FROM,
+          replyTo: MAIL_REPLY_TO,
           to: email,
           subject: `[DAP] Revision Requested — ${joNumber}`,
           html,
@@ -552,8 +553,8 @@ module.exports = async function handler(req, res) {
       const refLine = refId ? `<p style="font-size:13px;color:#64748b;margin-top:8px">Booking Reference: <strong style="font-family:monospace;color:#1d4ed8">#${refId}</strong></p>` : ''
       const bodyHtml = `<p style="margin:0 0 8px">Hi <strong>${preparedBy}</strong>,</p><p style="margin:0 0 16px;color:#475569">The Job Order linked to your booking request has been updated. Please review the details below.</p>${tableHtml}${refLine}`
       await transporter.sendMail({
-        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-        replyTo: 'no-reply@dap-flow.noreply',
+        from: MAIL_FROM,
+        replyTo: MAIL_REPLY_TO,
         to: requestorEmail,
         subject: `[DAP] Job Order Update — ${joNumber}`,
         html: buildJOEmailHtml(`Job Order Updated ${statusInfo.icon}`, statusInfo.color, bodyHtml),
@@ -596,8 +597,8 @@ module.exports = async function handler(req, res) {
 
   try {
     await transporter.sendMail({
-      from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-      replyTo: 'no-reply@dap-flow.noreply',
+      from: MAIL_FROM,
+      replyTo: MAIL_REPLY_TO,
       to,
       subject: `[DAP] ${config.subject} — #${refId}`,
       html: buildHtml(config, preparedBy, refId, activityType, neededDate, status),

@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
 const nodemailer = require('nodemailer')
+const { MAIL_FROM, MAIL_REPLY_TO } = require('./_mail')
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -172,8 +173,8 @@ module.exports = async function handler(req, res) {
     if (otherEmail) {
       const actionLabel = isApprove ? 'approved' : 'requested revision on'
       transporter.sendMail({
-        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-        replyTo: 'no-reply@dap-flow.noreply',
+        from: MAIL_FROM,
+        replyTo: MAIL_REPLY_TO,
         to: otherEmail,
         subject: `[DAP] Review Update: ${review.project_name} — ${review.jo_number}`,
         html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
@@ -214,8 +215,8 @@ module.exports = async function handler(req, res) {
 
     for (const email of notifyEmails) {
       transporter.sendMail({
-        from: `"DAP Flow (No Reply)" <${process.env.GMAIL_USER}>`,
-        replyTo: 'no-reply@dap-flow.noreply',
+        from: MAIL_FROM,
+        replyTo: MAIL_REPLY_TO,
         to: email,
         subject: `[DAP] Review ${newOverallStatus === 'approved' ? 'Approved' : 'Needs Revision'} — ${review.jo_number}`,
         html: outcomeHtml,

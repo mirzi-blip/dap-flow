@@ -238,22 +238,6 @@ function buildApprovalHtml(approverName, preparedBy, activityType, projectName, 
 }
 
 module.exports = async function handler(req, res) {
-  // Configuration check: reports which account the server is set up to send as,
-  // so a sender problem can be told apart from a password problem. Never
-  // returns the password itself — only whether one is present and its length.
-  if (req.method !== 'POST' && req.query && req.query.diag === '1') {
-    const user = (process.env.GMAIL_USER || '').trim()
-    const pass = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s/g, '')
-    return res.status(200).json({
-      sendingAccount: user || '(GMAIL_USER not set)',
-      fromHeader: MAIL_FROM,
-      mailFromAddressOverride: process.env.MAIL_FROM_ADDRESS || '(not set)',
-      appPasswordPresent: pass.length > 0,
-      appPasswordLength: pass.length,
-      appPasswordLooksValid: pass.length === 16,
-      hadWhitespace: (process.env.GMAIL_APP_PASSWORD || '').length !== pass.length,
-    })
-  }
   if (req.method !== 'POST') return res.status(200).json({ status: 'DAP email function is running ✓' })
 
   const body = req.body || {}

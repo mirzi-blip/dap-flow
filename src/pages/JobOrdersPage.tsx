@@ -18,7 +18,12 @@ import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, Bookin
 import { ACTIVITY_HOURS, MAX_REVISIONS, DEFAULT_REQUESTING_TEAMS } from '../types'
 import { ALL_ACTIVITY_TYPES } from '../data/services'
 import { db } from '../db/database'
-import { supabase, requestToRow, jobOrderToRow, saveJOComment } from '../lib/supabase'
+import { supabase, requestToRow, jobOrderToRow, saveJOComment, fetchJOComments, fetchJOReview, uploadOutputFile } from '../lib/supabase'
+import type { JOComment } from '../lib/supabase'
+import type { JOReview } from '../types'
+import { JOFilesPanel } from '../components/JOFilesPanel'
+import { InfoBox, RequestorDetails } from '../components/RequestorDetails'
+import { collectJOFiles } from '../utils/joFiles'
 
 type PageTab = 'list' | 'requests'
 
@@ -43,8 +48,6 @@ const emptyForm = {
 
 type DetailTab = 'overview' | 'activity' | 'files' | 'comments'
 
-interface FileRef { id: string; label: string; url: string; addedAt: string; addedBy: string; isFile?: boolean }
-interface Comment { id: string; text: string; author: string; createdAt: string }
 
 const STATUS_COLORS: Record<JOStatus, string> = {
   'To Do':       'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
@@ -143,13 +146,14 @@ export function JobOrdersPage() {
   const [rejectTarget, setRejectTarget] = useState<BookingRequest | null>(null)
 
   // Per-JO local state
-  const [fileRefs, setFileRefs] = useState<Record<string, FileRef[]>>({})
-  const [comments, setComments] = useState<Record<string, Comment[]>>({})
-  const [newLink, setNewLink] = useState({ label: '', url: '' })
-  const [linkError, setLinkError] = useState('')
-  const [fileUploadError, setFileUploadError] = useState('')
+  // Comments and files live on the server so every assigned member and
+  // approver sees the same thread and the same attachments. They used to be
+  // React state, which meant each person only ever saw their own.
+  const [comments, setComments] = useState<JOComment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [joReview, setJoReview] = useState<JOReview | null>(null)
   const [newComment, setNewComment] = useState('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [commentBusy, setCommentBusy] = useState(false)
 
   // Completion modal state
   const [completionTarget, setCompletionTarget] = useState<JobOrder | null>(null)
@@ -721,69 +725,70 @@ export function JobOrdersPage() {
       notes: jo.notes ?? '',
       estimatedHours: jo.estimatedHours == null ? '' : String(jo.estimatedHours),
     })
-    setNewLink({ label: '', url: '' })
     setNewComment('')
-    setLinkError('')
   }
 
-  function addFileRef() {
-    if (!newLink.url.trim()) { setLinkError('URL is required'); return }
-    const ref: FileRef = {
-      id: generateId(),
-      label: newLink.label.trim() || newLink.url,
-      url: newLink.url.trim(),
-      addedAt: new Date().toISOString(),
-      addedBy: currentUser?.name ?? 'Unknown',
+  // Load the shared comment thread and any review record for the open JO.
+  useEffect(() => {
+    if (!selectedJO) { setComments([]); setJoReview(null); return }
+    let cancelled = false
+    setCommentsLoading(true)
+    fetchJOComments(selectedJO.id)
+      .then(c => { if (!cancelled) setComments(c) })
+      .catch(() => { if (!cancelled) setComments([]) })
+      .finally(() => { if (!cancelled) setCommentsLoading(false) })
+    fetchJOReview(selectedJO.id)
+      .then(r => { if (!cancelled) setJoReview(r) })
+      .catch(() => { if (!cancelled) setJoReview(null) })
+    return () => { cancelled = true }
+  }, [selectedJO?.id])
+
+  /** Attach a file or link to the job order. Saved as a comment so it persists
+   *  and shows for everyone, which plain local state never did. */
+  async function attachToJO(input: { file?: File; url?: string; label?: string }) {
+    if (!selectedJO) return
+    let attachmentUrl = input.url
+    let attachmentName = input.label
+    if (input.file) {
+      const up = await uploadOutputFile(selectedJO.id, input.file)
+      if (!up) throw new Error('upload failed')
+      attachmentUrl = up.url
+      attachmentName = up.name
     }
-    setFileRefs(prev => ({ ...prev, [selectedJO!.id]: [...(prev[selectedJO!.id] ?? []), ref] }))
-    setNewLink({ label: '', url: '' })
-    setLinkError('')
+    if (!attachmentUrl) return
+    const saved = await saveJOComment({
+      joId: selectedJO.id,
+      authorName: currentUser?.name ?? 'Unknown',
+      authorEmail: currentUser?.email ?? '',
+      body: input.file ? 'Attached a file.' : `Attached a link${attachmentName ? `: ${attachmentName}` : '.'}`,
+      attachmentUrl,
+      attachmentName,
+    })
+    if (saved) setComments(prev => [...prev, saved])
   }
 
-  function removeFileRef(joId: string, refId: string) {
-    setFileRefs(prev => ({ ...prev, [joId]: (prev[joId] ?? []).filter(r => r.id !== refId) }))
-  }
-
-  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    setFileUploadError('')
-    const file = e.target.files?.[0]
-    if (!file || !selectedJO) return
-    if (file.size > 2 * 1024 * 1024) {
-      setFileUploadError(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 2 MB.`)
-      e.target.value = ''
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => {
-      const ref: FileRef = {
-        id: generateId(),
-        label: file.name,
-        url: reader.result as string,
-        addedAt: new Date().toISOString(),
-        addedBy: currentUser?.name ?? 'Unknown',
-        isFile: true,
-      }
-      setFileRefs(prev => ({ ...prev, [selectedJO.id]: [...(prev[selectedJO.id] ?? []), ref] }))
-    }
-    reader.readAsDataURL(file)
-    e.target.value = ''
-  }
-
-  function addComment() {
-    if (!newComment.trim() || !selectedJO) return
-    const c: Comment = {
-      id: generateId(),
-      text: newComment.trim(),
-      author: currentUser?.name ?? 'Unknown',
-      createdAt: new Date().toISOString(),
-    }
-    setComments(prev => ({ ...prev, [selectedJO.id]: [...(prev[selectedJO.id] ?? []), c] }))
-    setNewComment('')
+  async function addComment() {
+    if (!newComment.trim() || !selectedJO || commentBusy) return
+    setCommentBusy(true)
+    try {
+      const saved = await saveJOComment({
+        joId: selectedJO.id,
+        authorName: currentUser?.name ?? 'Unknown',
+        authorEmail: currentUser?.email ?? '',
+        body: newComment.trim(),
+      })
+      if (saved) { setComments(prev => [...prev, saved]); setNewComment('') }
+    } finally { setCommentBusy(false) }
   }
 
   const joLogs = selectedJO ? statusLogs.filter((l) => l.joId === selectedJO.id) : []
-  const joFiles = selectedJO ? (fileRefs[selectedJO.id] ?? []) : []
-  const joComments = selectedJO ? (comments[selectedJO.id] ?? []) : []
+  const joFiles = collectJOFiles(
+    selectedJO,
+    selectedJO ? bookingRequests.find(r => r.joId === selectedJO.id) : undefined,
+    comments,
+    joReview,
+  )
+  const joComments = comments
 
   // Requests tab: an admin only sees requests for the service(s) they handle
   // (their DAP Team Approver assignments, matched by email). An admin with no
@@ -2182,60 +2187,9 @@ export function JobOrdersPage() {
 
             {/* ── Files & References ── */}
             {detailTab === 'files' && (
-              <div className="space-y-4">
-                <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 space-y-3">
-                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Add Reference Link</p>
-                  <div className="grid grid-cols-5 gap-2">
-                    <input value={newLink.label} onChange={e => setNewLink(l => ({ ...l, label: e.target.value }))} placeholder="Label (optional)" className="form-input col-span-2 text-xs" />
-                    <input value={newLink.url} onChange={e => setNewLink(l => ({ ...l, url: e.target.value }))} placeholder="https://..." className="form-input col-span-2 text-xs" />
-                    <button onClick={addFileRef} className="flex items-center justify-center gap-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-colors">
-                      <Link2 size={13} /> Add
-                    </button>
-                  </div>
-                  {linkError && <p className="text-xs text-red-600 dark:text-red-400">{linkError}</p>}
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 space-y-2">
-                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Upload File</p>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500">Maximum file size: 2 MB</p>
-                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
-                  <button
-                    onClick={() => { setFileUploadError(''); fileInputRef.current?.click() }}
-                    className="flex items-center gap-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-brand-400 dark:hover:border-brand-500 text-slate-700 dark:text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
-                  >
-                    <Upload size={13} className="text-brand-500" /> Choose File to Upload
-                  </button>
-                  {fileUploadError && <p className="text-xs text-red-600 dark:text-red-400">{fileUploadError}</p>}
-                </div>
-                {joFiles.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
-                    <Paperclip size={28} className="mx-auto mb-2 opacity-40" />No references added yet.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {joFiles.map(ref => (
-                      <div key={ref.id} className="flex items-center gap-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 group">
-                        {ref.isFile ? <Paperclip size={14} className="text-emerald-500 shrink-0" /> : <Link2 size={14} className="text-brand-500 shrink-0" />}
-                        <div className="flex-1 min-w-0">
-                          <a href={ref.url} target="_blank" rel="noopener noreferrer" download={ref.isFile ? ref.label : undefined}
-                            className="text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline truncate block" onClick={e => e.stopPropagation()}>
-                            {ref.label}
-                          </a>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                            {ref.isFile ? 'File · ' : 'Link · '}Added by {ref.addedBy} · {formatDateTime(ref.addedAt)}
-                          </p>
-                        </div>
-                        <button onClick={() => removeFileRef(selectedJO.id, ref.id)}
-                          className="p-1 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg">
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <JOFilesPanel files={joFiles} loading={commentsLoading} onAttach={attachToJO} />
             )}
 
-            {/* ── Comments ── */}
             {detailTab === 'comments' && (
               <div className="space-y-4">
                 <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -2246,14 +2200,25 @@ export function JobOrdersPage() {
                   ) : joComments.map(c => (
                     <div key={c.id} className="flex gap-3">
                       <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-brand-500 to-brand-500 flex items-center justify-center text-[10px] font-black text-white shrink-0 mt-0.5">
-                        {c.author.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)}
+                        {(c.authorName || '?').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
                       </div>
                       <div className="flex-1 bg-slate-50 dark:bg-slate-700/40 rounded-xl px-3 py-2.5">
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{c.author}</p>
+                          <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{c.authorName}</p>
                           <p className="text-[10px] text-slate-400 dark:text-slate-500">{formatDateTime(c.createdAt)}</p>
                         </div>
-                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{c.text}</p>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{c.body}</p>
+                        {c.attachmentUrl && (
+                          <a href={c.attachmentUrl} target="_blank" rel="noopener noreferrer"
+                            className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline">
+                            <Paperclip size={11} /> {c.attachmentName || 'Attachment'}
+                          </a>
+                        )}
+                        {(c.fromStatus || c.toStatus) && (
+                          <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
+                            {c.fromStatus} → {c.toStatus}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -2580,84 +2545,6 @@ function RequestCard({ req, canSeeRequests, onReview, onDelete }: RequestCardPro
   )
 }
 
-function InfoBox({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
-      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">{label}</p>
-      <p className={`text-sm font-semibold ${highlight ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>{value}</p>
-    </div>
-  )
-}
 
 // Full read-only view of everything the requestor submitted. Shared by the
 // request-review modal and the job-order detail view.
-function RequestorDetails({ req }: { req: BookingRequest }) {
-  const specs = designSpecRows(req.activityType, req.designSpecs)
-  const specNotes = req.designSpecs?.additionalNotes?.trim()
-  const atts = req.designSpecs?.attachmentUrls ?? []
-  const links = req.designSpecs?.fileLinks ?? []
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2.5">
-        <InfoBox label="Service Type" value={req.activityType} />
-        <InfoBox label="Status" value={req.status} />
-        <InfoBox label="Requestor" value={req.requestorName || '—'} />
-        <InfoBox label="Requestor Email" value={req.requestorEmail || '—'} />
-        <InfoBox label="Prepared By" value={req.preparedBy || '—'} />
-        <InfoBox label="Department" value={`${req.department || '—'}${req.departmentLocal ? ` · ${req.departmentLocal}` : ''}`} />
-        {req.projectName && <div className="col-span-2"><InfoBox label="Project Name" value={req.projectName} /></div>}
-        {req.designSpecs?.brand && <InfoBox label="Brand" value={req.designSpecs.brand} />}
-        {req.shootType && <InfoBox label="Shoot Type" value={req.shootType} />}
-        {req.projectScale && <InfoBox label="Project Scale" value={req.projectScale} />}
-        <InfoBox label="Date Encoded" value={formatDate(req.encodedAt)} />
-        <InfoBox label="Date Needed" value={`${formatDate(req.neededDate)}${req.endDate && req.endDate !== req.neededDate ? ` – ${formatDate(req.endDate)}` : ''}`} />
-        {(req.startTime || req.endTime) && <InfoBox label="Time" value={`${req.startTime || '?'} – ${req.endTime || '?'}`} />}
-        {req.approverName && <div className="col-span-2"><InfoBox label="Approver" value={`${req.approverName}${req.approverEmail ? ` (${req.approverEmail})` : ''}`} /></div>}
-        {req.venue && <div className="col-span-2"><InfoBox label="Venue / Location" value={req.venue} /></div>}
-      </div>
-
-      {specs.length > 0 && (
-        <div>
-          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">Design Specifications</p>
-          <div className="grid grid-cols-2 gap-2.5">
-            {specs.map(r => <InfoBox key={r.label} label={r.label} value={r.value} />)}
-          </div>
-        </div>
-      )}
-
-      {specNotes && (
-        <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">Specifications / Brief</p>
-          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{specNotes}</p>
-        </div>
-      )}
-
-      {req.notes?.trim() && (
-        <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">Additional Notes</p>
-          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{req.notes}</p>
-        </div>
-      )}
-
-      {(atts.length > 0 || links.length > 0) && (
-        <div>
-          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">Attachments &amp; Links</p>
-          <div className="space-y-1.5">
-            {atts.map((url, i) => (
-              <a key={`a${i}`} href={url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-800 rounded-lg px-3 py-2">
-                <Paperclip size={12} className="shrink-0" /><span className="truncate">Attachment {i + 1}</span>
-              </a>
-            ))}
-            {links.map((url, i) => (
-              <a key={`l${i}`} href={url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline bg-white dark:bg-slate-700/40 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2">
-                <Link2 size={12} className="shrink-0" /><span className="truncate">{url}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}

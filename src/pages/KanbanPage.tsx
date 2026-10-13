@@ -15,6 +15,9 @@ import {
 } from 'lucide-react'
 import { supabase, jobOrderToRow, fetchJOComments, saveJOComment, uploadOutputFile, saveJOReviewRecord, fetchJOReview, updateJOReviewRecord } from '../lib/supabase'
 import type { JOComment } from '../lib/supabase'
+import { JOFilesPanel } from '../components/JOFilesPanel'
+import { InfoBox, RequestorDetails } from '../components/RequestorDetails'
+import { collectJOFiles } from '../utils/joFiles'
 import { requestorNotesForJO } from '../utils/designSpecs'
 import type { JOReview } from '../types'
 
@@ -134,7 +137,7 @@ function KanbanCard({
   )
 }
 
-type DetailTab = 'overview' | 'activity' | 'comments' | 'review'
+type DetailTab = 'overview' | 'activity' | 'files' | 'comments' | 'review'
 
 export function KanbanPage() {
   const { jobOrders, updateJobOrder, addStatusLog, addNotification, statusLogs, bookingRequests } = useDataStore()
@@ -621,6 +624,37 @@ export function KanbanPage() {
     }
   }
 
+  /** Attach a file or link to the job order. Saved as a comment so it persists
+   *  and appears in both Pipeline and Job Orders for everyone. */
+  async function attachToJO(input: { file?: File; url?: string; label?: string }) {
+    if (!selectedJO) return
+    let attachmentUrl = input.url
+    let attachmentName = input.label
+    if (input.file) {
+      const up = await uploadOutputFile(selectedJO.id, input.file)
+      if (!up) throw new Error('upload failed')
+      attachmentUrl = up.url
+      attachmentName = up.name
+    }
+    if (!attachmentUrl) return
+    const saved = await saveJOComment({
+      joId: selectedJO.id,
+      authorName: currentUser?.name ?? 'Unknown',
+      authorEmail: currentUser?.email ?? '',
+      body: input.file ? 'Attached a file.' : `Attached a link${attachmentName ? `: ${attachmentName}` : '.'}`,
+      attachmentUrl,
+      attachmentName,
+    })
+    if (saved) setComments(prev => [...prev, saved])
+  }
+
+  const joFiles = collectJOFiles(
+    selectedJO,
+    selectedJO ? bookingRequests.find(r => r.joId === selectedJO.id) : undefined,
+    comments,
+    joReview,
+  )
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -1067,6 +1101,7 @@ export function KanbanPage() {
               {([
                 ['overview',  'Overview',                                                  LayoutList],
                 ['activity',  `Activity${joLogs.length ? ` (${joLogs.length})` : ''}`,   Clock],
+                ['files',     `Files${joFiles.length ? ` (${joFiles.length})` : ''}`,        Paperclip],
                 ['comments',  `Comments${comments.length ? ` (${comments.length})` : ''}`, MessageSquare],
                 ...((selectedJO.status === 'For Review' || selectedJO.status === 'Needs Revision')
                   ? [['review', 'Review Status', ClipboardCheck] as [DetailTab, string, React.ElementType]]
@@ -1119,6 +1154,15 @@ export function KanbanPage() {
                     </div>
                   )}
                 </div>
+                {(() => {
+                  // The originating request, so Pipeline shows the same details as Job Orders
+                  const srcReq = bookingRequests.find(r => r.joId === selectedJO.id)
+                  return srcReq ? (
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+                      <RequestorDetails req={srcReq} />
+                    </div>
+                  ) : null
+                })()}
                 {canProgress && selectedJO.status !== 'Completed' && selectedJO.status !== 'Cancelled' && getNextStatus(selectedJO.status) && (
                   <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                     {selectedJO.status === 'For Approval' && (
@@ -1309,6 +1353,10 @@ export function KanbanPage() {
             )}
 
             {/* Comments tab */}
+            {detailTab === 'files' && (
+              <JOFilesPanel files={joFiles} loading={commentsLoading} onAttach={attachToJO} />
+            )}
+
             {detailTab === 'comments' && (
               <div className="space-y-4">
                 {commentsLoading ? (
@@ -1390,11 +1438,3 @@ export function KanbanPage() {
   )
 }
 
-function InfoBox({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-3">
-      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide mb-0.5">{label}</p>
-      <p className={`text-sm font-semibold ${highlight ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>{value}</p>
-    </div>
-  )
-}

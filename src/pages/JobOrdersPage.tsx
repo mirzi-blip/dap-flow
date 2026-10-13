@@ -18,7 +18,7 @@ import type { ActivityType, JobOrder, JOStatus, Priority, RequestingTeam, Bookin
 import { ACTIVITY_HOURS, MAX_REVISIONS, DEFAULT_REQUESTING_TEAMS } from '../types'
 import { ALL_ACTIVITY_TYPES } from '../data/services'
 import { db } from '../db/database'
-import { supabase, requestToRow, jobOrderToRow, saveJOComment, fetchJOComments, fetchJOReview, uploadOutputFile } from '../lib/supabase'
+import { supabase, requestToRow, jobOrderToRow, saveJOComment, fetchJOComments, fetchJOReview, uploadOutputFile, getLastUploadError } from '../lib/supabase'
 import type { JOComment } from '../lib/supabase'
 import type { JOReview } from '../types'
 import { JOFilesPanel } from '../components/JOFilesPanel'
@@ -751,7 +751,7 @@ export function JobOrdersPage() {
     let attachmentName = input.label
     if (input.file) {
       const up = await uploadOutputFile(selectedJO.id, input.file)
-      if (!up) throw new Error('upload failed')
+      if (!up) throw new Error(getLastUploadError() || 'Upload failed.')
       attachmentUrl = up.url
       attachmentName = up.name
     }

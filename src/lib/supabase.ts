@@ -302,6 +302,10 @@ export async function saveJOComment(
   }
 }
 
+/** Why the last upload failed, so the UI can say more than "it failed". */
+let lastUploadError = ''
+export function getLastUploadError(): string { return lastUploadError }
+
 export async function uploadOutputFile(
   joId: string,
   file: File
@@ -311,7 +315,14 @@ export async function uploadOutputFile(
   const { error } = await supabase.storage
     .from('booking-files')
     .upload(path, file, { cacheControl: '3600', upsert: false })
-  if (error) { console.error('Output upload error:', error.message); return null }
+  if (error) {
+    console.error('Output upload error:', error.message)
+    lastUploadError = /bucket/i.test(error.message)
+      ? 'File storage is not set up yet, so uploads cannot be saved. Paste a link instead, or ask an admin to run the storage migration.'
+      : error.message
+    return null
+  }
+  lastUploadError = ''
   const { data } = supabase.storage.from('booking-files').getPublicUrl(path)
   return { url: data.publicUrl, name: file.name }
 }

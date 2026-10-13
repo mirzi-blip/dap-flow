@@ -13,7 +13,7 @@ import {
   LayoutList, MessageSquare, Paperclip, Send, Upload,
   CheckCircle2, XCircle, ClipboardCheck, ExternalLink,
 } from 'lucide-react'
-import { supabase, jobOrderToRow, fetchJOComments, saveJOComment, uploadOutputFile, saveJOReviewRecord, fetchJOReview, updateJOReviewRecord } from '../lib/supabase'
+import { supabase, jobOrderToRow, fetchJOComments, saveJOComment, uploadOutputFile, getLastUploadError, saveJOReviewRecord, fetchJOReview, updateJOReviewRecord } from '../lib/supabase'
 import type { JOComment } from '../lib/supabase'
 import { JOFilesPanel } from '../components/JOFilesPanel'
 import { InfoBox, RequestorDetails } from '../components/RequestorDetails'
@@ -423,7 +423,7 @@ export function KanbanPage() {
       if (isForReview && moveFile) {
         const uploaded = await uploadOutputFile(moveTarget.id, moveFile)
         if (!uploaded) {
-          setMoveError('File upload failed. Please try again.')
+          setMoveError(getLastUploadError() || 'File upload failed. Please try again.')
           setMoveLoading(false)
           return
         }
@@ -632,7 +632,7 @@ export function KanbanPage() {
     let attachmentName = input.label
     if (input.file) {
       const up = await uploadOutputFile(selectedJO.id, input.file)
-      if (!up) throw new Error('upload failed')
+      if (!up) throw new Error(getLastUploadError() || 'Upload failed.')
       attachmentUrl = up.url
       attachmentName = up.name
     }

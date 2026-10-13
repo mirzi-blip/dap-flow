@@ -52,8 +52,8 @@ export function JOFilesPanel({ files, loading = false, onAttach, readOnly = fals
     setBusy(true); setError('')
     try {
       await onAttach?.({ file })
-    } catch {
-      setError('Upload failed. Please try again.')
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : 'Upload failed. Please try again.')
     } finally { setBusy(false) }
   }
 

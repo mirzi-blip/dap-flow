@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AppUser, JobOrder, CalendarEvent, Notification, StatusLog, Resource, ManagedUser, BookingRequest, Approver, BookingDepartment, FormOption } from '../types'
+import type { AppUser, JobOrder, CalendarEvent, Notification, StatusLog, Resource, ManagedUser, BookingRequest, Approver, BookingDepartment, FormOption, AppButton } from '../types'
 import { USERS, RESOURCES } from '../data/seed'
 import { DEFAULT_FORM_OPTIONS } from '../data/defaultFormOptions'
-import { supabase, rowToManagedUser, managedUserToRow, rowToApprover, approverToRow, rowToDepartment, departmentToRow, rowToResource, resourceToRow, rowToFormOption, formOptionToRow } from '../lib/supabase'
+import { supabase, rowToManagedUser, managedUserToRow, rowToApprover, approverToRow, rowToDepartment, departmentToRow, rowToAppButton, appButtonToRow, rowToResource, resourceToRow, rowToFormOption, formOptionToRow } from '../lib/supabase'
 import { DEFAULT_PERMISSIONS, SUPER_ADMIN_ONLY, type RolePermissions, type PermissionKey } from '../data/permissions'
 import type { UserRole } from '../types'
 
@@ -64,6 +64,13 @@ interface AppState {
   reactivateApprover: (id: string) => void
   initApprovers: () => Promise<void>
 
+  // Configurable app buttons (sidebar shortcuts to external tools)
+  appButtons: AppButton[]
+  addAppButton: (b: AppButton) => void
+  updateAppButton: (b: AppButton) => void
+  removeAppButton: (id: string) => void
+  initAppButtons: () => Promise<void>
+
   // Booking Departments
   departments: BookingDepartment[]
   addDepartment: (d: BookingDepartment) => void
@@ -113,6 +120,7 @@ export const useAppStore = create<AppState>()(
       passwordLastChanged: {},
       rolePermissions: DEFAULT_PERMISSIONS,
       approvers: [],
+      appButtons: [],
       departments: DEFAULT_DEPARTMENTS,
       formOptions: [],
 
@@ -293,6 +301,26 @@ export const useAppStore = create<AppState>()(
         } catch { /* offline — keep local */ }
       },
 
+      // ── App buttons ────────────────────────────────────────────────────────────
+      addAppButton(b) {
+        set(s => ({ appButtons: [...s.appButtons, b] }))
+        supabase.from('app_buttons').insert(appButtonToRow(b)).then(({ error }) => { if (error) console.error('Button sync error:', error) })
+      },
+      updateAppButton(b) {
+        set(s => ({ appButtons: s.appButtons.map(x => x.id === b.id ? b : x) }))
+        supabase.from('app_buttons').update(appButtonToRow(b)).eq('id', b.id).then(({ error }) => { if (error) console.error('Button sync error:', error) })
+      },
+      removeAppButton(id) {
+        set(s => ({ appButtons: s.appButtons.filter(b => b.id !== id) }))
+        supabase.from('app_buttons').delete().eq('id', id).then(({ error }) => { if (error) console.error('Button sync error:', error) })
+      },
+      async initAppButtons() {
+        try {
+          const { data, error } = await supabase.from('app_buttons').select('*').order('sort_order', { ascending: true })
+          if (!error && data) set({ appButtons: data.map(rowToAppButton) })
+        } catch { /* offline — keep what is cached */ }
+      },
+
       // ── Booking Departments ────────────────────────────────────────────────────
       addDepartment(d) {
         set(s => ({ departments: [...s.departments, d] }))
@@ -402,6 +430,7 @@ export const useAppStore = create<AppState>()(
         rolePermissions: s.rolePermissions,
         approvers: s.approvers,
         departments: s.departments,
+        appButtons: s.appButtons,
         formOptions: s.formOptions,
       }),
       onRehydrateStorage: () => (state) => {

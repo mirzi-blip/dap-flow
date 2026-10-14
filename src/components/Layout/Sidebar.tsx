@@ -1,10 +1,13 @@
-﻿import {
+﻿import { useState } from 'react'
+import {
   LayoutDashboard, CalendarRange, FileText, Workflow, GanttChartSquare,
   TrendingUp, SlidersHorizontal, LogOut, Wifi, WifiOff,
-  Camera, Aperture, X,
+  Camera, Aperture, X, ExternalLink,
 } from 'lucide-react'
 import { useAppStore, type View } from '../../store/useAppStore'
 import { usePermissions } from '../../hooks/usePermissions'
+import { AppButtonFrame } from '../AppButtonFrame'
+import type { AppButton } from '../../types'
 
 const NAV_GROUPS = [
   {
@@ -34,7 +37,7 @@ const NAV_GROUPS = [
 interface SidebarProps { open: boolean; onClose: () => void }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const { view, setView, currentUser, logout, isOnline } = useAppStore()
+  const { view, setView, currentUser, logout, isOnline, appButtons } = useAppStore()
   const { canView, can } = usePermissions()
 
   // Settings has no "view" action — gate it on any settings permission instead
@@ -45,7 +48,17 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     return canView(module)
   }
 
+  const [openButton, setOpenButton] = useState<AppButton | null>(null)
+
   function navigate(id: View) { setView(id); onClose() }
+
+  // Configurable shortcuts to external tools, shown under the nav. A button is
+  // visible when it is active and lists the signed-in user's role (an empty
+  // role list means everyone).
+  const visibleButtons = appButtons
+    .filter(b => b.isActive !== false)
+    .filter(b => !b.roles?.length || (currentUser?.role && b.roles.includes(currentUser.role)))
+    .sort((a, b) => a.sortOrder - b.sortOrder)
 
   return (
     <aside className={`
@@ -110,6 +123,29 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             })}
           </div>
         ))}
+
+        {visibleButtons.length > 0 && (
+          <div>
+            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-brand-300/40 px-3 mb-1 mt-5 block">
+              TOOLS
+            </span>
+            {visibleButtons.map(b => (
+              <button
+                key={b.id}
+                onClick={() => { setOpenButton(b); onClose() }}
+                title={`Open ${b.label} inside DAP Flow`}
+                className="relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mb-0.5 text-brand-200/70 hover:text-white"
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.07)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '' }}
+              >
+                {b.icon
+                  ? <span className="text-base leading-none w-4 text-center">{b.icon}</span>
+                  : <ExternalLink size={16} strokeWidth={2} className="text-brand-400/50" />}
+                <span className="truncate">{b.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </nav>
 
       <div className="h-px mx-4 bg-white/10" />
@@ -149,6 +185,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </button>
         </div>
       </div>
+
+      {/* The selected tool, opened inside the app rather than a new tab */}
+      {openButton && <AppButtonFrame button={openButton} onClose={() => setOpenButton(null)} />}
     </aside>
   )
 }

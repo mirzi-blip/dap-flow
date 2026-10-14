@@ -324,6 +324,21 @@ export interface JOReview {
   updatedAt: string
 }
 
+/** A button that opens an external tool inside the app. Configured in
+ *  Settings → Button Management, shown in the sidebar below Settings. */
+export interface AppButton {
+  id: string
+  label: string
+  url: string
+  /** Emoji shown beside the label. */
+  icon?: string
+  /** Roles that may see it. Empty means every signed-in role. */
+  roles: UserRole[]
+  isActive: boolean
+  sortOrder: number
+  createdAt: string
+}
+
 export interface BookingDepartment {
   id: string
   name: string

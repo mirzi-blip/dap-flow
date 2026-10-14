@@ -11,6 +11,7 @@ import { useAppStore, useDataStore } from '../store/useAppStore'
 import { groupByPerson, isLoadBearing, type Person, type PersonRole } from '../utils/helpers'
 import { SERVICES } from '../data/services'
 import { DEFAULT_REQUESTING_TEAMS } from '../types'
+import type { AppButton } from '../types'
 import { uploadAvatar } from '../lib/supabase'
 import { PERMISSION_MODULES, DEFAULT_PERMISSIONS, ALL_PERMISSIONS, perm } from '../data/permissions'
 import { usePermissions } from '../hooks/usePermissions'
@@ -26,7 +27,7 @@ const DAP_SERVICES: ActivityType[] = [
 const ROLES: UserRole[] = ['Super Admin', 'Admin', 'DAP Team', 'Brand Team', 'Leadership', 'End User']
 const DEFAULT_TEAMS: RequestingTeam[] = [...DEFAULT_REQUESTING_TEAMS]
 
-type SettingsTab = 'profile' | 'users' | 'team' | 'activity' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments' | 'booking-form'
+type SettingsTab = 'profile' | 'users' | 'team' | 'activity' | 'buttons' | 'permissions' | 'approvers' | 'dap-approvers' | 'departments' | 'booking-form'
 
 const SUB_ROLES: DAPSubRole[] = [...DAP_MEMBER_ROLES]
 const DAP_TEAMS: DAPTeam[] = [...DAP_TEAM_LIST]
@@ -405,7 +406,7 @@ function BookingFormConfigTab({ formOptions, addFormOption, updateFormOption, re
 
 export function SettingsPage() {
   const { jobOrders } = useDataStore()
-  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, removeManagedUser, resources, updateResource, addResource, deactivateResource, reactivateResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, deactivateApprover, reactivateApprover, initApprovers, departments, addDepartment, updateDepartment, removeDepartment, initDepartments, formOptions, addFormOption, updateFormOption, removeFormOption } = useAppStore()
+  const { currentUser, managedUsers, addManagedUser, updateManagedUser, terminateUser, limitUser, reinstateUser, removeManagedUser, resources, updateResource, addResource, deactivateResource, reactivateResource, rolePermissions, updateRolePermissions, resetRolePermissions, approvers, addApprover, updateApprover, removeApprover, deactivateApprover, reactivateApprover, initApprovers, departments, addDepartment, updateDepartment, removeDepartment, initDepartments, appButtons, addAppButton, updateAppButton, removeAppButton, initAppButtons, formOptions, addFormOption, updateFormOption, removeFormOption } = useAppStore()
   const { can } = usePermissions()
 
   const EMOJI_OPTIONS = [
@@ -421,6 +422,7 @@ export function SettingsPage() {
   useEffect(() => {
     if (activeTab === 'approvers' || activeTab === 'dap-approvers') initApprovers()
     if (activeTab === 'departments') initDepartments()
+    if (activeTab === 'buttons') initAppButtons()
   }, [activeTab])
 
   const [modalMode, setModalMode] = useState<ModalMode>(null)
@@ -729,6 +731,47 @@ export function SettingsPage() {
            a.position.toLowerCase().includes(q)
   })
 
+  // ── App buttons state ───────────────────────────────────────────────────────
+  const [buttonModal, setButtonModal] = useState<{ target: AppButton | null } | null>(null)
+  const [buttonForm, setButtonForm] = useState<{ label: string; url: string; icon: string; roles: UserRole[] }>({ label: '', url: '', icon: '', roles: [] })
+  const [buttonError, setButtonError] = useState('')
+  const [buttonSaved, setButtonSaved] = useState('')
+  const [buttonDeleteConfirm, setButtonDeleteConfirm] = useState<AppButton | null>(null)
+
+  function openButtonModal(target: AppButton | null) {
+    setButtonForm({ label: target?.label ?? '', url: target?.url ?? '', icon: target?.icon ?? '', roles: target?.roles ?? [] })
+    setButtonError('')
+    setButtonModal({ target })
+  }
+
+  function saveButton() {
+    const label = buttonForm.label.trim()
+    const rawUrl = buttonForm.url.trim()
+    if (!label) { setButtonError('Give the button a name.'); return }
+    if (!rawUrl) { setButtonError('Enter the address it should open.'); return }
+    const url = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`
+    try {
+      const u = new URL(url)
+      if (!u.hostname.includes('.')) throw new Error('bad host')
+    } catch { setButtonError('That does not look like a valid web address.'); return }
+
+    if (buttonModal?.target) {
+      updateAppButton({ ...buttonModal.target, label, url, icon: buttonForm.icon.trim() || undefined, roles: buttonForm.roles })
+      setButtonSaved(`"${label}" updated.`)
+    } else {
+      addAppButton({
+        id: `btn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        label, url, icon: buttonForm.icon.trim() || undefined, roles: buttonForm.roles,
+        isActive: true,
+        sortOrder: appButtons.length,
+        createdAt: new Date().toISOString(),
+      })
+      setButtonSaved(`"${label}" added. It is now in the sidebar under Tools.`)
+    }
+    setButtonModal(null)
+    setTimeout(() => setButtonSaved(''), 3000)
+  }
+
   // ── Departments state ────────────────────────────────────────────────────────
   const [deptInput, setDeptInput] = useState('')
   const [deptError, setDeptError] = useState('')
@@ -799,6 +842,7 @@ export function SettingsPage() {
     ...(can('settings', 'manage_team')         ? [{ id: 'approvers'      as SettingsTab, label: 'Approvers',          icon: UserCheck  }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'dap-approvers' as SettingsTab, label: 'DAP Team Approvers', icon: Shield     }] : []),
     ...(can('settings', 'manage_team')         ? [{ id: 'departments'   as SettingsTab, label: 'Departments',        icon: Building2    }] : []),
+    ...(can('settings', 'manage_team')         ? [{ id: 'buttons'       as SettingsTab, label: 'Button Management',  icon: ExternalLink }] : []),
     ...(currentUser?.role === 'Admin' || currentUser?.role === 'Super Admin' ? [{ id: 'booking-form'  as SettingsTab, label: 'Booking Form',       icon: FileSliders  }] : []),
     ...(can('settings', 'manage_permissions')  ? [{ id: 'permissions'  as SettingsTab, label: 'Permissions',     icon: Shield       }] : []),
   ]
@@ -1557,6 +1601,111 @@ export function SettingsPage() {
       )}
 
       {/* ── DEPARTMENTS ───────────────────────────────────────── */}
+      {activeTab === 'buttons' && (
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Button Management</h2>
+              <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
+                Shortcuts to other tools, shown in the sidebar under <strong>Tools</strong>. They open inside DAP Flow rather than a separate tab. Add another whenever a new tool comes along — no code change needed.
+              </p>
+            </div>
+            {can('settings', 'manage_team') && (
+              <button type="button" onClick={() => openButtonModal(null)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold rounded-xl transition-colors shadow-sm shrink-0">
+                <Plus size={13} /> Add Button
+              </button>
+            )}
+          </div>
+
+          {buttonSaved && (
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">
+              <Check size={13} /> {buttonSaved}
+            </div>
+          )}
+
+          <div className="card overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-50 dark:border-slate-700 flex items-center gap-2">
+              <ExternalLink size={14} className="text-slate-400" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                {appButtons.length} button{appButtons.length !== 1 ? 's' : ''} · {appButtons.filter(b => b.isActive !== false).length} active
+              </p>
+            </div>
+            {appButtons.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 dark:text-slate-500 text-sm">
+                No buttons yet. Add one to put a tool in the sidebar.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 border-b border-slate-50 dark:border-slate-700">
+                      <th className="text-left px-5 py-2.5">Button</th>
+                      <th className="text-left px-3 py-2.5">Opens</th>
+                      <th className="text-left px-3 py-2.5">Who can see it</th>
+                      <th className="text-left px-3 py-2.5">Status</th>
+                      <th className="text-right px-5 py-2.5">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
+                    {[...appButtons].sort((a, b) => a.sortOrder - b.sortOrder).map(b => {
+                      const active = b.isActive !== false
+                      return (
+                        <tr key={b.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors ${active ? '' : 'opacity-60'}`}>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-lg leading-none">{b.icon || '🔗'}</span>
+                              <span className={`font-semibold text-slate-800 dark:text-slate-200 ${active ? '' : 'line-through'}`}>{b.label}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <a href={b.url} target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-brand-600 dark:text-brand-400 hover:underline break-all">{b.url}</a>
+                          </td>
+                          <td className="px-3 py-3">
+                            <span className="text-xs text-slate-600 dark:text-slate-300">
+                              {b.roles?.length ? b.roles.join(', ') : 'Everyone'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full ${active ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                              {active ? 'Active' : 'Hidden'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            {can('settings', 'manage_team') && (
+                              <div className="flex items-center justify-end gap-1">
+                                <button type="button" onClick={() => openButtonModal(b)}
+                                  className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 px-2 py-1 rounded-lg transition-colors">
+                                  <Pencil size={11} /> Edit
+                                </button>
+                                <button type="button" onClick={() => updateAppButton({ ...b, isActive: !active })}
+                                  className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors ${active ? 'text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'}`}>
+                                  {active ? <><ToggleRight size={13} /> Hide</> : <><ToggleLeft size={13} /> Show</>}
+                                </button>
+                                <button type="button" onClick={() => setButtonDeleteConfirm(b)} title="Remove button"
+                                  className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            A tool only appears embedded if its site allows it. If a button opens blank, use the “open in a new tab” icon in its window — that always works.
+          </p>
+        </div>
+      )}
+
       {activeTab === 'departments' && (
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -2097,6 +2246,92 @@ export function SettingsPage() {
           </div>
         )
       })()}
+
+      {/* ── Button add / edit ─────────────────────────────────── */}
+      {buttonModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setButtonModal(null)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
+                <ExternalLink size={18} className="text-brand-600 dark:text-brand-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">{buttonModal.target ? 'Edit Button' : 'Add Button'}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">It appears in the sidebar under Tools and opens inside DAP Flow.</p>
+              </div>
+              <button type="button" onClick={() => setButtonModal(null)} className="p-1 -mr-1 -mt-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Close"><X size={16} /></button>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              <div className="col-span-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1.5">Icon</label>
+                <input value={buttonForm.icon} onChange={e => setButtonForm(f => ({ ...f, icon: e.target.value }))}
+                  placeholder="🎥" maxLength={4} className="form-input text-sm text-center" />
+              </div>
+              <div className="col-span-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1.5">Button name *</label>
+                <input autoFocus value={buttonForm.label} onChange={e => { setButtonForm(f => ({ ...f, label: e.target.value })); setButtonError('') }}
+                  placeholder="e.g. DAP Equipment" className="form-input text-sm" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1.5">Address it opens *</label>
+              <input value={buttonForm.url} onChange={e => { setButtonForm(f => ({ ...f, url: e.target.value })); setButtonError('') }}
+                onKeyDown={e => { if (e.key === 'Enter') saveButton() }}
+                placeholder="ipidap.info/eq/index.php" className="form-input text-sm" />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1.5">Who can see it</label>
+              <div className="flex flex-wrap gap-1.5">
+                {ROLES.map(r => {
+                  const on = buttonForm.roles.includes(r)
+                  return (
+                    <button key={r} type="button"
+                      onClick={() => setButtonForm(f => ({ ...f, roles: on ? f.roles.filter(x => x !== r) : [...f.roles, r] }))}
+                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${on
+                        ? 'bg-brand-600 border-brand-600 text-white'
+                        : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-brand-400'}`}>
+                      {on ? '✓ ' : ''}{r}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">
+                {buttonForm.roles.length === 0 ? 'No role selected — everyone signed in will see it.' : `Only these ${buttonForm.roles.length} role${buttonForm.roles.length === 1 ? '' : 's'} will see it.`}
+              </p>
+            </div>
+
+            {buttonError && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={11} /> {buttonError}</p>}
+
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={() => setButtonModal(null)} className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">Cancel</button>
+              <button type="button" onClick={saveButton} className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl transition-colors shadow-sm">
+                {buttonModal.target ? 'Save Changes' : 'Add Button'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Button delete confirm ─────────────────────────────── */}
+      {buttonDeleteConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setButtonDeleteConfirm(null)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="font-black text-slate-900 dark:text-slate-100 text-base">Remove Button?</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              <span className="font-semibold">"{buttonDeleteConfirm.label}"</span> will be removed from the sidebar for everyone. The tool itself is not affected — you can add the button back at any time.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setButtonDeleteConfirm(null)} className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">Cancel</button>
+              <button onClick={() => { removeAppButton(buttonDeleteConfirm.id); setButtonDeleteConfirm(null) }} className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-sm">Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Department add / edit ─────────────────────────────── */}
       {deptModal && (

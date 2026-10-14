@@ -1,5 +1,5 @@
 ﻿import { createClient } from '@supabase/supabase-js'
-import type { BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam, ManagedUser, Approver, BookingDepartment, ShootType, ProjectScale, DesignSpecs, JOReview, Resource, DAPSubRole, DAPTeam, FormOption } from '../types'
+import type { AppButton, BookingRequest, JobOrder, ActivityType, JOStatus, Priority, RequestingTeam, ManagedUser, Approver, BookingDepartment, ShootType, ProjectScale, DesignSpecs, JOReview, Resource, DAPSubRole, DAPTeam, FormOption } from '../types'
 import { normalizeJOStatus } from '../utils/helpers'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
@@ -212,6 +212,32 @@ export function approverToRow(a: Approver) {
     is_active: a.isActive ?? true,
     approver_type: a.approverType ?? 'booking',
     created_at: a.createdAt,
+  }
+}
+
+export function rowToAppButton(row: Record<string, unknown>): AppButton {
+  return {
+    id: row.id as string,
+    label: row.label as string,
+    url: row.url as string,
+    icon: (row.icon as string) || undefined,
+    roles: Array.isArray(row.roles) ? (row.roles as AppButton['roles']) : [],
+    isActive: row.is_active === false ? false : true,
+    sortOrder: Number(row.sort_order ?? 0),
+    createdAt: (row.created_at as string) || new Date().toISOString(),
+  }
+}
+
+export function appButtonToRow(b: AppButton) {
+  return {
+    id: b.id,
+    label: b.label,
+    url: b.url,
+    icon: b.icon || null,
+    roles: b.roles,
+    is_active: b.isActive,
+    sort_order: b.sortOrder,
+    created_at: b.createdAt,
   }
 }
 

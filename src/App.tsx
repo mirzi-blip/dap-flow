@@ -40,6 +40,7 @@ export default function App() {
     // Departments were never refreshed from the server, so each browser kept
     // whatever it last cached; other admins never saw new departments.
     useAppStore.getState().initDepartments()
+    useAppStore.getState().initAppButtons()
     probeEstimatedHoursColumn()
   }, [])
 

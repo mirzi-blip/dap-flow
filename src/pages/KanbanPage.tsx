@@ -626,24 +626,15 @@ export function KanbanPage() {
 
   /** Attach a file or link to the job order. Saved as a comment so it persists
    *  and appears in both Pipeline and Job Orders for everyone. */
-  async function attachToJO(input: { file?: File; url?: string; label?: string }) {
-    if (!selectedJO) return
-    let attachmentUrl = input.url
-    let attachmentName = input.label
-    if (input.file) {
-      const up = await uploadOutputFile(selectedJO.id, input.file)
-      if (!up) throw new Error(getLastUploadError() || 'Upload failed.')
-      attachmentUrl = up.url
-      attachmentName = up.name
-    }
-    if (!attachmentUrl) return
+  async function attachToJO(input: { url: string; label: string }) {
+    if (!selectedJO || !input.url) return
     const saved = await saveJOComment({
       joId: selectedJO.id,
       authorName: currentUser?.name ?? 'Unknown',
       authorEmail: currentUser?.email ?? '',
-      body: input.file ? 'Attached a file.' : `Attached a link${attachmentName ? `: ${attachmentName}` : '.'}`,
-      attachmentUrl,
-      attachmentName,
+      body: `Attached a link: ${input.label}`,
+      attachmentUrl: input.url,
+      attachmentName: input.label,
     })
     if (saved) setComments(prev => [...prev, saved])
   }

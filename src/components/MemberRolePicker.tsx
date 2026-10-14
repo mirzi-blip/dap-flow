@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertTriangle, Search, X } from 'lucide-react'
 import type { JobOrder, Resource } from '../types'
 import { WEEKLY_CAPACITY_HRS } from '../types'
 import { groupByPerson, memberLoad } from '../utils/helpers'
@@ -24,6 +24,8 @@ interface Props {
  * chip selects that role's resource id — the job order data model is unchanged.
  */
 export function MemberRolePicker({ resources, jobOrders, selectedIds, onToggle, showLoad = false, compact = false }: Props) {
+  const [query, setQuery] = useState('')
+
   // Removed roles stay in the data for history but are not offered here.
   const people = useMemo(
     () => groupByPerson(resources)
@@ -32,9 +34,45 @@ export function MemberRolePicker({ resources, jobOrders, selectedIds, onToggle, 
     [resources]
   )
 
+  // Suggest as the user types: match the name first, then role or team, so
+  // typing "jan" or "photo" both narrow the list. Anyone already selected
+  // stays visible so a search can never hide an existing assignment.
+  const q = query.trim().toLowerCase()
+  const shown = useMemo(() => {
+    if (!q) return people
+    return people.filter(p =>
+      p.roles.some(r => selectedIds.includes(r.id)) ||
+      p.name.toLowerCase().includes(q) ||
+      p.roles.some(r => r.role.toLowerCase().includes(q) || r.team.toLowerCase().includes(q))
+    )
+  }, [people, q, selectedIds])
+
   return (
-    <div className={`space-y-1.5 ${compact ? '' : ''}`}>
-      {people.map(p => {
+    <div className="space-y-2">
+      <div className="relative">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search a team member by name…"
+          aria-label="Search team members"
+          className="w-full text-xs pl-8 pr-8 py-2 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-600 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-400"
+        />
+        {query && (
+          <button type="button" onClick={() => setQuery('')} aria-label="Clear search"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            <X size={13} />
+          </button>
+        )}
+      </div>
+      {q && (
+        <p className="text-[11px] text-slate-400 dark:text-slate-500 px-0.5">
+          {shown.length} match{shown.length !== 1 ? 'es' : ''} for "{query.trim()}"
+        </p>
+      )}
+
+      <div className="space-y-1.5">
+      {shown.map(p => {
         const load = memberLoad(jobOrders, p.ids)
         const pct = Math.min(100, load.pct)
         const anySelected = p.roles.some(r => selectedIds.includes(r.id))
@@ -101,9 +139,12 @@ export function MemberRolePicker({ resources, jobOrders, selectedIds, onToggle, 
           </div>
         )
       })}
-      {people.length === 0 && (
-        <p className="text-xs text-slate-400 dark:text-slate-500 px-1 py-2">No team members available.</p>
+      {shown.length === 0 && (
+        <p className="text-xs text-slate-400 dark:text-slate-500 px-1 py-3 text-center">
+          {people.length === 0 ? 'No team members available.' : `No team member matches "${query.trim()}".`}
+        </p>
       )}
+      </div>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import {
   Plus, Search, X, Paperclip, Link2, MessageSquare,
   Clock, LayoutList, ChevronRight, Send, Trash2, Pencil, Check,
   ClipboardList, Copy, CheckCircle2, Users, AlertTriangle, ChevronUp, ChevronDown, Upload,
-  CheckCheck, Lock, Timer, Moon,
+  CheckCheck, Lock, Timer, Moon, Download,
 } from 'lucide-react'
 import { useDataStore, useAppStore } from '../store/useAppStore'
 import { usePermissions } from '../hooks/usePermissions'
@@ -22,6 +22,7 @@ import { supabase, requestToRow, jobOrderToRow, saveJOComment, fetchJOComments, 
 import type { JOComment } from '../lib/supabase'
 import type { JOReview } from '../types'
 import { JOFilesPanel } from '../components/JOFilesPanel'
+import { jobOrdersToCSV, downloadCSV, exportFilename } from '../utils/exportJobOrders'
 import { InfoBox, RequestorDetails } from '../components/RequestorDetails'
 import { collectJOFiles } from '../utils/joFiles'
 
@@ -745,24 +746,15 @@ export function JobOrdersPage() {
 
   /** Attach a file or link to the job order. Saved as a comment so it persists
    *  and shows for everyone, which plain local state never did. */
-  async function attachToJO(input: { file?: File; url?: string; label?: string }) {
-    if (!selectedJO) return
-    let attachmentUrl = input.url
-    let attachmentName = input.label
-    if (input.file) {
-      const up = await uploadOutputFile(selectedJO.id, input.file)
-      if (!up) throw new Error(getLastUploadError() || 'Upload failed.')
-      attachmentUrl = up.url
-      attachmentName = up.name
-    }
-    if (!attachmentUrl) return
+  async function attachToJO(input: { url: string; label: string }) {
+    if (!selectedJO || !input.url) return
     const saved = await saveJOComment({
       joId: selectedJO.id,
       authorName: currentUser?.name ?? 'Unknown',
       authorEmail: currentUser?.email ?? '',
-      body: input.file ? 'Attached a file.' : `Attached a link${attachmentName ? `: ${attachmentName}` : '.'}`,
-      attachmentUrl,
-      attachmentName,
+      body: `Attached a link: ${input.label}`,
+      attachmentUrl: input.url,
+      attachmentName: input.label,
     })
     if (saved) setComments(prev => [...prev, saved])
   }
@@ -1365,6 +1357,14 @@ export function JobOrdersPage() {
             {(options as readonly string[]).filter(o => o !== 'All').map((o) => <option key={o}>{o}</option>)}
           </select>
         ))}
+
+        <Button
+          variant="secondary"
+          onClick={() => downloadCSV(jobOrdersToCSV(filtered, bookingRequests, people), exportFilename())}
+          title={`Export the ${filtered.length} job order${filtered.length === 1 ? '' : 's'} currently shown, including the date each was encoded`}
+        >
+          <Download size={15} /> Export
+        </Button>
 
         {canCreate && (
           <Button onClick={() => setShowForm(true)}>

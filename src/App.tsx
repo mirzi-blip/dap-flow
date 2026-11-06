@@ -3,12 +3,6 @@ import { useAppStore, useDataStore } from './store/useAppStore'
 import { db } from './db/database'
 import { supabase, rowToRequest, rowToJobOrder, probeEstimatedHoursColumn } from './lib/supabase'
 import { generateId, getServiceApprovers } from './utils/helpers'
-import {
-  SEED_JOB_ORDERS,
-  SEED_CALENDAR_EVENTS,
-  SEED_NOTIFICATIONS,
-  SEED_STATUS_LOGS,
-} from './data/seed'
 import { Layout } from './components/Layout/Layout'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -20,6 +14,27 @@ import { WorkloadPage } from './pages/WorkloadPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { BookingRequestForm } from './pages/BookingRequestForm'
 import { UpdateBanner } from './components/UpdateBanner'
+
+/** Early builds wrote demo rows straight into every browser's IndexedDB, so
+ *  each machine grew its own fake calendar, notifications and history that
+ *  nobody else could see. The dates were relative to "today", so the fake
+ *  bookings kept rolling forward into the coming week and looked real. These
+ *  ids are fixed, so clearing them is precise and leaves real data alone. */
+const DEMO_EVENT_IDS = ['ev1', 'ev2', 'ev3', 'ev4', 'ev5', 'ev6']
+const DEMO_NOTIF_IDS = ['n1', 'n2', 'n3', 'n4', 'n5']
+const DEMO_LOG_IDS   = ['sl1', 'sl2', 'sl3', 'sl4', 'sl5']
+
+async function purgeDemoData() {
+  try {
+    await db.transaction('rw', [db.calendarEvents, db.notifications, db.statusLogs], async () => {
+      await db.calendarEvents.bulkDelete(DEMO_EVENT_IDS)
+      await db.notifications.bulkDelete(DEMO_NOTIF_IDS)
+      await db.statusLogs.bulkDelete(DEMO_LOG_IDS)
+    })
+  } catch (err) {
+    console.error('Could not clear demo data', err)
+  }
+}
 
 let _initStarted = false
 
@@ -125,15 +140,7 @@ export default function App() {
     _initStarted = true
 
     async function init() {
-      // Seed local-only data (calendar, notifications, status logs)
-      const count = await db.jobOrders.count()
-      if (count === 0) {
-        await db.transaction('rw', [db.calendarEvents, db.notifications, db.statusLogs], async () => {
-          await db.calendarEvents.bulkPut(SEED_CALENDAR_EVENTS)
-          await db.notifications.bulkPut(SEED_NOTIFICATIONS)
-          await db.statusLogs.bulkPut(SEED_STATUS_LOGS)
-        })
-      }
+      await purgeDemoData()
 
       const [evs, notifs, logs] = await Promise.all([
         db.calendarEvents.toArray(),
@@ -144,39 +151,14 @@ export default function App() {
       setNotifications(notifs)
       setStatusLogs(logs)
 
-      // Load job orders from Supabase; seed if empty
+      // Load job orders from Supabase. Nothing is seeded here: this table is
+      // shared by the whole team, so one empty read would publish fake work
+      // to everyone at once.
       const { data: joRows } = await supabase
         .from('job_orders')
         .select('*')
         .order('created_at', { ascending: false })
-
-      if ((joRows ?? []).length === 0) {
-        const { data: inserted } = await supabase
-          .from('job_orders')
-          .insert(SEED_JOB_ORDERS.map(jo => ({
-            id: jo.id,
-            jo_number: jo.joNumber,
-            requesting_team: jo.requestingTeam,
-            requester_id: jo.requesterId,
-            project_name: jo.projectName,
-            campaign: jo.campaign,
-            activity_type: jo.activityType,
-            deliverables: jo.deliverables,
-            priority: jo.priority,
-            deadline: jo.deadline,
-            launch_date: jo.launchDate || null,
-            assigned_member_ids: jo.assignedMemberIds,
-            status: jo.status,
-            notes: jo.notes || null,
-            created_at: jo.createdAt,
-            updated_at: jo.updatedAt,
-            created_by: jo.createdBy,
-          })))
-          .select()
-        setJobOrders((inserted ?? []).map(rowToJobOrder))
-      } else {
-        setJobOrders((joRows ?? []).map(rowToJobOrder))
-      }
+      setJobOrders((joRows ?? []).map(rowToJobOrder))
 
       // Load booking requests from Supabase
       const { data: bookingRows } = await supabase

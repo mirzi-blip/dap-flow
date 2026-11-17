@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer')
-const { MAIL_FROM, MAIL_REPLY_TO } = require('./_mail')
+const { MAIL_FROM, MAIL_REPLY_TO, APP_URL } = require('./_mail')
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -183,7 +183,7 @@ function buildNotesBlock(notes, accent) {
 }
 
 function buildApprovalHtml(approverName, preparedBy, activityType, projectName, department, neededDate, endDate, venue, refId, fullId, platform, shootTypeDetail, specRows, additionalNotes) {
-  const appUrl = 'https://dap-flow-tau.vercel.app'
+  const appUrl = APP_URL
   const approveUrl = `${appUrl}/api/approve?id=${fullId}&action=approve`
   const rejectUrl  = `${appUrl}/api/approve?id=${fullId}&action=reject`
   return `
@@ -265,7 +265,7 @@ module.exports = async function handler(req, res) {
   if (body.coordinatorNotification) {
     const { coordinatorEmail, coordinatorName, preparedBy, activityType, projectName, department, neededDate, venue, refId, specRows, additionalNotes } = body
     if (!coordinatorEmail) return res.status(200).json({ ok: true })
-    const appUrl = 'https://dap-flow-tau.vercel.app'
+    const appUrl = APP_URL
     const html = `<div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
       <div style="background:linear-gradient(135deg,#1B2F5E,#5164C0);padding:20px 24px;border-radius:8px;margin-bottom:24px">
         <p style="color:#c7d2f7;font-size:11px;font-weight:700;letter-spacing:0.1em;margin:0 0 4px">DIGITAL &amp; ARTS PRODUCTION (DAP)</p>
@@ -416,7 +416,7 @@ module.exports = async function handler(req, res) {
     const commentBlock = comment
       ? `<div style="background:#f8fafc;border-left:3px solid #6366f1;padding:12px 16px;margin:20px 0;border-radius:0 8px 8px 0"><p style="margin:0;font-size:13px;color:#374151;font-style:italic">"${comment}"</p><p style="margin:6px 0 0;font-size:11px;color:#94a3b8">— ${submittedBy || 'Submitter'}</p></div>`
       : ''
-    const appUrl = 'https://dap-flow-tau.vercel.app'
+    const appUrl = APP_URL
     const actionSection = reviewId && slot
       ? `<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:16px;margin:20px 0">
           <p style="margin:0;font-weight:700;color:#854d0e;font-size:14px">📋 Action Required</p>
@@ -523,7 +523,7 @@ module.exports = async function handler(req, res) {
       <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:16px;margin:20px 0">
         <p style="margin:0;font-size:13px;color:#713f12">Please review the feedback above, make the necessary changes, and re-submit the output via DAP Flow.</p>
       </div>
-      <a href="https://dap-flow-tau.vercel.app" style="display:inline-block;background:linear-gradient(135deg,#0f4c81,#2389d7);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;margin:8px 0">Open DAP Flow App →</a>
+      <a href="${APP_URL}" style="display:inline-block;background:linear-gradient(135deg,#0f4c81,#2389d7);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;margin:8px 0">Open DAP Flow App →</a>
       <p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px">— Digital &amp; Arts Production (DAP) Team<br>Booking &amp; Workload Management</p>
     </div>`
     try {

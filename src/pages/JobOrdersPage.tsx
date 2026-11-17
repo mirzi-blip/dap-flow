@@ -25,6 +25,7 @@ import { JOFilesPanel } from '../components/JOFilesPanel'
 import { jobOrdersToCSV, downloadCSV, exportFilename } from '../utils/exportJobOrders'
 import { InfoBox, RequestorDetails } from '../components/RequestorDetails'
 import { collectJOFiles } from '../utils/joFiles'
+import { EMAIL_API, BOOKING_URL } from '../config'
 
 type PageTab = 'list' | 'requests'
 
@@ -331,7 +332,7 @@ export function JobOrdersPage() {
     const memberMode = 'status_update'
     for (const member of uniqueEmailTargets(jo.assignedMemberIds, resources)) {
       {
-        fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+        fetch(EMAIL_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -354,7 +355,7 @@ export function JobOrdersPage() {
     // Notify the requestor via joNotification for every status change
     const relatedReq = bookingRequests.find(r => r.joId === jo.id)
     if (relatedReq?.requestorEmail) {
-      fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+      fetch(EMAIL_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -561,7 +562,7 @@ export function JobOrdersPage() {
 
       if (relatedReq?.requestorEmail) {
         try {
-          const emailRes = await fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+          const emailRes = await fetch(EMAIL_API, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -633,7 +634,7 @@ export function JobOrdersPage() {
     const added   = editForm.assignedMemberIds.filter(id => !oldIds.has(id))
     const removed = selectedJO.assignedMemberIds.filter(id => !newIds.has(id))
 
-    const EMAIL_BASE = 'https://dap-flow-tau.vercel.app/api/send-email'
+    const EMAIL_BASE = EMAIL_API
     const joPayload = {
       joNumber: updated.joNumber,
       projectName: updated.projectName,
@@ -896,7 +897,7 @@ export function JobOrdersPage() {
         .eq('position', req.activityType)
       for (const ap of (svcApprovers ?? [])) {
         if (!ap.email) continue
-        fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+        fetch(EMAIL_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -949,7 +950,7 @@ export function JobOrdersPage() {
     // Notify each assigned member by email
     for (const member of uniqueEmailTargets(selectedMemberIds, resources)) {
       {
-        fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+        fetch(EMAIL_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -975,7 +976,6 @@ export function JobOrdersPage() {
     }, 2000)
   }
 
-  const BOOKING_URL = 'https://dap-flow-tau.vercel.app/request'
 
   function handleCopyLink() {
     navigator.clipboard.writeText(BOOKING_URL)

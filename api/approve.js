@@ -1,6 +1,6 @@
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://uohhloqkikemvustxnpa.supabase.co'
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvaGhsb3FraWtlbXZ1c3R4bnBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3ODM1MzAsImV4cCI6MjA5MjM1OTUzMH0.DnJBh2wTSesPRTojPQb_xk8ZbI40AgzTl-6spM22bAs'
-const APP_URL = 'https://dap-flow-tau.vercel.app'
+const { APP_URL } = require('./_mail')
 
 async function dbGet(id) {
   const r = await fetch(

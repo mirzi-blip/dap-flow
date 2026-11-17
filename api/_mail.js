@@ -19,7 +19,14 @@ const FROM_NAME    = process.env.MAIL_FROM_NAME    || 'DAP Flow (No Reply)'
 /** The From header used by every email the app sends. */
 const MAIL_FROM = `"${FROM_NAME}" <${FROM_ADDRESS}>`
 
+/** Where a recipient lands when they click a link in a notification, and
+ *  where these functions call each other. Links in email outlive the deploy
+ *  that sent them, so a stale host here keeps working right up until the old
+ *  deployment is retired, then silently breaks approvals that were already
+ *  sent. Set APP_URL to move the app without touching this code. */
+const APP_URL = (process.env.APP_URL || 'https://dapflow.ipihq.com').replace(/\/+$/, '')
+
 /** Replies are not monitored; kept configurable for the same reason. */
 const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || 'no-reply@dap-flow.noreply'
 
-module.exports = { MAIL_FROM, MAIL_REPLY_TO, FROM_ADDRESS, FROM_NAME }
+module.exports = { MAIL_FROM, MAIL_REPLY_TO, FROM_ADDRESS, FROM_NAME, APP_URL }

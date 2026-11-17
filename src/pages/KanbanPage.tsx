@@ -20,6 +20,7 @@ import { InfoBox, RequestorDetails } from '../components/RequestorDetails'
 import { collectJOFiles } from '../utils/joFiles'
 import { requestorNotesForJO } from '../utils/designSpecs'
 import type { JOReview } from '../types'
+import { EMAIL_API } from '../config'
 
 const COLUMNS: { status: JOStatus; label: string; hex: string }[] = [
   { status: 'To Do',           label: 'To Do',          hex: '#94A3B8' },
@@ -322,7 +323,7 @@ export function KanbanPage() {
           const assignedEmails = resources
             .filter(r => selectedJO.assignedMemberIds.includes(r.id) && r.email)
             .map(r => r.email)
-          fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+          fetch(EMAIL_API, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ reviewApprovedNotification: true, recipientEmails: assignedEmails, outputFileUrl: joReview.outputFileUrl, ...emailBase }),
           }).catch(console.error)
@@ -331,7 +332,7 @@ export function KanbanPage() {
           const assignedEmails = resources
             .filter(r => selectedJO.assignedMemberIds.includes(r.id) && r.email)
             .map(r => r.email)
-          fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+          fetch(EMAIL_API, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ reviewDisapprovedNotification: true, recipientEmails: assignedEmails, ...emailBase }),
           }).catch(console.error)
@@ -548,13 +549,13 @@ export function KanbanPage() {
           additionalNotes: requestorNotesForJO(moveTarget, bookingRequests),
         }
         // Send to Requestor Approver (email buttons only — no app access)
-        fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+        fetch(EMAIL_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ reviewNotification: true, approverEmail: moveReqApproverEmail, approverName: moveReqApproverName, approverRole: 'Requestor Approver', reviewId, slot: 'req', ...emailPayload }),
         }).catch(console.error)
         // Send to DAP Team Approver (email buttons + in-app option)
-        fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+        fetch(EMAIL_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ reviewNotification: true, approverEmail: moveDapApproverEmail, approverName: moveDapApproverName, approverRole: 'DAP Team Approver', reviewId, slot: 'dap', ...emailPayload }),

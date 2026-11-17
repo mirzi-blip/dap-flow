@@ -1,6 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
 const nodemailer = require('nodemailer')
-const { MAIL_FROM, MAIL_REPLY_TO } = require('./_mail')
+const { MAIL_FROM, MAIL_REPLY_TO, APP_URL } = require('./_mail')
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -15,7 +15,6 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-const APP_URL = 'https://dap-flow-tau.vercel.app'
 
 function page(title, icon, color, heading, body) {
   return `<!DOCTYPE html>

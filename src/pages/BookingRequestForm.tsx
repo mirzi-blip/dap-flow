@@ -10,6 +10,7 @@ import { getCrewRequirement } from '../types'
 import { generateId } from '../utils/helpers'
 import { emailSpecRows } from '../utils/designSpecs'
 import { SERVICE_ICONS, SERVICE_DESC } from '../data/services'
+import { EMAIL_API } from '../config'
 
 // ── Activity catalogue ────────────────────────────────────────────────────────
 const ACTIVITY_TYPES: ActivityType[] = [
@@ -1635,7 +1636,7 @@ export function BookingRequestForm() {
       }
       if (error) throw error
 
-      fetch('https://dap-flow-tau.vercel.app/api/send-email', {
+      fetch(EMAIL_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
